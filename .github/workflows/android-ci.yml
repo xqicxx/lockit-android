@@ -1,0 +1,77 @@
+name: Android CI
+
+on:
+  pull_request:
+    branches: [ master ]
+  push:
+    branches: [ master ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+        cache: gradle
+
+    - name: Grant execute permission for gradlew
+      run: chmod +x gradlew
+
+    - name: Build with Gradle
+      run: ./gradlew assembleDebug
+
+    - name: Run lint
+      run: ./gradlew lintDebug
+
+    - name: Upload APK
+      uses: actions/upload-artifact@v4
+      with:
+        name: app-debug
+        path: app/build/outputs/apk/debug/app-debug.apk
+
+  review:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Code Review Summary
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const { data: files } = await github.rest.pulls.listFiles({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            pull_number: context.issue.number
+          });
+
+          const kotlinFiles = files.filter(f => f.filename.endsWith('.kt'));
+          const totalChanges = files.reduce((sum, f) => sum + (f.additions + f.deletions), 0);
+
+          const body = `## 🔍 Code Review Summary
+
+          **Files changed:** ${files.length}
+          **Kotlin files:** ${kotlinFiles.length}
+          **Lines changed:** +${files.reduce((s,f) => s+f.additions, 0)} / -${files.reduce((s,f) => s+f.deletions, 0)}
+
+          ### Files Review
+          ${kotlinFiles.map(f => `- ${f.filename}`).join('\n')}
+
+          ---
+          🤖 Automated by GitHub Actions`;
+
+          await github.rest.issues.createComment({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            issue_number: context.issue.number,
+            body: body
+          });

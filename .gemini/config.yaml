@@ -1,0 +1,36 @@
+# Gemini Code Assist Configuration
+# https://developers.google.com/gemini-code-assist
+
+version: 1
+
+# Review settings for pull requests
+review:
+  enabled: true
+
+  # Review all file types
+  file_patterns:
+    - "**/*.kt"
+    - "**/*.java"
+    - "**/*.gradle.kts"
+    - "**/*.xml"
+
+  # Focus on these aspects
+  focus_areas:
+    - security
+    - performance
+    - code_quality
+    - best_practices
+
+# Project context
+project:
+  language: kotlin
+  framework: jetpack-compose
+  architecture: mvvm
+
+  # Key constraints
+  constraints:
+    - "Use Technical Brutalism design: 0px rounded corners, 1px borders"
+    - "AES-256-GCM encryption for sensitive data"
+    - "JetBrains Mono for data display, Inter for UI text"
+    - "No emojis in production code"
+    - "Follow Kotlin naming conventions"
