@@ -1,7 +1,10 @@
 package com.lockit.ui.screens.config
 
+import android.app.DownloadManager
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import com.google.android.gms.auth.api.signin.GoogleSignIn
@@ -38,6 +41,8 @@ import androidx.compose.ui.unit.sp
 import com.lockit.LockitApp
 import com.lockit.data.database.LockitDatabase
 import com.lockit.data.sync.GoogleDriveSyncManager
+import com.lockit.data.updater.AppUpdater
+import com.lockit.data.updater.GitHubRelease
 import com.lockit.domain.model.Credential
 import com.lockit.ui.components.BrutalistButton
 import com.lockit.ui.components.BrutalistConfirmDialog
@@ -72,6 +77,16 @@ fun ConfigScreen(
     var showLockDialog by remember { mutableStateOf(false) }
     var showChangePinDialog by remember { mutableStateOf(false) }
     var toastMessage by remember { mutableStateOf<String?>(null) }
+
+    // App update
+    val appUpdater = remember { AppUpdater(context) }
+    var isCheckingUpdate by remember { mutableStateOf(false) }
+    var availableUpdate by remember { mutableStateOf<GitHubRelease?>(null) }
+    var showUpdateDialog by remember { mutableStateOf(false) }
+    var isDownloading by remember { mutableStateOf(false) }
+    var githubTokenCredentialName by remember { mutableStateOf("GITHUB_TOKEN") }
+    var showTokenConfigDialog by remember { mutableStateOf(false) }
+    var lastCheckedToken by remember { mutableStateOf<String?>(null) } // Store token for download
 
     // Google Drive sync
     val syncManager = remember { GoogleDriveSyncManager(context) }
@@ -128,6 +143,37 @@ fun ConfigScreen(
             onSuccess = {
                 showChangePinDialog = false
                 toastMessage = "PASSWORD_CHANGED_SUCCESS"
+            },
+        )
+    }
+
+    // Update dialog
+    if (showUpdateDialog && availableUpdate != null) {
+        UpdateDialog(
+            release = availableUpdate!!,
+            onDismiss = { showUpdateDialog = false },
+            onDownload = {
+                showUpdateDialog = false
+                isDownloading = true
+                val apkUrl = availableUpdate?.apkUrl
+                if (apkUrl != null) {
+                    appUpdater.downloadApk(apkUrl, lastCheckedToken)
+                    toastMessage = "DOWNLOAD_STARTED"
+                    isDownloading = false
+                }
+            },
+        )
+    }
+
+    // GitHub Token config dialog
+    if (showTokenConfigDialog) {
+        GitHubTokenConfigDialog(
+            currentName = githubTokenCredentialName,
+            onDismiss = { showTokenConfigDialog = false },
+            onSave = { newName ->
+                githubTokenCredentialName = newName
+                showTokenConfigDialog = false
+                toastMessage = "TOKEN_SOURCE_SET: $newName"
             },
         )
     }
@@ -344,6 +390,109 @@ fun ConfigScreen(
                     "ARGON2_ITERATIONS" to "3",
                     "ARGON2_PARALLELISM" to "4",
                 ),
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // Update Section
+            ConfigSection(
+                title = "UPGRADE",
+                content = {
+                    Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        // Current version info with safe handling
+                        val packageInfo = try {
+                            context.packageManager.getPackageInfo(context.packageName, 0)
+                        } catch (e: Exception) {
+                            null
+                        }
+                        val currentVersion = packageInfo?.versionName ?: "Unknown"
+                        val currentVersionCode = packageInfo?.let {
+                            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+                                it.longVersionCode.toInt()
+                            } else {
+                                @Suppress("DEPRECATION")
+                                it.versionCode
+                            }
+                        } ?: 0
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                        ) {
+                            Text(
+                                text = "CURRENT_VERSION",
+                                fontFamily = JetBrainsMonoFamily,
+                                fontSize = 10.sp,
+                                color = Color.Gray,
+                            )
+                            Text(
+                                text = "$currentVersion ($currentVersionCode)",
+                                fontFamily = JetBrainsMonoFamily,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = IndustrialOrange,
+                            )
+                        }
+
+                        // GitHub Token configuration
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                text = "TOKEN_SOURCE",
+                                fontFamily = JetBrainsMonoFamily,
+                                fontSize = 10.sp,
+                                color = Color.Gray,
+                            )
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = githubTokenCredentialName,
+                                    fontFamily = JetBrainsMonoFamily,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = IndustrialOrange,
+                                    modifier = Modifier.clickable { showTokenConfigDialog = true },
+                                )
+                            }
+                        }
+
+                        BrutalistButton(
+                            text = if (isCheckingUpdate) "CHECKING..." else if (isDownloading) "DOWNLOADING..." else "CHECK_UPDATE",
+                            onClick = {
+                                isCheckingUpdate = true
+                                scope.launch {
+                                    // Check vault is unlocked before reading credentials
+                                    if (!app.vaultManager.isUnlocked()) {
+                                        toastMessage = "VAULT_LOCKED"
+                                        isCheckingUpdate = false
+                                        return@launch
+                                    }
+                                    // Read GitHub Token from vault
+                                    val tokenCredential = app.vaultManager.getAllCredentials()
+                                        .first()
+                                        .find { it.name == githubTokenCredentialName }
+                                    val token = tokenCredential?.value
+                                    lastCheckedToken = token // Store for download
+                                    val result = appUpdater.checkForUpdate(currentVersionCode, token)
+                                    isCheckingUpdate = false
+                                    if (result.isFailure) {
+                                        toastMessage = "CHECK_FAILED: ${result.exceptionOrNull()?.message}"
+                                    } else if (result.getOrNull() == null) {
+                                        toastMessage = "ALREADY_LATEST_VERSION"
+                                    } else {
+                                        availableUpdate = result.getOrNull()
+                                        showUpdateDialog = true
+                                    }
+                                }
+                            },
+                            variant = ButtonVariant.Primary,
+                            modifier = Modifier.fillMaxWidth(),
+                            useMonoFont = true,
+                            enabled = !isCheckingUpdate && !isDownloading,
+                        )
+                    }
+                },
             )
 
             Spacer(modifier = Modifier.height(24.dp))
@@ -704,6 +853,163 @@ private fun ConfigSection(
 
         if (content != null) {
             content()
+        }
+    }
+}
+
+/**
+ * Update dialog showing new version info and download button.
+ */
+@Composable
+private fun UpdateDialog(
+    release: GitHubRelease,
+    onDismiss: () -> Unit,
+    onDownload: () -> Unit,
+) {
+    androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(White)
+                .border(2.dp, Color.Black)
+                .padding(24.dp),
+        ) {
+            Text(
+                text = "NEW_VERSION: ${release.versionName}",
+                fontFamily = JetBrainsMonoFamily,
+                fontWeight = FontWeight.Bold,
+                fontSize = 14.sp,
+                color = IndustrialOrange,
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Changelog
+            if (release.changelog.isNotBlank()) {
+                Text(
+                    text = "CHANGELOG",
+                    fontFamily = JetBrainsMonoFamily,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Primary,
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(100.dp)
+                        .border(1.dp, Color.Gray)
+                        .padding(8.dp),
+                ) {
+                    Text(
+                        text = release.changelog,
+                        fontFamily = JetBrainsMonoFamily,
+                        fontSize = 9.sp,
+                        color = Color.Gray,
+                    )
+                }
+            }
+
+            // Download size
+            if (release.downloadSize != null && release.downloadSize > 0) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "SIZE: ${release.downloadSize / 1024 / 1024} MB",
+                    fontFamily = JetBrainsMonoFamily,
+                    fontSize = 9.sp,
+                    color = Color.Gray,
+                )
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                BrutalistButton(
+                    text = "LATER",
+                    onClick = onDismiss,
+                    variant = ButtonVariant.Secondary,
+                    modifier = Modifier.weight(1f),
+                    useMonoFont = true,
+                )
+                BrutalistButton(
+                    text = "DOWNLOAD_UPDATE",
+                    onClick = onDownload,
+                    variant = ButtonVariant.Primary,
+                    modifier = Modifier.weight(1f),
+                    useMonoFont = true,
+                    enabled = release.apkUrl != null,
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Dialog for configuring GitHub Token credential source.
+ */
+@Composable
+private fun GitHubTokenConfigDialog(
+    currentName: String,
+    onDismiss: () -> Unit,
+    onSave: (String) -> Unit,
+) {
+    var newName by remember { mutableStateOf(currentName) }
+
+    androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(White)
+                .border(2.dp, Color.Black)
+                .padding(24.dp),
+        ) {
+            Text(
+                text = "CONFIG_GITHUB_TOKEN",
+                fontFamily = JetBrainsMonoFamily,
+                fontWeight = FontWeight.Bold,
+                fontSize = 14.sp,
+                color = Primary,
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Text(
+                text = "Enter the credential name storing your GitHub Token. Lockit will read its value for API authentication (supports private repos).",
+                fontFamily = JetBrainsMonoFamily,
+                fontSize = 10.sp,
+                color = Color.Gray,
+                lineHeight = 14.sp,
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+
+            BrutalistTextField(
+                value = newName,
+                onValueChange = { newName = it },
+                label = "TOKEN_CREDENTIAL_NAME",
+                placeholder = "e.g. GITHUB_TOKEN",
+            )
+            Spacer(modifier = Modifier.height(24.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                BrutalistButton(
+                    text = "CANCEL",
+                    onClick = onDismiss,
+                    variant = ButtonVariant.Secondary,
+                    modifier = Modifier.weight(1f),
+                    useMonoFont = true,
+                )
+                BrutalistButton(
+                    text = "SAVE",
+                    onClick = { onSave(newName) },
+                    variant = ButtonVariant.Primary,
+                    modifier = Modifier.weight(1f),
+                    useMonoFont = true,
+                )
+            }
         }
     }
 }
