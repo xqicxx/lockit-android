@@ -41,13 +41,15 @@ import com.lockit.ui.components.BrutalistPinVerifyDialog
 import com.lockit.ui.components.BrutalistTextField
 import com.lockit.ui.components.BrutalistToast
 import com.lockit.ui.components.BrutalistTopBar
+import com.lockit.ui.components.CopyAction
 import com.lockit.ui.components.CredentialCard
+import com.lockit.ui.components.CredentialDefaults
 import com.lockit.ui.components.InfoTag
 import com.lockit.ui.components.ScreenHero
 import com.lockit.ui.components.TerminalFooter
 import com.lockit.ui.components.TopBarAddButton
 import com.lockit.ui.components.buildEmailAddress
-import com.lockit.ui.components.extractEmailPassword
+import com.lockit.ui.components.buildJsonStructured
 import com.lockit.ui.components.extractSecretValue
 import com.lockit.ui.components.findActivity
 import com.lockit.ui.components.parseCredentialFields
@@ -144,109 +146,29 @@ fun VaultExplorerScreen(
     var phoneRegionForToast by remember { mutableStateOf("") }
     val clipboardManager = LocalClipboardManager.current
     val services by remember { derivedStateOf { credentials.map { it.service.uppercase() }.distinct() } }
-    var revealedEmailPassword by remember { mutableStateOf<String?>(null) }
     val revealedCredentialIds = remember { mutableStateListOf<String>() }
     val view = LocalView.current
+
     fun getActivity() = view.findActivity()
 
-    // PIN fallback for when biometric is unavailable
     var pendingBiometricAction by remember { mutableStateOf<(() -> Unit)?>(null) }
 
-    fun doCopy(credential: Credential) {
-        when (credential.type) {
-            CredentialType.Phone -> {
-                clipboardManager.setText(AnnotatedString(credential.service))
-                app.vaultManager.logCredentialCopied(credential.name)
-                phoneRegionForToast = credential.name
-                viewModel.showToast("PHONE_COPIED. Tap to copy country code.")
-            }
-            CredentialType.Email -> {
-                val emailAddr = buildEmailAddress(parseCredentialFields(credential.value))
-                clipboardManager.setText(AnnotatedString(emailAddr))
-                app.vaultManager.logCredentialCopied(credential.name)
-                viewModel.showToast("EMAIL_COPIED: $emailAddr")
-            }
-            CredentialType.CodingPlan -> {
-                // CodingPlan: copy structured format (must be revealed first)
-                val fields = parseCredentialFields(credential.value)
-                val provider = fields.getOrNull(0)?.takeIf { it.isNotBlank() } ?: "未知"
-                val apiKey = fields.getOrNull(2)?.takeIf { it.isNotBlank() }
-                val baseUrl = fields.getOrNull(5)?.takeIf { it.isNotBlank() }
-                val lines = mutableListOf<String>()
-                lines.add("PROVIDER: $provider")
-                if (apiKey != null) lines.add("API_KEY: $apiKey")
-                if (baseUrl != null) lines.add("BASE_URL: $baseUrl")
-                clipboardManager.setText(AnnotatedString(lines.joinToString("\n")))
-                app.vaultManager.logCredentialCopied(credential.name)
-                viewModel.showToast("CODING_PLAN_COPIED")
-            }
-            else -> {
-                clipboardManager.setText(AnnotatedString(extractSecretValue(credential.type, credential.value)))
-                app.vaultManager.logCredentialCopied(credential.name)
-                viewModel.showToast("CREDENTIAL_COPIED: ${credential.name}")
-            }
+    fun handleCopy(credential: Credential, action: CopyAction) {
+        val fields = parseCredentialFields(credential.value)
+        val valueToCopy = when (action) {
+            CopyAction.VALUE -> extractSecretValue(credential.type, credential.value)
+            CopyAction.STRUCTURED -> buildJsonStructured(credential, fields)
+            CopyAction.API_KEY -> fields.getOrNull(2)?.takeIf { it.isNotBlank() } ?: return
+            CopyAction.BASE_URL -> fields.getOrNull(5)?.takeIf { it.isNotBlank() } ?: return
+            CopyAction.EMAIL -> buildEmailAddress(fields)
+            CopyAction.PHONE -> credential.service
         }
-    }
-
-    fun doCopyValue(credential: Credential) {
-        // Copy single value from row
-        clipboardManager.setText(AnnotatedString(extractSecretValue(credential.type, credential.value)))
+        clipboardManager.setText(AnnotatedString(valueToCopy))
         app.vaultManager.logCredentialCopied(credential.name)
-        viewModel.showToast("VALUE_COPIED")
-    }
-
-    fun doCopyJsonStructured(credential: Credential) {
-        // Build JSON from all credential fields
-        val fields = parseCredentialFields(credential.value)
-        val dateFormatter = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd")
-            .withZone(java.time.ZoneOffset.UTC)
-        val updatedAtStr = dateFormatter.format(credential.updatedAt)
-        val createdAtStr = dateFormatter.format(credential.createdAt)
-        val json = buildString {
-            append("{\n")
-            append("  \"name\": \"${credential.name}\",\n")
-            append("  \"type\": \"${credential.type.displayName}\",\n")
-            if (credential.service.isNotBlank()) append("  \"service\": \"${credential.service}\",\n")
-            if (credential.key.isNotBlank()) append("  \"key\": \"${credential.key}\",\n")
-            // Add all parsed fields
-            credential.type.fields.forEachIndexed { index, field ->
-                val value = fields.getOrNull(index)?.takeIf { it.isNotBlank() }
-                if (value != null) {
-                    val fieldName = field.label.lowercase().replace(" ", "_")
-                    append("  \"$fieldName\": \"$value\",\n")
-                }
-            }
-            append("  \"created_at\": \"$createdAtStr\",\n")
-            append("  \"updated_at\": \"$updatedAtStr\"\n")
-            append("}")
+        viewModel.showToast("${action.name}_COPIED")
+        if (action == CopyAction.PHONE) {
+            phoneRegionForToast = credential.name
         }
-        clipboardManager.setText(AnnotatedString(json))
-        app.vaultManager.logCredentialCopied(credential.name)
-        viewModel.showToast("JSON_COPIED")
-    }
-
-    fun doCopyApiKey(credential: Credential) {
-        val fields = parseCredentialFields(credential.value)
-        val apiKey = fields.getOrNull(2)?.takeIf { it.isNotBlank() }
-        if (apiKey != null) {
-            clipboardManager.setText(AnnotatedString(apiKey))
-            app.vaultManager.logCredentialCopied(credential.name)
-            viewModel.showToast("API_KEY_COPIED")
-        }
-    }
-
-    fun doCopyBaseUrl(credential: Credential) {
-        val fields = parseCredentialFields(credential.value)
-        val baseUrl = fields.getOrNull(5)?.takeIf { it.isNotBlank() }
-        if (baseUrl != null) {
-            clipboardManager.setText(AnnotatedString(baseUrl))
-            app.vaultManager.logCredentialCopied(credential.name)
-            viewModel.showToast("BASE_URL_COPIED")
-        }
-    }
-
-    fun doCopyProvider(credential: Credential) {
-        doCopyJsonStructured(credential)
     }
 
     fun showNeedRevealToast() {
@@ -349,10 +271,9 @@ fun VaultExplorerScreen(
                 CredentialCard(
                     credential = credential,
                     onClick = { onNavigateToDetails(credential.id) },
-                    onRevealAndCopy = {
-                        // 15-min session valid → copy directly
+                    onCopy = { action ->
                         if (BiometricUtils.isSessionValid()) {
-                            doCopy(credential)
+                            handleCopy(credential, action)
                             return@CredentialCard
                         }
                         val activity = getActivity()
@@ -362,61 +283,21 @@ fun VaultExplorerScreen(
                                     activity = activity,
                                     title = "Copy Credential",
                                     subtitle = "Biometric authentication required",
-                                    onSuccess = { doCopy(credential) },
+                                    onSuccess = { handleCopy(credential, action) },
                                     onError = {
-                                        pendingBiometricAction = { doCopy(credential) }
+                                        pendingBiometricAction = { handleCopy(credential, action) }
                                     },
                                 )
                             } else {
-                                pendingBiometricAction = { doCopy(credential) }
+                                pendingBiometricAction = { handleCopy(credential, action) }
                             }
                         }
                     },
+                    onNeedReveal = { showNeedRevealToast() },
                     onDelete = { viewModel.deleteCredential(credential) },
                     onEdit = { onNavigateToEdit(credential.id) },
-                    onEmailPasswordReveal = if (credential.type == CredentialType.Email) {
-                        {
-                            val activity = getActivity()
-                            if (activity != null) {
-                                if (BiometricUtils.canAuthenticate(activity)) {
-                                    BiometricUtils.requireBiometric(
-                                        activity = activity,
-                                        title = "View Email Password",
-                                        subtitle = "Biometric authentication required",
-                                        onSuccess = { revealedEmailPassword = extractEmailPassword(credential.value) },
-                                        onError = { viewModel.showToast("BIOMETRIC_FAILED: $it") },
-                                    )
-                                } else {
-                                    revealedEmailPassword = extractEmailPassword(credential.value)
-                                }
-                            }
-                        }
-                    } else null,
-                    revealedEmailPassword = if (credential.type == CredentialType.Email) revealedEmailPassword else null,
-                    onHideEmailPassword = if (credential.type == CredentialType.Email) {
-                        { revealedEmailPassword = null }
-                    } else null,
-                    isValueRevealed = revealedCredentialIds.contains(credential.id),
-                    onHideValue = { id -> revealedCredentialIds.remove(id) },
-                    onNeedReveal = if (credential.type == CredentialType.CodingPlan) {
-                        { showNeedRevealToast() }
-                    } else if (credential.type != CredentialType.Phone &&
-                        credential.type != CredentialType.Email &&
-                        credential.type != CredentialType.IdCard &&
-                        credential.type != CredentialType.Note) {
-                        { showNeedRevealToast() }
-                    } else null,
-                    onCopyStructured = { doCopyJsonStructured(credential) },
-                    onCopyValue = { doCopyValue(credential) },
-                    onCopyApiKey = if (credential.type == CredentialType.CodingPlan) {
-                        { doCopyApiKey(credential) }
-                    } else null,
-                    onCopyBaseUrl = if (credential.type == CredentialType.CodingPlan) {
-                        { doCopyBaseUrl(credential) }
-                    } else null,
-                    onCopyProvider = if (credential.type == CredentialType.CodingPlan) {
-                        { doCopyProvider(credential) }
-                    } else null,
+                    isRevealed = revealedCredentialIds.contains(credential.id),
+                    onHide = { revealedCredentialIds.remove(credential.id) },
                     modifier = Modifier.padding(bottom = 12.dp),
                 )
             }
