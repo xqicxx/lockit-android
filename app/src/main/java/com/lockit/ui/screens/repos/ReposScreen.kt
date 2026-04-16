@@ -1082,7 +1082,7 @@ private fun QuotaGauge(label: String, used: Int, total: Int, modifier: Modifier 
 
         Spacer(modifier = Modifier.height(2.dp))
         Text(
-            text = "$used / $total",
+            text = "$used / $total ($pct%)",
             fontFamily = JetBrainsMonoFamily,
             fontSize = 9.sp,
             color = Primary,
