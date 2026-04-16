@@ -49,8 +49,8 @@ import com.lockit.utils.BiometricUtils
 object CredentialDefaults {
     const val NOT_SET = "—"
     const val UNKNOWN = "UNKNOWN"
-    const val FIELD_NOT_SET = "未设置"
-    const val PROVIDER_UNKNOWN = "未知"
+    const val FIELD_NOT_SET = "NOT_SET"
+    const val PROVIDER_UNKNOWN = "UNKNOWN"
     const val MASK_PLACEHOLDER = "••••••••••••••••••••"
 }
 
@@ -79,6 +79,18 @@ fun extractEmailPassword(value: String): String {
 }
 
 /**
+ * Escape string for JSON serialization (handles quotes, backslashes, newlines).
+ */
+private fun escapeJsonString(value: String): String {
+    return value
+        .replace("\\", "\\\\")
+        .replace("\"", "\\\"")
+        .replace("\n", "\\n")
+        .replace("\r", "\\r")
+        .replace("\t", "\\t")
+}
+
+/**
  * Build JSON structured string from credential and parsed fields.
  */
 fun buildJsonStructured(credential: Credential, fields: List<String>): String {
@@ -88,15 +100,15 @@ fun buildJsonStructured(credential: Credential, fields: List<String>): String {
     val createdAtStr = dateFormatter.format(credential.createdAt)
     return buildString {
         append("{\n")
-        append("  \"name\": \"${credential.name}\",\n")
-        append("  \"type\": \"${credential.type.displayName}\",\n")
-        if (credential.service.isNotBlank()) append("  \"service\": \"${credential.service}\",\n")
-        if (credential.key.isNotBlank()) append("  \"key\": \"${credential.key}\",\n")
+        append("  \"name\": \"${escapeJsonString(credential.name)}\",\n")
+        append("  \"type\": \"${escapeJsonString(credential.type.displayName)}\",\n")
+        if (credential.service.isNotBlank()) append("  \"service\": \"${escapeJsonString(credential.service)}\",\n")
+        if (credential.key.isNotBlank()) append("  \"key\": \"${escapeJsonString(credential.key)}\",\n")
         credential.type.fields.forEachIndexed { index, field ->
             val value = fields.getOrNull(index)?.takeIf { it.isNotBlank() }
             if (value != null) {
                 val fieldName = field.label.lowercase().replace(" ", "_")
-                append("  \"$fieldName\": \"$value\",\n")
+                append("  \"$fieldName\": \"${escapeJsonString(value)}\",\n")
             }
         }
         append("  \"created_at\": \"$createdAtStr\",\n")
@@ -232,6 +244,7 @@ fun CredentialCard(
             maskPlaceholder = maskPlaceholder,
             onCopy = onCopy,
             onNeedReveal = onNeedReveal,
+            onHide = { localRevealed = false; currentOnHide.value() },
             clipboardManager = clipboardManager,
         )
 
@@ -345,6 +358,7 @@ private fun CredentialContent(
     maskPlaceholder: String,
     onCopy: (CopyAction) -> Unit,
     onNeedReveal: () -> Unit,
+    onHide: () -> Unit,
     clipboardManager: androidx.compose.ui.platform.ClipboardManager,
 ) {
     // All types now use unified display logic
@@ -390,7 +404,7 @@ private fun CredentialContent(
                 IconButtonBox(
                     icon = if (isRevealed) Icons.Default.VisibilityOff else Icons.Default.Visibility,
                     description = if (isRevealed) "Hide" else "Reveal",
-                    onClick = { if (isRevealed) onNeedReveal() else {} },
+                    onClick = { if (!isRevealed) onNeedReveal() else onHide() },
                 )
             }
             Spacer(modifier = Modifier.height(4.dp))
@@ -427,7 +441,7 @@ private fun CredentialContent(
                 IconButtonBox(
                     icon = if (isRevealed) Icons.Default.VisibilityOff else Icons.Default.Visibility,
                     description = if (isRevealed) "Hide" else "Reveal",
-                    onClick = { if (isRevealed) onNeedReveal() else {} },
+                    onClick = { if (!isRevealed) onNeedReveal() else onHide() },
                 )
             }
             Spacer(modifier = Modifier.height(4.dp))

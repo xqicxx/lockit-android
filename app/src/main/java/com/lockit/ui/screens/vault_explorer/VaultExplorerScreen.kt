@@ -161,7 +161,7 @@ fun VaultExplorerScreen(
             CopyAction.API_KEY -> fields.getOrNull(2)?.takeIf { it.isNotBlank() } ?: return
             CopyAction.BASE_URL -> fields.getOrNull(5)?.takeIf { it.isNotBlank() } ?: return
             CopyAction.EMAIL -> buildEmailAddress(fields)
-            CopyAction.PHONE -> credential.service
+            CopyAction.PHONE -> fields.getOrNull(1)?.takeIf { it.isNotBlank() } ?: credential.service
         }
         clipboardManager.setText(AnnotatedString(valueToCopy))
         app.vaultManager.logCredentialCopied(credential.name)
