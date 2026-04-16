@@ -39,6 +39,26 @@ enum class CredentialType(
             CredentialField("SECRET_VALUE", "Paste or enter the secret..."),
         ),
     ),
+    GitHub(
+        "GITHUB", "github",
+        "Store GitHub credentials for private repo access, CI/CD, and agent git operations. Supports PAT, SSH, OAuth, and GitHub App.",
+        listOf(
+            CredentialField("NAME", "e.g. GITHUB_TOKEN, CI_BOT", presets = listOf(
+                "GITHUB_TOKEN", "CI_BOT", "RELEASE_BOT", "PERSONAL_PAT", "ORG_PAT", "CUSTOM",
+            ), isDropdown = true),
+            CredentialField("TOKEN_TYPE", "Select token type", presets = listOf(
+                "Personal Access Token", "SSH Key", "OAuth App", "GitHub App",
+            ), isDropdown = true, editable = false),
+            CredentialField("ACCOUNT", "GitHub username (e.g. octocat)..."),
+            CredentialField("TOKEN_VALUE", "Paste token or SSH key..."),
+            CredentialField("SCOPE", "Select scopes (multi-select)", presets = listOf(
+                "repo", "workflow", "admin:org", "admin:repo_hook", "write:packages",
+                "read:packages", "delete:packages", "gist", "user", "read:user",
+                "user:email", "user:follow", "read:org", "write:org",
+                "public_repo", "repo:status", "repo_deployment", "security_events",
+            ), isDropdown = false, showAsChips = true),
+        ),
+    ),
     Account(
         "ACCOUNT", "account_circle",
         "Store login credentials for websites or apps. Agent can use these to auto-fill login forms.",
@@ -278,6 +298,8 @@ val CredentialType.requiredFieldIndices: Set<Int>
         // Account/Password: username+password mutual dependency
         CredentialType.Account -> setOf(0, 3)
         CredentialType.Password -> setOf(0, 3)
+        // GitHub: NAME + TOKEN_VALUE required
+        CredentialType.GitHub -> setOf(0, 3)
         // Single-field types: only the first field is required
         CredentialType.Phone -> setOf(0)       // just phone number
         CredentialType.BankCard -> setOf(0)
