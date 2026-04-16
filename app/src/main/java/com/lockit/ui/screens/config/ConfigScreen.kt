@@ -404,7 +404,7 @@ fun ConfigScreen(
                             horizontalArrangement = Arrangement.SpaceBetween,
                         ) {
                             Text(
-                                text = "当前版本",
+                                text = "CURRENT_VERSION",
                                 fontFamily = JetBrainsMonoFamily,
                                 fontSize = 10.sp,
                                 color = Color.Gray,
@@ -425,7 +425,7 @@ fun ConfigScreen(
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Text(
-                                text = "Token来源",
+                                text = "TOKEN_SOURCE",
                                 fontFamily = JetBrainsMonoFamily,
                                 fontSize = 10.sp,
                                 color = Color.Gray,
@@ -443,7 +443,7 @@ fun ConfigScreen(
                         }
 
                         BrutalistButton(
-                            text = if (isCheckingUpdate) "检查中..." else if (isDownloading) "下载中..." else "检查更新",
+                            text = if (isCheckingUpdate) "CHECKING..." else if (isDownloading) "DOWNLOADING..." else "CHECK_UPDATE",
                             onClick = {
                                 isCheckingUpdate = true
                                 scope.launch {
@@ -455,9 +455,9 @@ fun ConfigScreen(
                                     val result = appUpdater.checkForUpdate(currentVersionCode, token)
                                     isCheckingUpdate = false
                                     if (result.isFailure) {
-                                        toastMessage = "检查失败: ${result.exceptionOrNull()?.message}"
+                                        toastMessage = "CHECK_FAILED: ${result.exceptionOrNull()?.message}"
                                     } else if (result.getOrNull() == null) {
-                                        toastMessage = "已是最新版本"
+                                        toastMessage = "ALREADY_LATEST_VERSION"
                                     } else {
                                         availableUpdate = result.getOrNull()
                                         showUpdateDialog = true
@@ -853,7 +853,7 @@ private fun UpdateDialog(
                 .padding(24.dp),
         ) {
             Text(
-                text = "发现新版本 ${release.versionName}",
+                text = "NEW_VERSION: ${release.versionName}",
                 fontFamily = JetBrainsMonoFamily,
                 fontWeight = FontWeight.Bold,
                 fontSize = 14.sp,
@@ -864,7 +864,7 @@ private fun UpdateDialog(
             // Changelog
             if (release.changelog.isNotBlank()) {
                 Text(
-                    text = "更新日志",
+                    text = "CHANGELOG",
                     fontFamily = JetBrainsMonoFamily,
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Bold,
@@ -891,7 +891,7 @@ private fun UpdateDialog(
             if (release.downloadSize != null && release.downloadSize > 0) {
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = "大小: ${release.downloadSize / 1024 / 1024} MB",
+                    text = "SIZE: ${release.downloadSize / 1024 / 1024} MB",
                     fontFamily = JetBrainsMonoFamily,
                     fontSize = 9.sp,
                     color = Color.Gray,
@@ -905,14 +905,14 @@ private fun UpdateDialog(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 BrutalistButton(
-                    text = "稍后",
+                    text = "LATER",
                     onClick = onDismiss,
                     variant = ButtonVariant.Secondary,
                     modifier = Modifier.weight(1f),
                     useMonoFont = true,
                 )
                 BrutalistButton(
-                    text = "下载更新",
+                    text = "DOWNLOAD_UPDATE",
                     onClick = onDownload,
                     variant = ButtonVariant.Primary,
                     modifier = Modifier.weight(1f),
@@ -944,7 +944,7 @@ private fun GitHubTokenConfigDialog(
                 .padding(24.dp),
         ) {
             Text(
-                text = "配置 GitHub Token",
+                text = "CONFIG_GITHUB_TOKEN",
                 fontFamily = JetBrainsMonoFamily,
                 fontWeight = FontWeight.Bold,
                 fontSize = 14.sp,
@@ -953,7 +953,7 @@ private fun GitHubTokenConfigDialog(
             Spacer(modifier = Modifier.height(12.dp))
 
             Text(
-                text = "输入存储 GitHub Token 的凭据名称。Lockit 将自动读取该凭据的值作为 API 认证令牌（支持私有仓库）。",
+                text = "Enter the credential name storing your GitHub Token. Lockit will read its value for API authentication (supports private repos).",
                 fontFamily = JetBrainsMonoFamily,
                 fontSize = 10.sp,
                 color = Color.Gray,
@@ -965,7 +965,7 @@ private fun GitHubTokenConfigDialog(
                 value = newName,
                 onValueChange = { newName = it },
                 label = "TOKEN_CREDENTIAL_NAME",
-                placeholder = "例如: GITHUB_TOKEN",
+                placeholder = "e.g. GITHUB_TOKEN",
             )
             Spacer(modifier = Modifier.height(24.dp))
 
@@ -974,14 +974,14 @@ private fun GitHubTokenConfigDialog(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 BrutalistButton(
-                    text = "取消",
+                    text = "CANCEL",
                     onClick = onDismiss,
                     variant = ButtonVariant.Secondary,
                     modifier = Modifier.weight(1f),
                     useMonoFont = true,
                 )
                 BrutalistButton(
-                    text = "保存",
+                    text = "SAVE",
                     onClick = { onSave(newName) },
                     variant = ButtonVariant.Primary,
                     modifier = Modifier.weight(1f),
