@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="sharedpref" path="lockit_master_key.xml"/>
+        <exclude domain="database" path="lockit.db"/>
+    </cloud-backup>
+</data-extraction-rules>

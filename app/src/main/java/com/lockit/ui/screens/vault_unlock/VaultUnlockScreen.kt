@@ -1,0 +1,773 @@
+package com.lockit.ui.screens.vault_unlock
+
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.requiredSize
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Fingerprint
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.fragment.app.FragmentActivity
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.lockit.LockitApp
+import com.lockit.ui.components.BrutalistTopBar
+import com.lockit.ui.components.findActivity
+import com.lockit.ui.theme.IndustrialOrange
+import com.lockit.ui.theme.JetBrainsMonoFamily
+import com.lockit.ui.theme.Primary
+import com.lockit.ui.theme.TacticalRed
+import com.lockit.ui.theme.White
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+
+class VaultUnlockViewModel(private val app: LockitApp) : ViewModel() {
+    private val biometricStorage = com.lockit.data.biometric.BiometricPinStorage(
+        app.getSharedPreferences("lockit_biometric_prefs", android.content.Context.MODE_PRIVATE)
+    )
+
+    private val _uiState = MutableStateFlow(VaultUnlockUiState())
+    val uiState: StateFlow<VaultUnlockUiState> = _uiState.asStateFlow()
+
+    var pin by mutableStateOf("")
+    var confirmPin by mutableStateOf("")
+    var isConfirmStep by mutableStateOf(false)
+    var errorMessage by mutableStateOf<String?>(null)
+    var isProcessing by mutableStateOf(false)
+    var isInitialized by mutableStateOf(false)
+    var showBiometricSetup by mutableStateOf(false)
+    var showBiometricButton by mutableStateOf(false)
+        private set
+    var isBiometricLinked by mutableStateOf(false)
+        private set
+
+    fun onPinDigit(digit: String) {
+        if (isConfirmStep) {
+            if (confirmPin.length < 4) {
+                confirmPin += digit
+                errorMessage = null
+            }
+        } else {
+            if (pin.length < 4) {
+                pin += digit
+                errorMessage = null
+            }
+        }
+    }
+
+    fun onBackspace() {
+        if (isConfirmStep) {
+            if (confirmPin.isNotEmpty()) {
+                confirmPin = confirmPin.dropLast(1)
+                errorMessage = null
+            }
+        } else {
+            if (pin.isNotEmpty()) {
+                pin = pin.dropLast(1)
+                errorMessage = null
+            }
+        }
+    }
+
+    fun onSubmit() {
+        if (isProcessing) return
+        if (isInitialized) {
+            if (pin.length < 4) {
+                errorMessage = "PIN_TOO_SHORT"
+                return
+            }
+            isProcessing = true
+            viewModelScope.launch {
+                val result = withContext(Dispatchers.IO) {
+                    app.vaultManager.unlockVault(pin)
+                }
+                isProcessing = false
+                if (result.isSuccess) {
+                    _uiState.value = VaultUnlockUiState(navigated = true)
+                } else {
+                    errorMessage = "WRONG_PIN"
+                    pin = ""
+                }
+            }
+        } else {
+            if (!isConfirmStep) {
+                if (pin.length < 4) {
+                    errorMessage = "PIN_TOO_SHORT"
+                    return
+                }
+                isConfirmStep = true
+                confirmPin = ""
+                errorMessage = null
+            } else {
+                if (confirmPin.length < 4) {
+                    errorMessage = "CONFIRM_PIN_TOO_SHORT"
+                    return
+                }
+                if (pin != confirmPin) {
+                    errorMessage = "PIN_MISMATCH"
+                    confirmPin = ""
+                    return
+                }
+                isProcessing = true
+                viewModelScope.launch {
+                    try {
+                        withContext(Dispatchers.IO) {
+                            app.vaultManager.initVault(pin)
+                        }
+                        isProcessing = false
+                        showBiometricSetup = true
+                    } catch (e: Exception) {
+                        isProcessing = false
+                        errorMessage = e.message?.uppercase() ?: "INIT_FAILED"
+                        pin = ""
+                        confirmPin = ""
+                        isConfirmStep = false
+                    }
+                }
+            }
+        }
+    }
+
+    fun cancelConfirm() {
+        isConfirmStep = false
+        confirmPin = ""
+        errorMessage = null
+    }
+
+    fun navigateToMain() {
+        _uiState.value = VaultUnlockUiState(navigated = true)
+    }
+
+    fun resetNavigated() {
+        _uiState.value = VaultUnlockUiState(navigated = false)
+    }
+
+    fun clearPin() {
+        pin = ""
+        confirmPin = ""
+        isConfirmStep = false
+        errorMessage = null
+    }
+
+    fun setAppState(initialized: Boolean) {
+        this.isInitialized = initialized
+        this.isBiometricLinked = initialized && biometricStorage.isBiometricLinked()
+        showBiometricButton = initialized
+    }
+
+    fun linkBiometric(activity: FragmentActivity, onSuccess: () -> Unit, onError: (String) -> Unit) {
+        if (pin.isEmpty()) {
+            onError("NO_PIN_TO_LINK")
+            return
+        }
+        biometricStorage.storePin(activity, pin, onSuccess = {
+            showBiometricButton = true
+            onSuccess()
+        }, onError = onError)
+    }
+
+    fun authenticateWithBiometric(activity: FragmentActivity, onSuccess: () -> Unit, onError: (String) -> Unit) {
+        biometricStorage.decryptPin(activity, onSuccess = { decryptedPin ->
+            pin = decryptedPin
+            val result = app.vaultManager.unlockVault(decryptedPin)
+            if (result.isSuccess) {
+                _uiState.value = VaultUnlockUiState(navigated = true)
+                onSuccess()
+            } else {
+                onError("WRONG_PIN")
+                pin = ""
+            }
+        }, onError = onError)
+    }
+}
+
+data class VaultUnlockUiState(
+    val navigated: Boolean = false,
+)
+
+@Composable
+fun VaultUnlockScreen(
+    onUnlocked: () -> Unit,
+) {
+    val app = LocalContext.current.applicationContext as LockitApp
+    val viewModel: VaultUnlockViewModel = viewModel(
+        factory = VaultUnlockViewModelFactory(app),
+    )
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    val view = LocalView.current
+
+    LaunchedEffect(Unit) {
+        viewModel.setAppState(app.vaultManager.isInitialized())
+    }
+
+    LaunchedEffect(uiState.navigated) {
+        if (uiState.navigated) {
+            onUnlocked()
+            viewModel.resetNavigated()
+        }
+    }
+
+    Scaffold(
+        topBar = { Box(Modifier.statusBarsPadding()) { BrutalistTopBar() } },
+    ) { paddingValues ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+                .background(White),
+        ) {
+            // Main Content
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .weight(1f),
+                contentAlignment = Alignment.Center,
+            ) {
+            // Background grid pattern
+            BrutalistGridBackground()
+
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                // Logo + Title
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = "LOCKIT",
+                        fontFamily = JetBrainsMonoFamily,
+                        fontWeight = FontWeight.ExtraBold,
+                        fontSize = 36.sp,
+                        color = Primary,
+                        letterSpacing = (-2).sp,
+                        lineHeight = 36.sp,
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "OPERATOR AUTHORIZATION TERMINAL",
+                        fontFamily = JetBrainsMonoFamily,
+                        fontSize = 8.sp,
+                        color = Color.Black.copy(0.6f),
+                        letterSpacing = 2.sp,
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                // Auth Container
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .border(1.dp, Primary)
+                        .background(White),
+                ) {
+                    // PIN Input Display
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .drawBehind {
+                                drawLine(Primary, Offset(0f, size.height), Offset(size.width, size.height), 1.dp.toPx())
+                            }
+                                .padding(vertical = 12.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                        ) {
+                            // Status bar text
+                            Text(
+                                text = if (viewModel.isProcessing) {
+                                    "SYSTEM_STATE: PROCESSING..."
+                                } else if (viewModel.isInitialized) {
+                                    "SYSTEM_STATE: AWAITING_PIN"
+                                } else if (viewModel.isConfirmStep) {
+                                    "SYSTEM_STATE: CONFIRM_PIN"
+                                } else {
+                                    "SYSTEM_STATE: INIT_PIN"
+                                },
+                                fontFamily = JetBrainsMonoFamily,
+                                fontSize = 8.sp,
+                                color = if (viewModel.isProcessing) IndustrialOrange
+                                    else if (viewModel.isConfirmStep) IndustrialOrange
+                                    else Color.Black.copy(0.5f),
+                                letterSpacing = 1.sp,
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                repeat(4) { index ->
+                                    val isFilled = if (viewModel.isConfirmStep) {
+                                        index < viewModel.confirmPin.length
+                                    } else {
+                                        index < viewModel.pin.length
+                                    }
+                                    Box(
+                                        modifier = Modifier
+                                            .requiredSize(8.dp)
+                                            .border(1.dp, Primary)
+                                            .background(if (isFilled) Primary else White),
+                                    )
+                                }
+                            }
+                        }
+
+                        // Keypad
+                        Keypad(
+                            onDigit = { viewModel.onPinDigit(it) },
+                            onBackspace = { viewModel.onBackspace() },
+                            onSubmit = { viewModel.onSubmit() },
+                            isProcessing = viewModel.isProcessing,
+                        )
+
+                        // Quick Actions
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .drawBehind {
+                                    drawLine(Primary, Offset(0f, 0f), Offset(size.width, 0f), 1.dp.toPx())
+                                }
+                                .padding(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            if (viewModel.isConfirmStep) {
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    BrutalistSmallButton(
+                                        text = "CANCEL",
+                                        onClick = { viewModel.cancelConfirm() },
+                                        modifier = Modifier.weight(1f),
+                                    )
+                                    BrutalistSmallButton(
+                                        text = "REENTER_PIN",
+                                        onClick = { viewModel.cancelConfirm() },
+                                        modifier = Modifier.weight(1f),
+                                        isDanger = true,
+                                    )
+                                }
+                            } else {
+                                if (viewModel.isInitialized) {
+                                    val bioText = if (viewModel.isBiometricLinked)
+                                        "UNLOCK_WITH_BIOMETRIC"
+                                    else
+                                        "BIOMETRIC_LINK"
+                                    BrutalistActionButton(
+                                        text = bioText,
+                                        onClick = {
+                                            val activity = context as? FragmentActivity
+                                            if (activity != null) {
+                                                if (viewModel.isBiometricLinked) {
+                                                    viewModel.authenticateWithBiometric(
+                                                        activity = activity,
+                                                        onSuccess = { },
+                                                        onError = { viewModel.errorMessage = "BIOMETRIC_FAILED: $it" },
+                                                    )
+                                                } else {
+                                                    if (viewModel.pin.length >= 4) {
+                                                        viewModel.linkBiometric(
+                                                            activity = activity,
+                                                            onSuccess = { /* linked */ },
+                                                            onError = { viewModel.errorMessage = "BIOMETRIC_LINK_FAILED: $it" },
+                                                        )
+                                                    } else {
+                                                        viewModel.errorMessage = "ENTER_PIN_FIRST_TO_LINK"
+                                                    }
+                                                }
+                                            }
+                                        },
+                                        icon = Icons.Default.Fingerprint,
+                                        iconColor = White,
+                                    )
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                }
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    BrutalistSmallButton(
+                                        text = "RECOVER_ID",
+                                        onClick = { /* Post-MVP: account recovery flow */ },
+                                        modifier = Modifier.weight(1f),
+                                    )
+                                    BrutalistSmallButton(
+                                        text = "EMERGENCY_SOS",
+                                        onClick = { /* Post-MVP: emergency access protocol */ },
+                                        modifier = Modifier.weight(1f),
+                                        isDanger = true,
+                                    )
+                                }
+                            }
+                        }
+                }
+
+                // Error message
+                viewModel.errorMessage?.let { error ->
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .border(1.dp, TacticalRed)
+                            .padding(10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Text(
+                            text = "!",
+                            fontFamily = JetBrainsMonoFamily,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = TacticalRed,
+                        )
+                        Text(
+                            text = error,
+                            fontFamily = JetBrainsMonoFamily,
+                            fontSize = 9.sp,
+                            color = TacticalRed,
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
+                }
+            }
+        }
+
+        // Biometric setup dialog after initial PIN creation
+        if (viewModel.showBiometricSetup) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(0.7f))
+                    .clickable(enabled = false) {},
+                contentAlignment = Alignment.Center,
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth(0.85f)
+                        .background(White)
+                        .border(2.dp, Primary)
+                        .padding(20.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Fingerprint,
+                        contentDescription = null,
+                        tint = IndustrialOrange,
+                        modifier = Modifier.size(48.dp),
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text(
+                        text = "LINK BIOMETRIC?",
+                        fontFamily = JetBrainsMonoFamily,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 14.sp,
+                        color = Primary,
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Use your fingerprint to unlock the vault next time, without entering your PIN.",
+                        fontFamily = JetBrainsMonoFamily,
+                        fontSize = 10.sp,
+                        color = Color.Gray,
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        BrutalistSmallButton(
+                            text = "SKIP",
+                            onClick = {
+                                viewModel.showBiometricSetup = false
+                                viewModel.setAppState(true)
+                                viewModel.navigateToMain()
+                            },
+                            modifier = Modifier.weight(1f),
+                        )
+                        BrutalistSmallButton(
+                            text = "ENABLE",
+                            onClick = {
+                                val activity = view.findActivity()
+                                if (activity != null) {
+                                    viewModel.linkBiometric(
+                                        activity = activity,
+                                        onSuccess = {
+                                            viewModel.showBiometricSetup = false
+                                            viewModel.setAppState(true)
+                                            viewModel.navigateToMain()
+                                        },
+                                        onError = { err ->
+                                            viewModel.errorMessage = "BIOMETRIC_LINK_FAILED: $err"
+                                            viewModel.showBiometricSetup = false
+                                            viewModel.setAppState(true)
+                                            viewModel.navigateToMain()
+                                        },
+                                    )
+                                }
+                            },
+                            modifier = Modifier.weight(1f),
+                            isDanger = false,
+                        )
+                    }
+                }
+            }
+        }
+
+        // Status Footer
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(Primary)
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                Canvas(modifier = Modifier.requiredSize(6.dp)) {
+                    drawCircle(
+                        color = IndustrialOrange,
+                        radius = 3.dp.toPx(),
+                    )
+                }
+                Text(
+                    text = "ENC_LINK: ACTIVE",
+                    fontFamily = JetBrainsMonoFamily,
+                    fontSize = 9.sp,
+                    color = IndustrialOrange,
+                    fontWeight = FontWeight.Bold,
+                )
+                Text(
+                    text = "OS_VER: 4.1.0_LOCKED",
+                    fontFamily = JetBrainsMonoFamily,
+                    fontSize = 9.sp,
+                    color = Color.White.copy(0.6f),
+                )
+            }
+            Text(
+                text = "NODE_ID: LX-88",
+                fontFamily = JetBrainsMonoFamily,
+                fontSize = 9.sp,
+                color = Color.White.copy(0.4f),
+            )
+        }
+    }
+    }
+}
+
+@Composable
+private fun Keypad(
+    onDigit: (String) -> Unit,
+    onBackspace: () -> Unit,
+    onSubmit: () -> Unit,
+    isProcessing: Boolean = false,
+) {
+    val keys = listOf(
+        listOf("1", "2", "3"),
+        listOf("4", "5", "6"),
+        listOf("7", "8", "9"),
+        listOf("DEL", "0", if (isProcessing) "..." else "OK"),
+    )
+
+    Column(modifier = Modifier.fillMaxWidth()) {
+        keys.forEach { row ->
+            Row(modifier = Modifier.fillMaxWidth()) {
+                row.forEachIndexed { index, key ->
+                    KeypadKey(
+                        modifier = Modifier.weight(1f),
+                        key = key,
+                        onDigit = onDigit,
+                        onBackspace = onBackspace,
+                        onSubmit = onSubmit,
+                        enabled = !isProcessing,
+                        hasRightBorder = index < row.size - 1,
+                        hasBottomBorder = true,
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun KeypadKey(
+    modifier: Modifier,
+    key: String,
+    onDigit: (String) -> Unit,
+    onBackspace: () -> Unit,
+    onSubmit: () -> Unit,
+    enabled: Boolean = true,
+    hasRightBorder: Boolean,
+    hasBottomBorder: Boolean,
+) {
+    Box(
+        modifier = modifier
+            .aspectRatio(4f / 3f)
+            .background(if (enabled) White else Color.Black.copy(0.05f))
+            .drawBehind {
+                val sw = 1.dp.toPx()
+                if (hasRightBorder) {
+                    drawLine(Primary, Offset(size.width, 0f), Offset(size.width, size.height), sw)
+                }
+                if (hasBottomBorder) {
+                    drawLine(Primary, Offset(0f, size.height), Offset(size.width, size.height), sw)
+                }
+            }
+            .clickable(enabled = enabled) {
+                when (key) {
+                    "DEL" -> onBackspace()
+                    "OK" -> onSubmit()
+                    else -> onDigit(key)
+                }
+            },
+        contentAlignment = Alignment.Center,
+    ) {
+        when (key) {
+            "DEL" -> {
+                Icon(
+                    imageVector = Icons.Default.Delete,
+                    contentDescription = "Delete",
+                    tint = Primary,
+                    modifier = Modifier.requiredSize(20.dp),
+                )
+            }
+            "OK" -> {
+                Icon(
+                    imageVector = Icons.Default.CheckCircle,
+                    contentDescription = "Submit",
+                    tint = IndustrialOrange,
+                    modifier = Modifier.requiredSize(22.dp),
+                )
+            }
+            else -> {
+                Text(
+                    text = key,
+                    fontFamily = JetBrainsMonoFamily,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 20.sp,
+                    color = Primary,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun BrutalistGridBackground() {
+    Canvas(modifier = Modifier.fillMaxSize()) {
+        val dotRadius = 0.5.dp.toPx()
+        val gridSize = 20.dp.toPx()
+        val w = size.width
+        val h = size.height
+        var x = gridSize / 2
+        while (x < w) {
+            var y = gridSize / 2
+            while (y < h) {
+                drawCircle(
+                    color = Color.Black.copy(alpha = 0.03f),
+                    radius = dotRadius,
+                    center = Offset(x, y),
+                )
+                y += gridSize
+            }
+            x += gridSize
+        }
+    }
+}
+
+@Composable
+private fun BrutalistActionButton(
+    text: String,
+    onClick: () -> Unit,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    iconColor: Color,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(40.dp)
+            .background(Primary)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = iconColor,
+            modifier = Modifier.requiredSize(16.dp),
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(
+            text = text,
+            fontFamily = JetBrainsMonoFamily,
+            fontSize = 10.sp,
+            color = White,
+            letterSpacing = 2.sp,
+        )
+    }
+}
+
+@Composable
+private fun BrutalistSmallButton(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    isDanger: Boolean = false,
+) {
+    Box(
+        modifier = modifier
+            .height(32.dp)
+            .border(1.dp, if (isDanger) TacticalRed else Primary)
+            .clickable(onClick = onClick)
+            .background(if (isDanger) TacticalRed else White),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = text,
+            fontFamily = JetBrainsMonoFamily,
+            fontSize = 9.sp,
+            color = if (isDanger) White else Primary,
+            letterSpacing = 1.sp,
+        )
+    }
+}
+
+private class VaultUnlockViewModelFactory(
+    private val application: LockitApp,
+) : androidx.lifecycle.ViewModelProvider.Factory {
+    @Suppress("UNCHECKED_CAST")
+    override fun <T : ViewModel> create(modelClass: Class<T>): T {
+        return VaultUnlockViewModel(application) as T
+    }
+}
+

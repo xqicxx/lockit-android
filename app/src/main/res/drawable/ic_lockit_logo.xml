@@ -1,0 +1,99 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="100"
+    android:viewportHeight="100">
+
+    <!-- Background -->
+    <path
+        android:fillColor="#000000"
+        android:pathData="M0,0 h100 v100 h-100 z" />
+
+    <!-- Left Bracket Top -->
+    <path
+        android:pathData="M 22 10 L 10 10 L 10 44"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="8"
+        android:strokeLineCap="square"
+        android:strokeLineJoin="miter"
+        android:fillColor="@android:color/transparent" />
+
+    <!-- Left Bracket Bottom -->
+    <path
+        android:pathData="M 10 56 L 10 90 L 22 90"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="8"
+        android:strokeLineCap="square"
+        android:strokeLineJoin="miter"
+        android:fillColor="@android:color/transparent" />
+
+    <!-- Left Connector Node (Red) -->
+    <path
+        android:fillColor="#991B1B"
+        android:pathData="M 6 48 h10 v4 h-10 z" />
+
+    <!-- Right Bracket Top -->
+    <path
+        android:pathData="M 78 10 L 90 10 L 90 44"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="8"
+        android:strokeLineCap="square"
+        android:strokeLineJoin="miter"
+        android:fillColor="@android:color/transparent" />
+
+    <!-- Right Bracket Bottom -->
+    <path
+        android:pathData="M 90 56 L 90 90 L 78 90"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="8"
+        android:strokeLineCap="square"
+        android:strokeLineJoin="miter"
+        android:fillColor="@android:color/transparent" />
+
+    <!-- Right Connector Node (Orange) -->
+    <path
+        android:fillColor="#B84A00"
+        android:pathData="M 84 48 h10 v4 h-10 z" />
+
+    <!-- Top Left Quadrant - Dark Red -->
+    <path
+        android:fillColor="#991B1B"
+        android:pathData="M 24 24 h24 v24 h-24 z" />
+
+    <!-- Top Right Quadrant - Outlined -->
+    <path
+        android:pathData="M 55 27 h18 v18 h-18 z"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="6"
+        android:strokeLineCap="square"
+        android:fillColor="@android:color/transparent" />
+
+    <!-- Bottom Left Quadrant - White with Terminal Cursor Hole -->
+    <path
+        android:fillType="evenOdd"
+        android:fillColor="#FFFFFF"
+        android:pathData="M 24 52 H 48 V 76 H 24 V 52 Z M 30 66 H 42 V 70 H 30 V 66 Z" />
+
+    <!-- Bottom Right Quadrant - Dark Orange -->
+    <path
+        android:fillColor="#B84A00"
+        android:pathData="M 52 52 h24 v24 h-24 z" />
+
+    <!-- Core/Grid Locking Pins -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M 48 48 h4 v4 h-4 z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M 24 48 h4 v4 h-4 z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M 72 48 h4 v4 h-4 z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M 48 24 h4 v4 h-4 z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M 48 72 h4 v4 h-4 z" />
+
+</vector>

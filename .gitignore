@@ -1,0 +1,16 @@
+*.iml
+.gradle
+/local.properties
+/.idea
+.DS_Store
+/build
+/captures
+.externalNativeBuild
+.cxx
+local.properties
+
+# Font files should be downloaded separately
+# app/src/main/res/font/*.ttf
+
+# App build
+app/build/
