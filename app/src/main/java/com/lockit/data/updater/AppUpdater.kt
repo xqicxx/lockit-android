@@ -9,7 +9,6 @@ import androidx.core.content.FileProvider
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
-import java.io.BufferedReader
 import java.net.HttpURLConnection
 import java.net.URL
 
@@ -24,7 +23,9 @@ data class GitHubRelease(
     val downloadSize: Long?,
 )
 
-class AppUpdater(private val context: Context) {
+class AppUpdater(context: Context) {
+    // Use applicationContext to prevent memory leaks
+    private val context = context.applicationContext
 
     companion object {
         private const val GITHUB_REPO = "xqicxx/lockit"
@@ -38,8 +39,9 @@ class AppUpdater(private val context: Context) {
      * @param githubToken Optional GitHub personal access token for private repos
      */
     suspend fun checkForUpdate(currentVersionCode: Int, githubToken: String? = null): Result<GitHubRelease?> = withContext(Dispatchers.IO) {
+        var connection: HttpURLConnection? = null
         try {
-            val connection = URL(RELEASES_API).openConnection() as HttpURLConnection
+            connection = URL(RELEASES_API).openConnection() as HttpURLConnection
             connection.requestMethod = "GET"
             connection.connectTimeout = 10000
             connection.readTimeout = 10000
@@ -54,7 +56,8 @@ class AppUpdater(private val context: Context) {
                 return@withContext Result.failure(Exception("HTTP ${connection.responseCode}"))
             }
 
-            val response = BufferedReader(connection.inputStream.reader()).readText()
+            // Use use{} to ensure inputStream is closed properly
+            val response = connection.inputStream.bufferedReader().use { it.readText() }
             val json = JSONObject(response)
 
             // Parse version from tag_name (e.g., "v1.2.0" or "1.2.0")
@@ -79,17 +82,9 @@ class AppUpdater(private val context: Context) {
                 }
             }
 
-            // Estimate versionCode from version name (simple: major*10000 + minor*100 + patch)
+            // Parse version components for proper comparison
             val parts = versionName.split(".")
-            val remoteVersionCode = if (parts.size >= 3) {
-                parts[0].toIntOrNull()?.let { major ->
-                    parts[1].toIntOrNull()?.let { minor ->
-                        parts[2].toIntOrNull()?.let { patch ->
-                            major * 10000 + minor * 100 + patch
-                        }
-                    }
-                }
-            } else null
+            val remoteVersionCode = parseVersionCode(parts)
 
             if (remoteVersionCode == null || remoteVersionCode <= currentVersionCode) {
                 return@withContext Result.success<GitHubRelease?>(null) // No update available
@@ -106,13 +101,32 @@ class AppUpdater(private val context: Context) {
             )
         } catch (e: Exception) {
             Result.failure(e)
+        } finally {
+            connection?.disconnect()
         }
     }
 
     /**
-     * Download APK using system DownloadManager.
+     * Parse version code from version string parts.
+     * Uses a safer formula that avoids collisions: major*1000000 + minor*1000 + patch
+     * Each segment can be up to 999 without collision.
      */
-    fun downloadApk(apkUrl: String, fileName: String = "lockit-update.apk"): Long {
+    private fun parseVersionCode(parts: List<String>): Int? {
+        if (parts.isEmpty()) return null
+
+        val major = parts.getOrNull(0)?.toIntOrNull() ?: 0
+        val minor = parts.getOrNull(1)?.toIntOrNull() ?: 0
+        val patch = parts.getOrNull(2)?.toIntOrNull() ?: 0
+
+        // Safer formula: each segment can be up to 999
+        return major * 1000000 + minor * 1000 + patch
+    }
+
+    /**
+     * Download APK using system DownloadManager.
+     * @param githubToken Optional token for private repos (added as Authorization header)
+     */
+    fun downloadApk(apkUrl: String, githubToken: String? = null, fileName: String = "lockit-update.apk"): Long {
         val request = DownloadManager.Request(Uri.parse(apkUrl))
             .setTitle("Lockit Update")
             .setDescription("Downloading latest version...")
@@ -120,6 +134,11 @@ class AppUpdater(private val context: Context) {
             .setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, fileName)
             .setAllowedOverMetered(true)
             .setAllowedOverRoaming(true)
+
+        // Add Authorization header for private repos
+        if (!githubToken.isNullOrBlank()) {
+            request.addRequestHeader("Authorization", "token $githubToken")
+        }
 
         val downloadManager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
         return downloadManager.enqueue(request)

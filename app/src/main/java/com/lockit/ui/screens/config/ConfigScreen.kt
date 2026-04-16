@@ -1,7 +1,10 @@
 package com.lockit.ui.screens.config
 
+import android.app.DownloadManager
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import com.google.android.gms.auth.api.signin.GoogleSignIn
@@ -83,6 +86,7 @@ fun ConfigScreen(
     var isDownloading by remember { mutableStateOf(false) }
     var githubTokenCredentialName by remember { mutableStateOf("GITHUB_TOKEN") }
     var showTokenConfigDialog by remember { mutableStateOf(false) }
+    var lastCheckedToken by remember { mutableStateOf<String?>(null) } // Store token for download
 
     // Google Drive sync
     val syncManager = remember { GoogleDriveSyncManager(context) }
@@ -153,7 +157,7 @@ fun ConfigScreen(
                 isDownloading = true
                 val apkUrl = availableUpdate?.apkUrl
                 if (apkUrl != null) {
-                    appUpdater.downloadApk(apkUrl)
+                    appUpdater.downloadApk(apkUrl, lastCheckedToken)
                     toastMessage = "DOWNLOAD_STARTED"
                     isDownloading = false
                 }
@@ -395,10 +399,21 @@ fun ConfigScreen(
                 title = "UPGRADE",
                 content = {
                     Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        // Current version info
-                        val packageInfo = context.packageManager.getPackageInfo(context.packageName, 0)
-                        val currentVersion = packageInfo.versionName ?: "Unknown"
-                        val currentVersionCode = packageInfo.longVersionCode.toInt()
+                        // Current version info with safe handling
+                        val packageInfo = try {
+                            context.packageManager.getPackageInfo(context.packageName, 0)
+                        } catch (e: Exception) {
+                            null
+                        }
+                        val currentVersion = packageInfo?.versionName ?: "Unknown"
+                        val currentVersionCode = packageInfo?.let {
+                            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+                                it.longVersionCode.toInt()
+                            } else {
+                                @Suppress("DEPRECATION")
+                                it.versionCode
+                            }
+                        } ?: 0
                         Row(
                             modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -447,11 +462,18 @@ fun ConfigScreen(
                             onClick = {
                                 isCheckingUpdate = true
                                 scope.launch {
+                                    // Check vault is unlocked before reading credentials
+                                    if (!app.vaultManager.isUnlocked()) {
+                                        toastMessage = "VAULT_LOCKED"
+                                        isCheckingUpdate = false
+                                        return@launch
+                                    }
                                     // Read GitHub Token from vault
                                     val tokenCredential = app.vaultManager.getAllCredentials()
                                         .first()
                                         .find { it.name == githubTokenCredentialName }
                                     val token = tokenCredential?.value
+                                    lastCheckedToken = token // Store for download
                                     val result = appUpdater.checkForUpdate(currentVersionCode, token)
                                     isCheckingUpdate = false
                                     if (result.isFailure) {
