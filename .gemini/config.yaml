@@ -1,0 +1,78 @@
+# Gemini Code Assist Configuration
+# https://developers.google.com/gemini-code-assist
+
+version: 1
+
+# Review settings for pull requests
+review:
+  enabled: true
+
+  # Manual trigger only - NO auto-review on push
+  # Trigger by commenting "@gemini" on PR
+  auto_review: false
+
+  # Review all file types
+  file_patterns:
+    - "**/*.kt"
+    - "**/*.java"
+    - "**/*.gradle.kts"
+    - "**/*.xml"
+
+  # STRICT FOCUS - Only critical issues
+  focus_areas:
+    - security        # OWASP top 10, encryption bugs
+    - crashes         # Null pointer, out of bounds, type mismatches
+    - memory_leaks    # Unclosed resources, listener leaks
+    - concurrency     # Deadlock, race conditions
+    - logic_bugs      # Incorrect algorithm, wrong conditionals
+
+  # EXPLICIT EXCLUSIONS - DO NOT COMMENT ON THESE
+  exclude_areas:
+    - naming          # Variable/function names - handled by lint
+    - formatting      # Indentation, spacing - handled by lint
+    - style           # Code style preferences - handled by lint
+    - design_patterns # Subjective refactoring suggestions
+    - syntax_sugar    # Optional syntax improvements
+    - optimizations   # Minor performance nitpicks unless critical
+
+  # Maximum review comments to prevent spam
+  max_comments: 10
+
+  # When no critical issues found
+  default_response: "LGTM - No critical issues found"
+
+# Project context
+project:
+  language: kotlin
+  framework: jetpack-compose
+  architecture: mvvm
+
+  # Key constraints
+  constraints:
+    - "Use Technical Brutalism design: 0px rounded corners, 1px borders"
+    - "AES-256-GCM encryption for sensitive data"
+    - "JetBrains Mono for data display, Inter for UI text"
+    - "No emojis in production code"
+    - "Follow Kotlin naming conventions"
+
+# System prompt override - CRITICAL
+system_prompt: |
+  你的唯一任务是寻找致命错误。
+
+  绝对禁止提出以下建议：
+  - 变量命名
+  - 代码缩进
+  - 主观的设计模式重构
+  - 非必要的语法糖替换
+
+  仅在发现以下问题时才发表评论：
+  - 明显的崩溃风险（如空指针、类型不匹配、数组越界）
+  - 内存泄漏（未关闭的资源、监听器泄漏）
+  - 并发死锁或竞态条件
+  - 逻辑漏洞（错误的算法、错误的条件判断）
+  - 严重的安全风险（OWASP top 10）
+
+  如果没有发现上述致命问题，保持沉默或仅输出 'LGTM'。
+  绝对不要无病呻吟。
+
+  风格问题由 Android Lint 处理，不要越界。

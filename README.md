@@ -1,75 +1,147 @@
-# Lockit Android
+# 🔐 Lockit Android
 
-Android 凭据管理器 App，遵循 Technical Brutalism 设计系统。
+A secure credential manager for Android with **Technical Brutalism** design philosophy.
 
-## 技术栈
+[![Platform](https://img.shields.io/badge/Platform-Android-green.svg)](https://android.com)
+[![Language](https://img.shields.io/badge/Language-Kotlin-blue.svg)](https://kotlinlang.org)
+[![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-- **语言**: Kotlin
-- **UI**: Jetpack Compose
-- **存储**: Room (SQLite)
-- **加密**: AES-256-GCM + Argon2id (BouncyCastle)
-- **架构**: MVVM
+## Features
 
-## 设置
+### 🔑 Credential Management
+- **18 credential types**: API Key, Account, Phone, Bank Card, Email, Password, Token, SSH Key, Bearer Token, Basic Auth, Webhook Secret, OAuth Client, AWS Credential, GPG Key, Database URL, ID Card, Note, Coding Plan
+- **Dynamic forms**: Each type has custom fields with dropdown presets and validation
+- **Chip-based selection**: Quick selection for common services (Google, GitHub, WeChat, Alipay, etc.)
 
-### 1. 下载字体文件
+### 🔒 Security
+- **AES-256-GCM encryption** for all credential values
+- **Argon2id** key derivation (memory=16MB, iterations=2, parallelism=1)
+- **Biometric authentication** for revealing sensitive values
+- **15-minute session cache** for convenient access
+- **Audit logging** for all security events
 
-从 Google Fonts 下载以下 TTF 文件到 `app/src/main/res/font/`:
+### 📋 Copy Features
+- **Long-press single value**: Copy specific field directly
+- **Long-press card**: Copy full JSON structured data
+- **Tap to reveal**: Show/hide sensitive values with eye icon
+- **Copy button**: Quick copy for revealed values
 
-- [Inter Regular](https://fonts.google.com/specimen/Inter) → `inter_regular.ttf`
-- [Inter Bold](https://fonts.google.com/specimen/Inter) → `inter_bold.ttf`
-- [Inter ExtraBold](https://fonts.google.com/specimen/Inter) → `inter_extrabold.ttf`
-- [JetBrains Mono Regular](https://fonts.google.com/specimen/JetBrains+Mono) → `jetbrains_mono_regular.ttf`
-- [JetBrains Mono Medium](https://fonts.google.com/specimen/JetBrains+Mono) → `jetbrains_mono_medium.ttf`
+### 🎨 Design
+- **0px rounded corners** - Pure rectangular shapes
+- **1px black borders** - Sharp, defined edges
+- **2px offset shadows** - Industrial aesthetic
+- **JetBrains Mono** - Monospace for data display
+- **Inter** - Clean UI typography
+- **Industrial Orange** (#B34700) - Accent color
+- **Tactical Red** (#A30000) - Warning/delete actions
+
+### 📊 Coding Plan Board
+- Real-time quota display from Alibaba Bailian
+- Prefetch on app startup for instant display
+- Supports multiple providers (Qwen, OpenAI, Anthropic, etc.)
+
+## Screens
+
+| Screen | Description |
+|--------|-------------|
+| **Vault Unlock** | Master password entry / vault creation |
+| **Vault Explorer** | Credential list + search + reveal actions |
+| **Repos** | Service groupings + Coding Plan Board |
+| **Secret Details** | Full credential details + copy/reveal/delete |
+| **Add Credential** | Dynamic form based on credential type |
+| **Edit Credential** | Modify existing credentials |
+| **Logs** | Security audit trail |
+| **Config** | Vault info + lock + settings |
+
+## Tech Stack
+
+| Layer | Technology |
+|-------|------------|
+| Language | Kotlin (JDK 17) |
+| UI | Jetpack Compose |
+| Database | Room (SQLite) |
+| Encryption | AES-256-GCM + Argon2id (BouncyCastle) |
+| Architecture | MVVM with StateFlow |
+| Build | Gradle (AGP + Kotlin Plugin + KSP) |
+
+## Setup
+
+### 1. Clone & Open
 
 ```bash
-mkdir -p app/src/main/res/font/
-# 下载后放入上述目录
+git clone https://github.com/xqicxx/lockit-android.git
+cd lockit-android
 ```
 
-### 2. 在 Android Studio 中打开
+Open in Android Studio: `File → Open → select lockit-android/`
 
-```
-File → Open → 选择 lockit-android/ 目录
-```
-
-等待 Gradle 同步完成。
-
-### 3. 构建
+### 2. Build
 
 ```bash
 ./gradlew assembleDebug
 ```
 
-### 4. 运行
-
-在 Android Studio 中点击 Run，或：
+### 3. Install
 
 ```bash
-./gradlew installDebug
+adb install -r app/build/outputs/apk/debug/app-debug.apk
 ```
 
-## 屏幕
+Or use Android Studio's Run button.
 
-| 屏幕 | 说明 |
-|------|------|
-| Vault Unlock | 主密码输入 / 创建 vault |
-| Vault Explorer | 凭据列表 + 搜索 + 卡片 |
-| Secret Details | 凭据详情 + 复制/显示/删除 |
-| Add Credential | 添加新凭据 (14 种类型) |
-| Config | 设置 + 安全信息 + 锁库 |
+## Project Structure
 
-## 设计系统
+```
+app/src/main/java/com/lockit/
+├── LockitApp.kt          # Application DI container
+├── data/
+│   ├── audit/            # Audit logging
+│   ├── biometric/        # PIN + biometric storage
+│   ├── crypto/           # AES-256-GCM encryption
+│   ├── database/         # Room DAO + entities
+│   ├── sync/             # Google Drive sync (future)
+│   └── vault/            # VaultManager + CodingPlanPrefs
+├── domain/
+│   ├── model/            # Credential + CredentialType
+│   └── qwen/             # Bailian API integration
+├── ui/
+│   ├── components/       # Brutalist UI components
+│   ├── screens/          # All screens (8 total)
+│   └── theme/            # Colors, typography, shapes
+└── utils/                # BiometricUtils, parsers
+```
 
-- 0px 圆角 (RectangleShape)
-- 1px 黑色边框
-- 2px 纯黑偏移阴影
-- Inter (UI) + JetBrains Mono (数据)
-- 主色: 黑 #000000 / 橙 #B34700 / 红 #A30000
+## Credential Types
 
-## 与 CLI 兼容
+| Type | Use Case |
+|------|----------|
+| `API_KEY` | AI services, cloud providers, REST APIs |
+| `ACCOUNT` | Website/app login credentials |
+| `PASSWORD` | Standalone passwords (WiFi, shared) |
+| `PHONE` | Phone numbers with region codes |
+| `BANK_CARD` | Payment card details |
+| `EMAIL` | Email accounts + SMTP passwords |
+| `TOKEN` | Bearer/session/auth tokens |
+| `SSH_KEY` | SSH private keys |
+| `CODING_PLAN` | AI coding agent tokens |
 
-加密格式与 Rust CLI (`lockit/crypto.rs`) 完全兼容:
-- AES-256-GCM
-- `[12-byte nonce][ciphertext + 16-byte GCM tag]`
-- Argon2id 密钥派生 (memory=64MB, iterations=3, parallelism=4)
+## Encryption Format
+
+Compatible with Rust CLI (`lockit/crypto.rs`):
+
+```
+[12-byte nonce][ciphertext + 16-byte GCM tag]
+```
+
+Key derivation: Argon2id (memory=16MB, iterations=2, parallelism=1)
+
+## License
+
+MIT License - See [LICENSE](LICENSE) for details.
+
+## Contributing
+
+PRs welcome! Please follow the Technical Brutalism design guidelines:
+- No rounded corners (always 0px)
+- 1px borders on all interactive elements
+- JetBrains Mono for data, Inter for UI text

@@ -25,8 +25,11 @@ import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import com.lockit.ui.components.BrutalistTextField
+import com.lockit.ui.components.CopyAction
 import com.lockit.ui.components.CredentialCard
+import com.lockit.ui.components.CredentialDefaults
 import com.lockit.ui.components.buildEmailAddress
+import com.lockit.ui.components.buildJsonStructured
 import com.lockit.ui.components.extractEmailPassword
 import com.lockit.ui.components.extractSecretValue
 import com.lockit.ui.components.parseCredentialFields
@@ -455,25 +458,19 @@ fun ReposScreen(
                 CredentialCardModal(
                     credential = selectedCredential!!,
                     onDismiss = { selectedCredential = null },
-                    showRevealToggle = false,
-                    isValueRevealed = true,
-                    onRevealAndCopy = {
+                    onCopy = { action ->
                         val cred = selectedCredential!!
-                        when (cred.type) {
-                            CredentialType.Phone -> {
-                                clipboardManager.setText(AnnotatedString(cred.service))
-                                viewModel.logCredentialCopied(cred.name)
-                            }
-                            CredentialType.Email -> {
-                                val emailAddr = buildEmailAddress(parseCredentialFields(cred.value))
-                                clipboardManager.setText(AnnotatedString(emailAddr))
-                                viewModel.logCredentialCopied(cred.name)
-                            }
-                            else -> {
-                                clipboardManager.setText(AnnotatedString(extractSecretValue(cred.type, cred.value)))
-                                viewModel.logCredentialCopied(cred.name)
-                            }
+                        val fields = parseCredentialFields(cred.value)
+                        val valueToCopy = when (action) {
+                            CopyAction.VALUE -> extractSecretValue(cred.type, cred.value)
+                            CopyAction.STRUCTURED -> buildJsonStructured(cred, fields)
+                            CopyAction.EMAIL -> buildEmailAddress(fields)
+                            CopyAction.PHONE -> fields.getOrNull(1)?.takeIf { it.isNotBlank() } ?: cred.service
+                            CopyAction.API_KEY -> fields.getOrNull(2)?.takeIf { it.isNotBlank() } ?: extractSecretValue(cred.type, cred.value)
+                            CopyAction.BASE_URL -> fields.getOrNull(5)?.takeIf { it.isNotBlank() } ?: extractSecretValue(cred.type, cred.value)
                         }
+                        clipboardManager.setText(AnnotatedString(valueToCopy))
+                        viewModel.logCredentialCopied(cred.name)
                     },
                     onDelete = {
                         val cred = selectedCredential!!
@@ -486,15 +483,9 @@ fun ReposScreen(
                         onCredentialEdit(selectedCredential!!.id)
                         selectedCredential = null
                     },
-                    onEmailPasswordReveal = {
-                        val cred = selectedCredential!!
-                        revealedEmailPasswordMap[cred.id] = extractEmailPassword(cred.value)
-                    },
-                    revealedEmailPassword = revealedEmailPasswordMap[selectedCredential?.id],
-                    onHideEmailPassword = {
-                        revealedEmailPasswordMap.remove(selectedCredential?.id)
-                    },
-                    onHideValue = { id -> revealedCredentialIds.remove(id) },
+                    onNeedReveal = { },
+                    isRevealed = true,
+                    onHide = { },
                 )
             }
 
@@ -843,15 +834,12 @@ internal fun CompactCredentialRow(
 internal fun CredentialCardModal(
     credential: Credential,
     onDismiss: () -> Unit,
-    onRevealAndCopy: (() -> Unit)? = null,
+    onCopy: (CopyAction) -> Unit,
     onDelete: () -> Unit,
     onEdit: () -> Unit,
-    onEmailPasswordReveal: (() -> Unit)? = null,
-    revealedEmailPassword: String? = null,
-    onHideEmailPassword: (() -> Unit)? = null,
-    isValueRevealed: Boolean = false,
-    onHideValue: ((String) -> Unit)? = null,
-    showRevealToggle: Boolean = true,
+    onNeedReveal: () -> Unit = {},
+    isRevealed: Boolean = false,
+    onHide: () -> Unit = {},
 ) {
     Box(
         modifier = Modifier
@@ -869,15 +857,12 @@ internal fun CredentialCardModal(
             CredentialCard(
                 credential = credential,
                 onClick = {},
-                onRevealAndCopy = onRevealAndCopy,
+                onCopy = onCopy,
                 onDelete = onDelete,
                 onEdit = onEdit,
-                onEmailPasswordReveal = onEmailPasswordReveal,
-                revealedEmailPassword = revealedEmailPassword,
-                onHideEmailPassword = onHideEmailPassword,
-                isValueRevealed = isValueRevealed,
-                onHideValue = onHideValue,
-                showRevealToggle = showRevealToggle,
+                onNeedReveal = onNeedReveal,
+                isRevealed = isRevealed,
+                onHide = onHide,
                 modifier = Modifier.padding(20.dp),
             )
             Spacer(modifier = Modifier.height(8.dp))
