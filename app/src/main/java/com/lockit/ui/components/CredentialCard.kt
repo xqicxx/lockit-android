@@ -241,7 +241,8 @@ fun CredentialCard(
                     localRevealed = false
                     currentOnHide.value()
                 } else {
-                    localRevealed = true
+                    // Trigger biometric auth before revealing - don't bypass security
+                    onNeedReveal()
                 }
             },
             onCopy = { onCopy(CopyAction.VALUE) },

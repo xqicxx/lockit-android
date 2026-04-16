@@ -171,8 +171,23 @@ fun VaultExplorerScreen(
         }
     }
 
-    fun showNeedRevealToast() {
-        viewModel.showToast("请先点击眼睛展示")
+    fun handleReveal(credential: Credential) {
+        if (BiometricUtils.isSessionValid()) {
+            revealedCredentialIds.add(credential.id)
+            return
+        }
+        val activity = getActivity()
+        if (activity != null && BiometricUtils.canAuthenticate(activity)) {
+            BiometricUtils.requireBiometric(
+                activity = activity,
+                title = "Reveal Credential",
+                subtitle = "Biometric authentication required to reveal sensitive value",
+                onSuccess = { revealedCredentialIds.add(credential.id) },
+                onError = { pendingBiometricAction = { revealedCredentialIds.add(credential.id) } },
+            )
+        } else {
+            pendingBiometricAction = { revealedCredentialIds.add(credential.id) }
+        }
     }
 
     Column(modifier = Modifier.fillMaxSize().background(White)) {
@@ -293,7 +308,7 @@ fun VaultExplorerScreen(
                             }
                         }
                     },
-                    onNeedReveal = { showNeedRevealToast() },
+                    onNeedReveal = { handleReveal(credential) },
                     onDelete = { viewModel.deleteCredential(credential) },
                     onEdit = { onNavigateToEdit(credential.id) },
                     isRevealed = revealedCredentialIds.contains(credential.id),
