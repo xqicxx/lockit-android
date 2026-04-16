@@ -15,7 +15,7 @@ A secure credential manager for Android with **Technical Brutalism** design phil
 
 ### 🔒 Security
 - **AES-256-GCM encryption** for all credential values
-- **Argon2id** key derivation (memory=64MB, iterations=3, parallelism=4)
+- **Argon2id** key derivation (memory=16MB, iterations=2, parallelism=1)
 - **Biometric authentication** for revealing sensitive values
 - **15-minute session cache** for convenient access
 - **Audit logging** for all security events
@@ -57,7 +57,7 @@ A secure credential manager for Android with **Technical Brutalism** design phil
 
 | Layer | Technology |
 |-------|------------|
-| Language | Kotlin 17 |
+| Language | Kotlin (JDK 17) |
 | UI | Jetpack Compose |
 | Database | Room (SQLite) |
 | Encryption | AES-256-GCM + Argon2id (BouncyCastle) |

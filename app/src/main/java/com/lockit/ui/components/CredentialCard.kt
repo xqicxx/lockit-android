@@ -347,256 +347,129 @@ private fun CredentialContent(
     onNeedReveal: () -> Unit,
     clipboardManager: androidx.compose.ui.platform.ClipboardManager,
 ) {
+    // All types now use unified display logic
+    // Phone/Email/IdCard/Note: always visible, show all fields
+    // CodingPlan: show API_KEY + BASE_URL with reveal toggle
+    // Others: show single value with reveal toggle
+
     when (credential.type) {
-        CredentialType.Phone -> PhoneContent(credential, fields, maskPlaceholder)
-        CredentialType.Email -> EmailContent(credential, fields, maskPlaceholder)
-        CredentialType.CodingPlan -> CodingPlanContent(
-            fields = fields,
-            isRevealed = isRevealed,
-            maskPlaceholder = maskPlaceholder,
-            onCopy = onCopy,
-            onNeedReveal = onNeedReveal,
-            clipboardManager = clipboardManager,
-        )
-        else -> DefaultContent(
-            credential = credential,
-            isRevealed = isRevealed,
-            maskPlaceholder = maskPlaceholder,
-            onCopy = onCopy,
-            onNeedReveal = onNeedReveal,
-        )
-    }
-}
+        CredentialType.Phone -> {
+            // Phone: show number, note, region
+            val phoneNumber = fields.getOrNull(1)?.takeIf { it.isNotBlank() }
+                ?: credential.service.takeIf { it.isNotBlank() }
+                ?: CredentialDefaults.UNKNOWN
+            val region = fields.getOrNull(0)?.takeIf { it.isNotBlank() } ?: ""
+            val note = fields.getOrNull(2)?.takeIf { it.isNotBlank() }
 
-@Composable
-private fun PhoneContent(
-    credential: Credential,
-    fields: List<String>,
-    maskPlaceholder: String,
-) {
-    val phoneNumber = fields.getOrNull(1)?.takeIf { it.isNotBlank() }
-        ?: credential.service.takeIf { it.isNotBlank() }
-        ?: CredentialDefaults.UNKNOWN
-    val region = fields.getOrNull(0)?.takeIf { it.isNotBlank() }
-        ?: credential.name.takeIf { it.isNotBlank() }
-        ?: ""
-    val note = fields.getOrNull(2)?.takeIf { it.isNotBlank() }
-        ?: credential.key.takeIf { it.isNotBlank() }
-
-    FieldValueBox(label = "PHONE NUMBER", value = phoneNumber)
-
-    if (note != null) {
-        Spacer(modifier = Modifier.height(8.dp))
-        FieldValueBox(label = "NOTE", value = note, maxLines = 3)
-    }
-
-    if (region.isNotBlank()) {
-        Spacer(modifier = Modifier.height(8.dp))
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            FieldLabel("REGION")
-            Spacer(modifier = Modifier.width(8.dp))
-            FieldValue(region)
+            FieldValueBox(label = "PHONE NUMBER", value = phoneNumber)
+            if (note != null) {
+                Spacer(modifier = Modifier.height(8.dp))
+                FieldValueBox(label = "NOTE", value = note, maxLines = 3)
+            }
+            if (region.isNotBlank()) {
+                Spacer(modifier = Modifier.height(8.dp))
+                FieldLabelValueRow("REGION", region)
+            }
         }
-    }
-}
 
-@Composable
-private fun EmailContent(
-    credential: Credential,
-    fields: List<String>,
-    maskPlaceholder: String,
-) {
-    val prefix = fields.getOrNull(1)?.takeIf { it.isNotBlank() } ?: CredentialDefaults.UNKNOWN
-    val provider = fields.getOrNull(0)?.takeIf { it.isNotBlank() }?.trimStart('@')
-    val emailAddress = if (provider != null) "$prefix@$provider" else prefix
+        CredentialType.Email -> {
+            // Email: show address + password (password needs reveal)
+            val emailAddress = buildEmailAddress(fields)
+            val password = fields.getOrNull(2)?.takeIf { it.isNotBlank() } ?: CredentialDefaults.NOT_SET
 
-    FieldValueBox(label = "EMAIL", value = emailAddress)
+            FieldValueBox(label = "EMAIL", value = emailAddress)
+            Spacer(modifier = Modifier.height(8.dp))
 
-    Spacer(modifier = Modifier.height(8.dp))
+            // Password row with reveal toggle
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                FieldLabel("PASSWORD")
+                IconButtonBox(
+                    icon = if (isRevealed) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                    description = if (isRevealed) "Hide" else "Reveal",
+                    onClick = { if (isRevealed) onNeedReveal() else {} },
+                )
+            }
+            Spacer(modifier = Modifier.height(4.dp))
+            FieldValueBox(
+                label = "",
+                value = if (isRevealed) password else maskPlaceholder,
+                maxLines = 5,
+            )
 
-    val password = fields.getOrNull(2)?.takeIf { it.isNotBlank() } ?: CredentialDefaults.NOT_SET
-
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        FieldLabel("PASSWORD")
-    }
-
-    Spacer(modifier = Modifier.height(4.dp))
-    FieldValueBox(
-        label = "",
-        value = password,
-        maxLines = 5,
-    )
-
-    val addressFields = listOf(
-        "REGION" to fields.getOrNull(3),
-        "STREET" to fields.getOrNull(4),
-        "CITY" to fields.getOrNull(5),
-        "STATE/ZIP" to fields.getOrNull(6),
-    ).filter { (_, v) -> v?.isNotBlank() == true && v != "-" }
-
-    if (addressFields.isNotEmpty()) {
-        Spacer(modifier = Modifier.height(8.dp))
-        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            addressFields.forEach { (label, value) ->
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    FieldLabel(label)
-                    FieldValue(value ?: "")
+            // Address fields
+            fields.drop(3).forEachIndexed { idx, value ->
+                if (value.isNotBlank() && value != "-") {
+                    Spacer(modifier = Modifier.height(6.dp))
+                    FieldLabelValueRow(
+                        listOf("REGION", "STREET", "CITY", "STATE/ZIP").getOrNull(idx) ?: "FIELD",
+                        value
+                    )
                 }
             }
         }
+
+        CredentialType.CodingPlan -> {
+            // CodingPlan: API_KEY + BASE_URL
+            val apiKey = fields.getOrNull(2)?.takeIf { it.isNotBlank() } ?: CredentialDefaults.FIELD_NOT_SET
+            val baseUrl = fields.getOrNull(5)?.takeIf { it.isNotBlank() } ?: CredentialDefaults.FIELD_NOT_SET
+
+            // API_KEY row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                FieldLabel("API_KEY")
+                IconButtonBox(
+                    icon = if (isRevealed) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                    description = if (isRevealed) "Hide" else "Reveal",
+                    onClick = { if (isRevealed) onNeedReveal() else {} },
+                )
+            }
+            Spacer(modifier = Modifier.height(4.dp))
+            FieldValueBox(
+                label = "",
+                value = if (isRevealed) apiKey else maskPlaceholder,
+                maxLines = 3,
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // BASE_URL row (always visible)
+            FieldLabel("BASE_URL")
+            Spacer(modifier = Modifier.height(4.dp))
+            FieldValueBox(label = "", value = baseUrl, maxLines = 2)
+        }
+
+        else -> {
+            // Default: single value with reveal toggle
+            val alwaysVisible = credential.type in listOf(CredentialType.IdCard, CredentialType.Note)
+            val displayValue = if (alwaysVisible || isRevealed) {
+                extractSecretValue(credential.type, credential.value)
+            } else maskPlaceholder
+
+            FieldValueBox(
+                label = "VALUE",
+                value = displayValue,
+                maxLines = if (alwaysVisible || isRevealed) Int.MAX_VALUE else 1,
+            )
+        }
     }
 }
 
 @Composable
-private fun CodingPlanContent(
-    fields: List<String>,
-    isRevealed: Boolean,
-    maskPlaceholder: String,
-    onCopy: (CopyAction) -> Unit,
-    onNeedReveal: () -> Unit,
-    clipboardManager: androidx.compose.ui.platform.ClipboardManager,
-) {
-    val apiKey = fields.getOrNull(2)?.takeIf { it.isNotBlank() } ?: CredentialDefaults.FIELD_NOT_SET
-    val baseUrl = fields.getOrNull(5)?.takeIf { it.isNotBlank() } ?: CredentialDefaults.FIELD_NOT_SET
-
+private fun FieldLabelValueRow(label: String, value: String) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        FieldLabel("API_KEY")
-        IconButtonBox(
-            icon = if (isRevealed) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-            description = if (isRevealed) "Hide" else "Reveal",
-            onClick = {
-                if (isRevealed) onNeedReveal() else { /* reveal handled by parent */ }
-            },
-        )
-    }
-
-    Spacer(modifier = Modifier.height(4.dp))
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(SurfaceLow)
-            .border(1.dp, Primary)
-            .padding(12.dp)
-            .pointerInput(isRevealed) {
-                detectTapGestures(
-                    onLongPress = {
-                        if (isRevealed && apiKey != CredentialDefaults.FIELD_NOT_SET) {
-                            clipboardManager.setText(AnnotatedString(apiKey))
-                            onCopy(CopyAction.API_KEY)
-                        } else {
-                            onNeedReveal()
-                        }
-                    }
-                )
-            },
-    ) {
-        Text(
-            text = if (isRevealed) apiKey else maskPlaceholder,
-            fontFamily = JetBrainsMonoFamily,
-            fontSize = 13.sp,
-            color = if (isRevealed) Primary else Color.Gray,
-            maxLines = if (isRevealed) 3 else 1,
-            overflow = TextOverflow.Ellipsis,
-        )
-    }
-
-    Spacer(modifier = Modifier.height(8.dp))
-
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        FieldLabel("BASE_URL")
-    }
-
-    Spacer(modifier = Modifier.height(4.dp))
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(SurfaceLow)
-            .border(1.dp, Primary)
-            .padding(12.dp)
-            .pointerInput(Unit) {
-                detectTapGestures(
-                    onLongPress = {
-                        if (baseUrl != CredentialDefaults.FIELD_NOT_SET) {
-                            clipboardManager.setText(AnnotatedString(baseUrl))
-                            onCopy(CopyAction.BASE_URL)
-                        }
-                    }
-                )
-            },
-    ) {
-        Text(
-            text = baseUrl,
-            fontFamily = JetBrainsMonoFamily,
-            fontSize = 13.sp,
-            color = Primary,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
-        )
-    }
-}
-
-@Composable
-private fun DefaultContent(
-    credential: Credential,
-    isRevealed: Boolean,
-    maskPlaceholder: String,
-    onCopy: (CopyAction) -> Unit,
-    onNeedReveal: () -> Unit,
-) {
-    val alwaysVisible = credential.type in listOf(CredentialType.IdCard, CredentialType.Note)
-    val displayValue = if (alwaysVisible) {
-        credential.value
-    } else if (isRevealed) {
-        extractSecretValue(credential.type, credential.value)
-    } else {
-        maskPlaceholder
-    }
-
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(SurfaceLow)
-            .border(1.dp, Primary)
-            .padding(12.dp)
-            .pointerInput(isRevealed) {
-                detectTapGestures(
-                    onLongPress = {
-                        if (isRevealed || alwaysVisible) {
-                            onCopy(CopyAction.VALUE)
-                        } else {
-                            onNeedReveal()
-                        }
-                    }
-                )
-            },
-    ) {
-        Text(
-            text = displayValue,
-            fontFamily = JetBrainsMonoFamily,
-            fontSize = 13.sp,
-            color = if (isRevealed || alwaysVisible) Primary else Color.Gray,
-            maxLines = if (isRevealed || alwaysVisible) Int.MAX_VALUE else 1,
-            overflow = TextOverflow.Ellipsis,
-        )
+        FieldLabel(label)
+        FieldValue(value)
     }
 }
 
