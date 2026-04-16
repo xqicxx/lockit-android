@@ -79,15 +79,28 @@ fun extractEmailPassword(value: String): String {
 }
 
 /**
- * Escape string for JSON serialization (handles quotes, backslashes, newlines).
+ * Escape string for JSON serialization (handles quotes, backslashes, control characters).
+ * RFC 8259 requires escaping U+0000 through U+001F.
  */
 private fun escapeJsonString(value: String): String {
-    return value
-        .replace("\\", "\\\\")
-        .replace("\"", "\\\"")
-        .replace("\n", "\\n")
-        .replace("\r", "\\r")
-        .replace("\t", "\\t")
+    return buildString {
+        for (c in value) {
+            when (c) {
+                '\\' -> append("\\\\")
+                '"' -> append("\\\"")
+                '\n' -> append("\\n")
+                '\r' -> append("\\r")
+                '\t' -> append("\\t")
+                else -> {
+                    if (c.code in 0..31) {
+                        append("\\u${c.code.toString(16).padStart(4, '0')}")
+                    } else {
+                        append(c)
+                    }
+                }
+            }
+        }
+    }
 }
 
 /**
@@ -445,18 +458,66 @@ private fun CredentialContent(
                 )
             }
             Spacer(modifier = Modifier.height(4.dp))
-            FieldValueBox(
-                label = "",
-                value = if (isRevealed) apiKey else maskPlaceholder,
-                maxLines = 3,
-            )
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(SurfaceLow)
+                    .border(1.dp, Primary)
+                    .padding(12.dp)
+                    .pointerInput(isRevealed) {
+                        detectTapGestures(
+                            onLongPress = {
+                                if (isRevealed && apiKey != CredentialDefaults.FIELD_NOT_SET) {
+                                    clipboardManager.setText(AnnotatedString(apiKey))
+                                    onCopy(CopyAction.API_KEY)
+                                } else {
+                                    onNeedReveal()
+                                }
+                            }
+                        )
+                    },
+            ) {
+                Text(
+                    text = if (isRevealed) apiKey else maskPlaceholder,
+                    fontFamily = JetBrainsMonoFamily,
+                    fontSize = 13.sp,
+                    color = if (isRevealed) Primary else Color.Gray,
+                    maxLines = if (isRevealed) 3 else 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
 
             Spacer(modifier = Modifier.height(8.dp))
 
             // BASE_URL row (always visible)
             FieldLabel("BASE_URL")
             Spacer(modifier = Modifier.height(4.dp))
-            FieldValueBox(label = "", value = baseUrl, maxLines = 2)
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(SurfaceLow)
+                    .border(1.dp, Primary)
+                    .padding(12.dp)
+                    .pointerInput(Unit) {
+                        detectTapGestures(
+                            onLongPress = {
+                                if (baseUrl != CredentialDefaults.FIELD_NOT_SET) {
+                                    clipboardManager.setText(AnnotatedString(baseUrl))
+                                    onCopy(CopyAction.BASE_URL)
+                                }
+                            }
+                        )
+                    },
+            ) {
+                Text(
+                    text = baseUrl,
+                    fontFamily = JetBrainsMonoFamily,
+                    fontSize = 13.sp,
+                    color = Primary,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
         }
 
         else -> {

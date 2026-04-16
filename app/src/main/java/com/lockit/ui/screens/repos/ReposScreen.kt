@@ -465,8 +465,9 @@ fun ReposScreen(
                             CopyAction.VALUE -> extractSecretValue(cred.type, cred.value)
                             CopyAction.STRUCTURED -> buildJsonStructured(cred, fields)
                             CopyAction.EMAIL -> buildEmailAddress(fields)
-                            CopyAction.PHONE -> cred.service
-                            else -> extractSecretValue(cred.type, cred.value)
+                            CopyAction.PHONE -> fields.getOrNull(1)?.takeIf { it.isNotBlank() } ?: cred.service
+                            CopyAction.API_KEY -> fields.getOrNull(2)?.takeIf { it.isNotBlank() } ?: extractSecretValue(cred.type, cred.value)
+                            CopyAction.BASE_URL -> fields.getOrNull(5)?.takeIf { it.isNotBlank() } ?: extractSecretValue(cred.type, cred.value)
                         }
                         clipboardManager.setText(AnnotatedString(valueToCopy))
                         viewModel.logCredentialCopied(cred.name)

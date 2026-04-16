@@ -133,7 +133,7 @@ Compatible with Rust CLI (`lockit/crypto.rs`):
 [12-byte nonce][ciphertext + 16-byte GCM tag]
 ```
 
-Key derivation: Argon2id (memory=64MB, iterations=3, parallelism=4)
+Key derivation: Argon2id (memory=16MB, iterations=2, parallelism=1)
 
 ## License
 
