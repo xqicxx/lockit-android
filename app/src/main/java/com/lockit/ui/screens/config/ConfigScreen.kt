@@ -38,6 +38,8 @@ import androidx.compose.ui.unit.sp
 import com.lockit.LockitApp
 import com.lockit.data.database.LockitDatabase
 import com.lockit.data.sync.GoogleDriveSyncManager
+import com.lockit.data.updater.AppUpdater
+import com.lockit.data.updater.GitHubRelease
 import com.lockit.domain.model.Credential
 import com.lockit.ui.components.BrutalistButton
 import com.lockit.ui.components.BrutalistConfirmDialog
@@ -72,6 +74,15 @@ fun ConfigScreen(
     var showLockDialog by remember { mutableStateOf(false) }
     var showChangePinDialog by remember { mutableStateOf(false) }
     var toastMessage by remember { mutableStateOf<String?>(null) }
+
+    // App update
+    val appUpdater = remember { AppUpdater(context) }
+    var isCheckingUpdate by remember { mutableStateOf(false) }
+    var availableUpdate by remember { mutableStateOf<GitHubRelease?>(null) }
+    var showUpdateDialog by remember { mutableStateOf(false) }
+    var isDownloading by remember { mutableStateOf(false) }
+    var githubTokenCredentialName by remember { mutableStateOf("GITHUB_TOKEN") }
+    var showTokenConfigDialog by remember { mutableStateOf(false) }
 
     // Google Drive sync
     val syncManager = remember { GoogleDriveSyncManager(context) }
@@ -128,6 +139,37 @@ fun ConfigScreen(
             onSuccess = {
                 showChangePinDialog = false
                 toastMessage = "PASSWORD_CHANGED_SUCCESS"
+            },
+        )
+    }
+
+    // Update dialog
+    if (showUpdateDialog && availableUpdate != null) {
+        UpdateDialog(
+            release = availableUpdate!!,
+            onDismiss = { showUpdateDialog = false },
+            onDownload = {
+                showUpdateDialog = false
+                isDownloading = true
+                val apkUrl = availableUpdate?.apkUrl
+                if (apkUrl != null) {
+                    appUpdater.downloadApk(apkUrl)
+                    toastMessage = "DOWNLOAD_STARTED"
+                    isDownloading = false
+                }
+            },
+        )
+    }
+
+    // GitHub Token config dialog
+    if (showTokenConfigDialog) {
+        GitHubTokenConfigDialog(
+            currentName = githubTokenCredentialName,
+            onDismiss = { showTokenConfigDialog = false },
+            onSave = { newName ->
+                githubTokenCredentialName = newName
+                showTokenConfigDialog = false
+                toastMessage = "TOKEN_SOURCE_SET: $newName"
             },
         )
     }
@@ -344,6 +386,91 @@ fun ConfigScreen(
                     "ARGON2_ITERATIONS" to "3",
                     "ARGON2_PARALLELISM" to "4",
                 ),
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // Update Section
+            ConfigSection(
+                title = "UPGRADE",
+                content = {
+                    Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        // Current version info
+                        val packageInfo = context.packageManager.getPackageInfo(context.packageName, 0)
+                        val currentVersion = packageInfo.versionName ?: "Unknown"
+                        val currentVersionCode = packageInfo.longVersionCode.toInt()
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                        ) {
+                            Text(
+                                text = "当前版本",
+                                fontFamily = JetBrainsMonoFamily,
+                                fontSize = 10.sp,
+                                color = Color.Gray,
+                            )
+                            Text(
+                                text = "$currentVersion ($currentVersionCode)",
+                                fontFamily = JetBrainsMonoFamily,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = IndustrialOrange,
+                            )
+                        }
+
+                        // GitHub Token configuration
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                text = "Token来源",
+                                fontFamily = JetBrainsMonoFamily,
+                                fontSize = 10.sp,
+                                color = Color.Gray,
+                            )
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = githubTokenCredentialName,
+                                    fontFamily = JetBrainsMonoFamily,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = IndustrialOrange,
+                                    modifier = Modifier.clickable { showTokenConfigDialog = true },
+                                )
+                            }
+                        }
+
+                        BrutalistButton(
+                            text = if (isCheckingUpdate) "检查中..." else if (isDownloading) "下载中..." else "检查更新",
+                            onClick = {
+                                isCheckingUpdate = true
+                                scope.launch {
+                                    // Read GitHub Token from vault
+                                    val tokenCredential = app.vaultManager.getAllCredentials()
+                                        .first()
+                                        .find { it.name == githubTokenCredentialName }
+                                    val token = tokenCredential?.value
+                                    val result = appUpdater.checkForUpdate(currentVersionCode, token)
+                                    isCheckingUpdate = false
+                                    if (result.isFailure) {
+                                        toastMessage = "检查失败: ${result.exceptionOrNull()?.message}"
+                                    } else if (result.getOrNull() == null) {
+                                        toastMessage = "已是最新版本"
+                                    } else {
+                                        availableUpdate = result.getOrNull()
+                                        showUpdateDialog = true
+                                    }
+                                }
+                            },
+                            variant = ButtonVariant.Primary,
+                            modifier = Modifier.fillMaxWidth(),
+                            useMonoFont = true,
+                            enabled = !isCheckingUpdate && !isDownloading,
+                        )
+                    }
+                },
             )
 
             Spacer(modifier = Modifier.height(24.dp))
@@ -704,6 +831,163 @@ private fun ConfigSection(
 
         if (content != null) {
             content()
+        }
+    }
+}
+
+/**
+ * Update dialog showing new version info and download button.
+ */
+@Composable
+private fun UpdateDialog(
+    release: GitHubRelease,
+    onDismiss: () -> Unit,
+    onDownload: () -> Unit,
+) {
+    androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(White)
+                .border(2.dp, Color.Black)
+                .padding(24.dp),
+        ) {
+            Text(
+                text = "发现新版本 ${release.versionName}",
+                fontFamily = JetBrainsMonoFamily,
+                fontWeight = FontWeight.Bold,
+                fontSize = 14.sp,
+                color = IndustrialOrange,
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Changelog
+            if (release.changelog.isNotBlank()) {
+                Text(
+                    text = "更新日志",
+                    fontFamily = JetBrainsMonoFamily,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Primary,
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(100.dp)
+                        .border(1.dp, Color.Gray)
+                        .padding(8.dp),
+                ) {
+                    Text(
+                        text = release.changelog,
+                        fontFamily = JetBrainsMonoFamily,
+                        fontSize = 9.sp,
+                        color = Color.Gray,
+                    )
+                }
+            }
+
+            // Download size
+            if (release.downloadSize != null && release.downloadSize > 0) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "大小: ${release.downloadSize / 1024 / 1024} MB",
+                    fontFamily = JetBrainsMonoFamily,
+                    fontSize = 9.sp,
+                    color = Color.Gray,
+                )
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                BrutalistButton(
+                    text = "稍后",
+                    onClick = onDismiss,
+                    variant = ButtonVariant.Secondary,
+                    modifier = Modifier.weight(1f),
+                    useMonoFont = true,
+                )
+                BrutalistButton(
+                    text = "下载更新",
+                    onClick = onDownload,
+                    variant = ButtonVariant.Primary,
+                    modifier = Modifier.weight(1f),
+                    useMonoFont = true,
+                    enabled = release.apkUrl != null,
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Dialog for configuring GitHub Token credential source.
+ */
+@Composable
+private fun GitHubTokenConfigDialog(
+    currentName: String,
+    onDismiss: () -> Unit,
+    onSave: (String) -> Unit,
+) {
+    var newName by remember { mutableStateOf(currentName) }
+
+    androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(White)
+                .border(2.dp, Color.Black)
+                .padding(24.dp),
+        ) {
+            Text(
+                text = "配置 GitHub Token",
+                fontFamily = JetBrainsMonoFamily,
+                fontWeight = FontWeight.Bold,
+                fontSize = 14.sp,
+                color = Primary,
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Text(
+                text = "输入存储 GitHub Token 的凭据名称。Lockit 将自动读取该凭据的值作为 API 认证令牌（支持私有仓库）。",
+                fontFamily = JetBrainsMonoFamily,
+                fontSize = 10.sp,
+                color = Color.Gray,
+                lineHeight = 14.sp,
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+
+            BrutalistTextField(
+                value = newName,
+                onValueChange = { newName = it },
+                label = "TOKEN_CREDENTIAL_NAME",
+                placeholder = "例如: GITHUB_TOKEN",
+            )
+            Spacer(modifier = Modifier.height(24.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                BrutalistButton(
+                    text = "取消",
+                    onClick = onDismiss,
+                    variant = ButtonVariant.Secondary,
+                    modifier = Modifier.weight(1f),
+                    useMonoFont = true,
+                )
+                BrutalistButton(
+                    text = "保存",
+                    onClick = { onSave(newName) },
+                    variant = ButtonVariant.Primary,
+                    modifier = Modifier.weight(1f),
+                    useMonoFont = true,
+                )
+            }
         }
     }
 }
