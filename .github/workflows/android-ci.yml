@@ -3,12 +3,8 @@ name: Android CI
 on:
   pull_request:
     branches: [ master ]
-    paths:
-      - 'app/**'
-      - '**.gradle'
-      - '**.gradle.kts'
-      - 'gradle.properties'
-      - 'gradle/wrapper/**'
+    types: [ready_for_review]  # Only trigger when PR marked ready for review
+  workflow_dispatch:  # Allow manual trigger
 
 permissions:
   contents: read
