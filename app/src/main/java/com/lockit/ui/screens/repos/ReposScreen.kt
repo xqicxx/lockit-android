@@ -1047,7 +1047,8 @@ private fun CodingPlanBoard(
 @Composable
 private fun QuotaGauge(label: String, used: Int, total: Int, modifier: Modifier = Modifier) {
     Column(modifier = modifier) {
-        val pct = if (total > 0) (used * 100 / total) else 0
+        // Use Long to prevent integer overflow when used > 21.4M tokens
+        val pct = if (total > 0) (used.toLong() * 100 / total).coerceIn(0, 100).toInt() else 0
         val barColor = when {
             pct >= 90 -> TacticalRed
             pct >= 70 -> IndustrialOrange
