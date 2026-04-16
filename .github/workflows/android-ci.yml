@@ -6,6 +6,11 @@ on:
   push:
     branches: [ master ]
 
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -39,6 +44,7 @@ jobs:
   review:
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request'
+    needs: build
 
     steps:
     - name: Checkout code
@@ -57,7 +63,7 @@ jobs:
           const kotlinFiles = files.filter(f => f.filename.endsWith('.kt'));
           const totalChanges = files.reduce((sum, f) => sum + (f.additions + f.deletions), 0);
 
-          const body = `## 🔍 Code Review Summary
+          const body = `## Code Review Summary
 
           **Files changed:** ${files.length}
           **Kotlin files:** ${kotlinFiles.length}
@@ -67,7 +73,7 @@ jobs:
           ${kotlinFiles.map(f => `- ${f.filename}`).join('\n')}
 
           ---
-          🤖 Automated by GitHub Actions`;
+          Automated by GitHub Actions`;
 
           await github.rest.issues.createComment({
             owner: context.repo.owner,

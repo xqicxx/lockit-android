@@ -1,6 +1,8 @@
 package com.lockit.data.biometric
 
+import android.annotation.TargetApi
 import android.content.SharedPreferences
+import android.os.Build
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import androidx.biometric.BiometricManager
@@ -38,23 +40,43 @@ class BiometricPinStorage(private val sharedPreferences: SharedPreferences) {
         ) == BiometricManager.BIOMETRIC_SUCCESS
     }
 
+    @TargetApi(30)
+    private fun createKeyGenSpecForApi30(): KeyGenParameterSpec {
+        return KeyGenParameterSpec.Builder(
+            KEY_ALIAS,
+            KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT
+        )
+            .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
+            .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
+            .setUserAuthenticationRequired(true)
+            .setUserAuthenticationParameters(0, KeyProperties.AUTH_BIOMETRIC_STRONG)
+            .build()
+    }
+
+    private fun createKeyGenSpecForApi26(): KeyGenParameterSpec {
+        return KeyGenParameterSpec.Builder(
+            KEY_ALIAS,
+            KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT
+        )
+            .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
+            .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
+            .setUserAuthenticationRequired(true)
+            .setUserAuthenticationValidityDurationSeconds(30)  // Fallback for API 26-29
+            .build()
+    }
+
     fun storePin(activity: FragmentActivity, pin: String, onSuccess: () -> Unit, onError: (String) -> Unit) {
         val cipher = try {
             val keyStore = KeyStore.getInstance("AndroidKeyStore")
             keyStore.load(null)
 
             val keyGenerator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore")
-            keyGenerator.init(
-                KeyGenParameterSpec.Builder(
-                    KEY_ALIAS,
-                    KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT
-                )
-                    .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
-                    .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
-                    .setUserAuthenticationRequired(true)
-                    .setUserAuthenticationParameters(0, KeyProperties.AUTH_BIOMETRIC_STRONG)
-                    .build()
-            )
+            val spec = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                createKeyGenSpecForApi30()
+            } else {
+                createKeyGenSpecForApi26()
+            }
+            keyGenerator.init(spec)
             keyGenerator.generateKey()
 
             val secretKey = keyStore.getKey(KEY_ALIAS, null) as SecretKey
