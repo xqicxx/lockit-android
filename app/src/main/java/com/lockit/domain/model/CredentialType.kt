@@ -49,6 +49,7 @@ enum class CredentialType(
             CredentialField("TOKEN_TYPE", "Select token type", presets = listOf(
                 "Personal Access Token", "SSH Key", "OAuth App", "GitHub App",
             ), isDropdown = true, editable = false),
+            CredentialField("ACCOUNT", "GitHub username (e.g. octocat)..."),
             CredentialField("TOKEN_VALUE", "Paste token or SSH key..."),
             CredentialField("SCOPE", "Select scopes (multi-select)", presets = listOf(
                 "repo", "workflow", "admin:org", "admin:repo_hook", "write:packages",
@@ -56,7 +57,6 @@ enum class CredentialType(
                 "user:email", "user:follow", "read:org", "write:org",
                 "public_repo", "repo:status", "repo_deployment", "security_events",
             ), isDropdown = false, showAsChips = true),
-            CredentialField("ACCOUNT", "GitHub username (e.g. octocat)..."),
         ),
     ),
     Account(
@@ -299,7 +299,7 @@ val CredentialType.requiredFieldIndices: Set<Int>
         CredentialType.Account -> setOf(0, 3)
         CredentialType.Password -> setOf(0, 3)
         // GitHub: NAME + TOKEN_VALUE required
-        CredentialType.GitHub -> setOf(0, 2)
+        CredentialType.GitHub -> setOf(0, 3)
         // Single-field types: only the first field is required
         CredentialType.Phone -> setOf(0)       // just phone number
         CredentialType.BankCard -> setOf(0)
