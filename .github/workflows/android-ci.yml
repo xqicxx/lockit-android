@@ -90,5 +90,5 @@ jobs:
             owner: context.repo.owner,
             repo: context.repo.repo,
             issue_number: context.issue.number,
-            body: '@gemini-code-assist Please review this PR for security, performance, and code quality issues.'
+            body: '@gemini Please review this PR for security, performance, and code quality issues.'
           });
