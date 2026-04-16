@@ -15,11 +15,67 @@ Lockit is a secure credential manager Android app using Technical Brutalism desi
 ## Security Requirements
 
 - AES-256-GCM encryption for credential values
-- Argon2id key derivation (memory=64MB, iterations=3, parallelism=4)
+- Argon2id key derivation (memory=16MB, iterations=2, parallelism=1)
 - Biometric authentication before revealing secrets
 - Audit logging for all security events
 
-## Code Style
+## ⚠️ CRITICAL: What Gemini MUST Review
+
+**ONLY comment on these CRITICAL issues:**
+
+1. **Crash risks** - Null pointer, type mismatch, array out of bounds
+2. **Memory leaks** - Unclosed resources, listener leaks, unbounded collections
+3. **Concurrency bugs** - Deadlock, race conditions, improper synchronization
+4. **Logic bugs** - Wrong algorithm, incorrect conditionals, data flow errors
+5. **Security vulnerabilities** - OWASP top 10 (injection, XSS, unsafe crypto)
+
+## 🚫 FORBIDDEN: What Gemini MUST NOT Review
+
+**DO NOT comment on these - they are handled by Android Lint:**
+
+| Forbidden Topic | Why |
+|-----------------|-----|
+| Variable naming | Lint handles naming conventions |
+| Code indentation | Lint handles formatting |
+| Spacing/brackets | Lint handles style |
+| Design pattern suggestions | Subjective - not critical |
+| Syntax sugar preferences | Optional - not critical |
+| Minor optimizations | Nitpicking - not critical |
+| "Could be more readable" | Subjective opinion |
+| "Consider refactoring" | Not a crash/security issue |
+
+## Response Rules
+
+- **Found critical issue?** → Comment with specific fix
+- **No critical issues?** → Output `LGTM` only
+- **Found style issue?** → Ignore it (Lint's job)
+- **Found subjective suggestion?** → Ignore it (not critical)
+
+## Example: Correct vs Wrong Review
+
+### ✅ CORRECT (Critical Issue)
+```
+Line 45: Potential NullPointerException
+- `credential.value` is used without null check
+- If value is null, app will crash when decrypting
+- Fix: Add null check or use requireNotNull()
+```
+
+### ❌ WRONG (Nitpick - IGNORE)
+```
+Line 45: Variable name `value` could be more descriptive
+- Consider using `credentialValue` instead
+```
+**→ This comment should NOT be made. Naming is Lint's job.**
+
+### ❌ WRONG (Subjective - IGNORE)
+```
+Line 50: This could be refactored into a separate utility function
+- Would improve code organization
+```
+**→ This comment should NOT be made. Not a crash/security issue.**
+
+## Code Style (Reference Only - Not for Review)
 
 - Kotlin naming conventions
 - Compose for UI, no XML layouts
@@ -27,10 +83,4 @@ Lockit is a secure credential manager Android app using Technical Brutalism desi
 - Coroutines for async operations
 - Clean function names, no abbreviations
 
-## What to Review
-
-1. Security vulnerabilities (OWASP top 10)
-2. Performance issues (unnecessary recomposition, memory leaks)
-3. Code quality (duplicate code, parameter sprawl)
-4. Best practices (Compose patterns, Kotlin idioms)
-5. Design consistency (brutalist constraints)
+**Note: Style violations are caught by `./gradlew lintDebug`, not Gemini.**
