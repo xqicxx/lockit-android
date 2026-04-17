@@ -237,4 +237,34 @@
     <string name="repos_quota_cookie_expired">Cookie expired</string>
     <string name="repos_quota_no_data">No data available</string>
     <string name="repos_quota_retry_hint">Please check credential or tap REFRESH to retry</string>
+
+    <!-- Logs Screen -->
+    <string name="logs_title">Audit Log</string>
+    <string name="logs_subtitle">Security event timeline // Local device only // 30 days</string>
+    <string name="logs_event_stream">EVENT_STREAM</string>
+    <string name="logs_entries">%1$d entries</string>
+    <string name="logs_no_events">NO_AUDIT_EVENTS</string>
+    <string name="logs_storage_local">STORAGE: LOCAL_DEVICE_ONLY</string>
+    <string name="logs_retention">RETENTION: 30_DAYS</string>
+    <string name="logs_encryption">ENCRYPTION: AES-256-GCM</string>
+
+    <!-- Audit Action Names -->
+    <string name="action_vault_initialized">VAULT_INITIALIZED</string>
+    <string name="action_vault_unlocked">VAULT_UNLOCKED</string>
+    <string name="action_vault_unlock_failed">VAULT_UNLOCK_FAILED</string>
+    <string name="action_vault_locked">VAULT_LOCKED</string>
+    <string name="action_password_changed">PASSWORD_CHANGED</string>
+    <string name="action_credential_created">CREDENTIAL_CREATED</string>
+    <string name="action_credential_updated">CREDENTIAL_UPDATED</string>
+    <string name="action_credential_deleted">CREDENTIAL_DELETED</string>
+    <string name="action_credential_viewed">CREDENTIAL_VIEWED</string>
+    <string name="action_credential_copied">CREDENTIAL_COPIED</string>
+
+    <!-- Quota Gauge Labels -->
+    <string name="quota_5h">5H</string>
+    <string name="quota_week">WEEK</string>
+    <string name="quota_month">MONTH</string>
+
+    <!-- Credential Type Display -->
+    <string name="type_id_card">ID CARD</string>
 </resources>

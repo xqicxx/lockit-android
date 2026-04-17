@@ -779,7 +779,7 @@ internal fun CompactCredentialRow(
                 CredentialType.Phone -> credential.displayTitle()
                 CredentialType.Email -> "EMAIL"
                 CredentialType.BankCard -> "CARD ****${credential.name.takeLast(4)}"
-                CredentialType.IdCard -> "ID CARD"
+                CredentialType.IdCard -> stringResource(R.string.type_id_card)
                 else -> credential.displayTitle()
             }
             Text(
@@ -1011,9 +1011,9 @@ private fun CodingPlanBoard(
 
             // Quota gauges
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                QuotaGauge("5H", quota.fiveHourUsed, quota.fiveHourTotal, Modifier.weight(1f))
-                QuotaGauge("WEEK", quota.weekUsed, quota.weekTotal, Modifier.weight(1f))
-                QuotaGauge("MONTH", quota.monthUsed, quota.monthTotal, Modifier.weight(1f))
+                QuotaGauge(stringResource(R.string.quota_5h), quota.fiveHourUsed, quota.fiveHourTotal, Modifier.weight(1f))
+                QuotaGauge(stringResource(R.string.quota_week), quota.weekUsed, quota.weekTotal, Modifier.weight(1f))
+                QuotaGauge(stringResource(R.string.quota_month), quota.monthUsed, quota.monthTotal, Modifier.weight(1f))
             }
         } else {
             // Error or empty state

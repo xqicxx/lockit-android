@@ -237,4 +237,34 @@
     <string name="repos_quota_cookie_expired">COOKIE已过期</string>
     <string name="repos_quota_no_data">暂无数据</string>
     <string name="repos_quota_retry_hint">请检查凭据或点击刷新重试</string>
+
+    <!-- Logs Screen -->
+    <string name="logs_title">审计日志</string>
+    <string name="logs_subtitle">安全事件时间线 // 仅本地设备 // 30天</string>
+    <string name="logs_event_stream">事件流</string>
+    <string name="logs_entries">%1$d 条目</string>
+    <string name="logs_no_events">无审计事件</string>
+    <string name="logs_storage_local">存储: 仅本地设备</string>
+    <string name="logs_retention">保留: 30天</string>
+    <string name="logs_encryption">加密: AES-256-GCM</string>
+
+    <!-- Audit Action Names -->
+    <string name="action_vault_initialized">密码库初始化</string>
+    <string name="action_vault_unlocked">密码库解锁</string>
+    <string name="action_vault_unlock_failed">密码库解锁失败</string>
+    <string name="action_vault_locked">密码库锁定</string>
+    <string name="action_password_changed">密码已更改</string>
+    <string name="action_credential_created">凭据已创建</string>
+    <string name="action_credential_updated">凭据已更新</string>
+    <string name="action_credential_deleted">凭据已删除</string>
+    <string name="action_credential_viewed">凭据已查看</string>
+    <string name="action_credential_copied">凭据已复制</string>
+
+    <!-- Quota Gauge Labels -->
+    <string name="quota_5h">5小时</string>
+    <string name="quota_week">周</string>
+    <string name="quota_month">月</string>
+
+    <!-- Credential Type Display -->
+    <string name="type_id_card">身份证</string>
 </resources>

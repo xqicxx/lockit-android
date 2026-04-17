@@ -112,11 +112,11 @@ class VaultExplorerViewModel(private val app: LockitApp) : ViewModel() {
             .launchIn(viewModelScope)
     }
 
-    fun deleteCredential(credential: Credential, context: android.content.Context) {
+    fun deleteCredential(credential: Credential) {
         viewModelScope.launch {
             try {
                 app.vaultManager.deleteCredential(credential)
-                _toastMessage.value = context.getString(R.string.toast_credential_deleted, credential.name)
+                _toastMessage.value = app.getString(R.string.toast_credential_deleted, credential.name)
             } catch (e: Exception) {
                 _toastMessage.value = "ERROR: ${e.message}"
             }
@@ -319,7 +319,7 @@ fun VaultExplorerScreen(
                         }
                     },
                     onNeedReveal = { handleReveal(credential) },
-                    onDelete = { viewModel.deleteCredential(credential, context) },
+                    onDelete = { viewModel.deleteCredential(credential) },
                     onEdit = { onNavigateToEdit(credential.id) },
                     isRevealed = revealedCredentialIds.contains(credential.id),
                     onHide = { revealedCredentialIds.remove(credential.id) },
