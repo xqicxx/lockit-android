@@ -2,11 +2,8 @@ package com.lockit.ui.screens.edit_credential
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -33,6 +30,7 @@ import com.lockit.LockitApp
 import com.lockit.domain.model.Credential
 import com.lockit.domain.model.CredentialType
 import com.lockit.domain.model.requiredFieldIndices
+import com.lockit.ui.components.BackButtonRow
 import com.lockit.ui.components.BrutalistButton
 import com.lockit.ui.components.BrutalistTextField
 import com.lockit.ui.components.BrutalistToast
@@ -44,7 +42,6 @@ import com.lockit.ui.components.ScreenHero
 import com.lockit.ui.components.ChipGroup
 import com.lockit.ui.components.parseCredentialFields
 import com.lockit.ui.theme.JetBrainsMonoFamily
-import com.lockit.ui.theme.Primary
 import com.lockit.ui.theme.TacticalRed
 import com.lockit.ui.theme.White
 import kotlinx.coroutines.flow.first
@@ -252,21 +249,7 @@ private fun EditCredentialForm(
                 .verticalScroll(rememberScrollState())
                 .padding(16.dp),
         ) {
-            // Back button row (consistent with ReposScreen style)
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { onBack() }
-                    .padding(bottom = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    text = "< BACK",
-                    fontFamily = JetBrainsMonoFamily,
-                    fontSize = 10.sp,
-                    color = Primary,
-                )
-            }
+            BackButtonRow(onBack = onBack)
 
             ScreenHero(
                 title = "Edit Credential",

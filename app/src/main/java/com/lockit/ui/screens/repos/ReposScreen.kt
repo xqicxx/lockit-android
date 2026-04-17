@@ -64,6 +64,7 @@ import com.lockit.domain.CodingPlanFetchers
 import com.lockit.domain.CodingPlanPrefetchState
 import com.lockit.domain.model.Credential
 import com.lockit.domain.model.CredentialType
+import com.lockit.ui.components.BackButtonRow
 import com.lockit.ui.components.BrutalistEmptyState
 import com.lockit.ui.components.BrutalistPinVerifyDialog
 import com.lockit.ui.components.BrutalistTopBar
@@ -516,25 +517,13 @@ fun ReposScreen(
             ) {
                 Spacer(modifier = Modifier.height(24.dp))
 
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable {
-                            selectedService = null
-                            revealedCredentialIds.clear()
-                            revealedEmailPasswordMap.clear()
-                        }
-                        .padding(bottom = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    Text(
-                        text = stringResource(R.string.repos_back),
-                        fontFamily = JetBrainsMonoFamily,
-                        fontSize = 10.sp,
-                        color = Primary,
-                    )
-                }
+                BackButtonRow(
+                    onBack = {
+                        selectedService = null
+                        revealedCredentialIds.clear()
+                        revealedEmailPasswordMap.clear()
+                    },
+                )
 
                 ScreenHero(
                     title = selectedService!!.uppercase(),
