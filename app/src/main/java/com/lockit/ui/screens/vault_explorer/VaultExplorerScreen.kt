@@ -236,7 +236,7 @@ fun VaultExplorerScreen(
 
         LazyColumn(
             modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
-            contentPadding = PaddingValues(bottom = 140.dp),
+            contentPadding = PaddingValues(top = 16.dp, bottom = 140.dp),
         ) {
             item {
                 ScreenHero(
