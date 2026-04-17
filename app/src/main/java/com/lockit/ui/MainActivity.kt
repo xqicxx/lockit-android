@@ -164,6 +164,7 @@ private fun MainFlow(app: LockitApp) {
     var currentScreen by remember { mutableStateOf(AppScreen.Repos) }
     var selectedCredentialId by remember { mutableStateOf<String?>(null) }
     var editingCredentialId by remember { mutableStateOf<String?>(null) }
+    var reposSelectedService by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(currentScreen) {
         if (currentScreen != AppScreen.SecretDetails) {
@@ -179,9 +180,11 @@ private fun MainFlow(app: LockitApp) {
         currentScreen = currentScreen,
         selectedCredentialId = selectedCredentialId,
         editingCredentialId = editingCredentialId,
+        reposSelectedService = reposSelectedService,
         onScreenChange = { currentScreen = it },
         onCredentialSelected = { id -> selectedCredentialId = id },
         onCredentialEdit = { id -> editingCredentialId = id; currentScreen = AppScreen.EditCredential },
+        onReposServiceSelected = { reposSelectedService = it },
         onLockVault = {
             app.vaultManager.lockVault()
             isVaultUnlocked = false
@@ -196,9 +199,11 @@ private fun MainScaffold(
     currentScreen: AppScreen,
     selectedCredentialId: String?,
     editingCredentialId: String?,
+    reposSelectedService: String?,
     onScreenChange: (AppScreen) -> Unit,
     onCredentialSelected: (String) -> Unit,
     onCredentialEdit: (String) -> Unit,
+    onReposServiceSelected: (String?) -> Unit,
     onLockVault: () -> Unit,
 ) {
     // Handle Android back button for secondary screens
@@ -240,6 +245,8 @@ private fun MainScaffold(
                 AppScreen.Repos -> ReposScreen(
                     app = app,
                     onCredentialEdit = onCredentialEdit,
+                    selectedService = reposSelectedService,
+                    onServiceSelected = onReposServiceSelected,
                 )
 
                 AppScreen.VaultExplorer -> VaultExplorerScreen(
