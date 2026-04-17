@@ -6,6 +6,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.compose.BackHandler
 import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
@@ -182,6 +183,13 @@ private fun MainScaffold(
     onCredentialEdit: (String) -> Unit,
     onLockVault: () -> Unit,
 ) {
+    // Handle Android back button for secondary screens
+    BackHandler(enabled = currentScreen == AppScreen.SecretDetails
+        || currentScreen == AppScreen.AddCredential
+        || currentScreen == AppScreen.EditCredential) {
+        onScreenChange(AppScreen.VaultExplorer)
+    }
+
     Scaffold(
         bottomBar = {
             if (currentScreen == AppScreen.VaultExplorer || currentScreen == AppScreen.Config
