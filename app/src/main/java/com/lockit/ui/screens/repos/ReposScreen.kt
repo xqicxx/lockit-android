@@ -111,6 +111,8 @@ class ReposViewModel(app: LockitApp) : ViewModel() {
                 all.filter { it.type == CredentialType.CodingPlan }
             } else if (service == "ACCOUNT") {
                 all.filter { it.type == CredentialType.Account }
+            } else if (service == "GITHUB") {
+                all.filter { it.type == CredentialType.GitHub }
             } else {
                 all.filter { it.service.uppercase() == service }
             }
@@ -245,6 +247,7 @@ fun ReposScreen(
                 if (it.type == CredentialType.Email) "EMAIL"
                 else if (it.type == CredentialType.CodingPlan) "CODING_PLAN"
                 else if (it.type == CredentialType.Account) "ACCOUNT"
+                else if (it.type == CredentialType.GitHub) "GITHUB"
                 else it.service.uppercase()
             }
             .mapValues { it.value.size }

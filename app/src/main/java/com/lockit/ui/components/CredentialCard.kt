@@ -33,6 +33,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -63,11 +64,17 @@ fun parseCredentialFields(value: String): List<String> {
 }
 
 /**
+ * Extension function to get a non-blank field value from parsed fields.
+ * Returns null if index out of bounds or value is blank.
+ */
+fun List<String>.getNotBlank(index: Int): String? = getOrNull(index)?.takeIf { it.isNotBlank() }
+
+/**
  * Build human-readable email address from parsed credential fields.
  */
 fun buildEmailAddress(fields: List<String>): String {
-    val prefix = fields.getOrNull(1)?.takeIf { it.isNotBlank() } ?: CredentialDefaults.UNKNOWN
-    val provider = fields.getOrNull(0)?.takeIf { it.isNotBlank() }?.trimStart('@')
+    val prefix = fields.getNotBlank(1) ?: CredentialDefaults.UNKNOWN
+    val provider = fields.getNotBlank(0)?.trimStart('@')
     return if (provider != null) "$prefix@$provider" else prefix
 }
 
@@ -76,7 +83,7 @@ fun buildEmailAddress(fields: List<String>): String {
  */
 fun extractEmailPassword(value: String): String {
     val fields = parseCredentialFields(value)
-    return fields.getOrNull(2)?.takeIf { it.isNotBlank() } ?: CredentialDefaults.NOT_SET
+    return fields.getNotBlank(2) ?: CredentialDefaults.NOT_SET
 }
 
 /**
@@ -119,7 +126,7 @@ fun buildJsonStructured(credential: Credential, fields: List<String>): String {
         if (credential.service.isNotBlank()) append("  \"service\": \"${escapeJsonString(credential.service)}\",\n")
         if (credential.key.isNotBlank()) append("  \"key\": \"${escapeJsonString(credential.key)}\",\n")
         credential.type.fields.forEachIndexed { index, field ->
-            val value = fields.getOrNull(index)?.takeIf { it.isNotBlank() }
+            val value = fields.getNotBlank(index)
             if (value != null) {
                 val fieldName = field.label.lowercase().replace(" ", "_")
                 append("  \"$fieldName\": \"${escapeJsonString(value)}\",\n")
@@ -140,16 +147,13 @@ fun extractSecretValue(type: CredentialType, value: String): String {
         CredentialType.IdCard, CredentialType.Note -> value
         CredentialType.CodingPlan -> {
             val fields = parseCredentialFields(value)
-            val rawCurl = fields.getOrNull(1)?.takeIf { it.isNotBlank() }
-            val apiKey = fields.getOrNull(2)?.takeIf { it.isNotBlank() }
-            rawCurl ?: apiKey ?: value
+            fields.getNotBlank(1) ?: fields.getNotBlank(2) ?: value
         }
         CredentialType.GitHub -> {
-            // GitHub: TOKEN_VALUE is at index 3
             val fields = parseCredentialFields(value)
-            fields.getOrNull(3)?.takeIf { it.isNotBlank() } ?: value
+            fields.getNotBlank(3) ?: value
         }
-        else -> parseCredentialFields(value).lastOrNull()?.takeIf { it.isNotBlank() } ?: value
+        else -> parseCredentialFields(value).getNotBlank(parseCredentialFields(value).lastIndex) ?: value
     }
 }
 
@@ -352,8 +356,9 @@ private fun CardHeader(
             )
         }
         Row {
-            // Reveal/hide button for types that need it
-            if (!alwaysVisible && credential.type != CredentialType.CodingPlan) {
+            // Reveal/hide button in header ONLY for types that don't have inline reveal in content
+            // CodingPlan and GitHub have RevealableValueBox in content, so skip header icon
+            if (!alwaysVisible && credential.type != CredentialType.CodingPlan && credential.type != CredentialType.GitHub) {
                 IconButtonBox(
                     icon = if (isRevealed) Icons.Default.VisibilityOff else Icons.Default.Visibility,
                     description = if (isRevealed) "Hide value" else "Reveal value",
@@ -389,11 +394,11 @@ private fun CredentialContent(
     when (credential.type) {
         CredentialType.Phone -> {
             // Phone: show number, note, region
-            val phoneNumber = fields.getOrNull(1)?.takeIf { it.isNotBlank() }
+            val phoneNumber = fields.getNotBlank(1)
                 ?: credential.service.takeIf { it.isNotBlank() }
                 ?: CredentialDefaults.UNKNOWN
-            val region = fields.getOrNull(0)?.takeIf { it.isNotBlank() } ?: ""
-            val note = fields.getOrNull(2)?.takeIf { it.isNotBlank() }
+            val region = fields.getNotBlank(0) ?: ""
+            val note = fields.getNotBlank(2)
 
             FieldValueBox(label = "PHONE NUMBER", value = phoneNumber)
             if (note != null) {
@@ -409,7 +414,7 @@ private fun CredentialContent(
         CredentialType.Email -> {
             // Email: show address + password (password needs reveal)
             val emailAddress = buildEmailAddress(fields)
-            val password = fields.getOrNull(2)?.takeIf { it.isNotBlank() } ?: CredentialDefaults.NOT_SET
+            val password = fields.getNotBlank(2) ?: CredentialDefaults.NOT_SET
 
             FieldValueBox(label = "EMAIL", value = emailAddress)
             Spacer(modifier = Modifier.height(8.dp))
@@ -448,8 +453,8 @@ private fun CredentialContent(
 
         CredentialType.CodingPlan -> {
             // CodingPlan: API_KEY + BASE_URL
-            val apiKey = fields.getOrNull(2)?.takeIf { it.isNotBlank() } ?: CredentialDefaults.FIELD_NOT_SET
-            val baseUrl = fields.getOrNull(5)?.takeIf { it.isNotBlank() } ?: CredentialDefaults.FIELD_NOT_SET
+            val apiKey = fields.getNotBlank(2) ?: CredentialDefaults.FIELD_NOT_SET
+            val baseUrl = fields.getNotBlank(5) ?: CredentialDefaults.FIELD_NOT_SET
 
             // API_KEY - revealable
             RevealableValueBox(
@@ -498,10 +503,12 @@ private fun CredentialContent(
         }
 
         CredentialType.GitHub -> {
-            // GitHub: show TOKEN_VALUE with reveal toggle
-            val tokenValue = fields.getOrNull(3)?.takeIf { it.isNotBlank() } ?: CredentialDefaults.FIELD_NOT_SET
-            val account = fields.getOrNull(2)?.takeIf { it.isNotBlank() }
-            val tokenType = fields.getOrNull(1)?.takeIf { it.isNotBlank() }
+            // GitHub: show TOKEN_VALUE with reveal toggle, plus NAME, ACCOUNT, TYPE, SCOPE
+            val name = fields.getNotBlank(0)
+            val tokenType = fields.getNotBlank(1)
+            val account = fields.getNotBlank(2)
+            val tokenValue = fields.getNotBlank(3) ?: CredentialDefaults.FIELD_NOT_SET
+            val scope = fields.getNotBlank(4)
 
             // TOKEN_VALUE - revealable
             RevealableValueBox(
@@ -516,15 +523,11 @@ private fun CredentialContent(
                 clipboardManager = clipboardManager,
             )
 
-            // Show account and token type if available
-            if (account != null) {
-                Spacer(modifier = Modifier.height(8.dp))
-                FieldLabelValueRow("ACCOUNT", account)
-            }
-            if (tokenType != null) {
-                Spacer(modifier = Modifier.height(4.dp))
-                FieldLabelValueRow("TYPE", tokenType)
-            }
+            // Show optional fields with consistent spacing
+            OptionalFieldRow("NAME", name, showIf = { it != credential.name })
+            OptionalFieldRow("ACCOUNT", account)
+            OptionalFieldRow("TYPE", tokenType)
+            OptionalFieldRow("SCOPE", scope)
         }
 
         else -> {
@@ -553,6 +556,23 @@ private fun FieldLabelValueRow(label: String, value: String) {
     ) {
         FieldLabel(label)
         FieldValue(value)
+    }
+}
+
+/**
+ * Helper composable for optional field rows with consistent spacing.
+ * Only renders if value is non-null and passes showIf condition.
+ */
+@Composable
+private fun OptionalFieldRow(
+    label: String,
+    value: String?,
+    spacerHeight: Dp = 8.dp,
+    showIf: (String) -> Boolean = { true },
+) {
+    if (value != null && showIf(value)) {
+        Spacer(modifier = Modifier.height(spacerHeight))
+        FieldLabelValueRow(label, value)
     }
 }
 

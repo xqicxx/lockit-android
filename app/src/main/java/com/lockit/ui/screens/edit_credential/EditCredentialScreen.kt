@@ -136,8 +136,18 @@ private fun EditCredentialForm(
                 if (baseUrl?.isNotBlank() == true) baseUrl else fields.getOrElse(5) { "" },  // 5: BASE_URL
             )
         } else {
-            val rawValues = listOf(credential.name, credential.service, credential.key, credential.value)
-            mutableStateListOf(*Array(fieldCount) { rawValues.getOrElse(it) { "" } })
+            // For non-CodingPlan types: parse combined value into individual fields
+            val fields = parseCredentialFields(credential.value)
+            mutableStateListOf(
+                credential.name,                                           // 0: NAME (stored separately)
+                credential.service.takeIf { it.isNotBlank() } ?: fields.getOrElse(1) { "" }, // 1: service or field[1]
+                credential.key.takeIf { it.isNotBlank() } ?: fields.getOrElse(2) { "" },     // 2: key or field[2]
+                fields.getOrElse(3) { "" },                                // 3: field[3]
+                fields.getOrElse(4) { "" },                                // 4: field[4]
+                fields.getOrElse(5) { "" },                                // 5: field[5] (for types with 6+ fields)
+                fields.getOrElse(6) { "" },                                // 6: additional fields
+                fields.getOrElse(7) { "" },                                // 7: additional fields
+            )
         }
     }
     val fieldErrors = remember {

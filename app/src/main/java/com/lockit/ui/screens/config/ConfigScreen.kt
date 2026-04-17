@@ -57,6 +57,7 @@ import com.lockit.ui.components.BrutalistTopBar
 import com.lockit.ui.components.ButtonVariant
 import com.lockit.ui.components.ScreenHero
 import com.lockit.ui.components.TerminalFooter
+import com.lockit.ui.components.parseCredentialFields
 import com.lockit.ui.theme.IndustrialOrange
 import com.lockit.ui.theme.JetBrainsMonoFamily
 import com.lockit.ui.theme.Primary
@@ -546,7 +547,10 @@ fun ConfigScreen(
                                     val tokenCredential = app.vaultManager.getAllCredentials()
                                         .first()
                                         .find { it.name == githubTokenCredentialName }
-                                    val token = tokenCredential?.value
+                                    // Parse combined value to extract TOKEN_VALUE (index 3)
+                                    // For GitHub/Token/ApiKey types, the secret is always at field index 3
+                                    val fields = tokenCredential?.value?.let { parseCredentialFields(it) }
+                                    val token = fields?.getOrNull(3)?.takeIf { it.isNotBlank() }
                                     lastCheckedToken = token // Store for download
                                     val result = appUpdater.checkForUpdate(currentVersionCode, token)
                                     isCheckingUpdate = false
