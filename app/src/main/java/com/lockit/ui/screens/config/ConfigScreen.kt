@@ -95,6 +95,16 @@ fun ConfigScreen(
     var showTokenConfigDialog by remember { mutableStateOf(false) }
     var lastCheckedToken by remember { mutableStateOf<String?>(null) } // Store token for download
 
+    // Dynamic version string for footer
+    val versionString = remember {
+        try {
+            val packageInfo = context.packageManager.getPackageInfo(context.packageName, 0)
+            "LOCKIT_ANDROID v${packageInfo.versionName ?: "Unknown"}"
+        } catch (e: Exception) {
+            "LOCKIT_ANDROID vUnknown"
+        }
+    }
+
     // Google Drive sync
     val syncManager = remember { GoogleDriveSyncManager(context) }
     var signedInAccount by remember { mutableStateOf(syncManager.getSignedInAccount()) }
@@ -578,7 +588,7 @@ fun ConfigScreen(
             TerminalFooter(
                 lines = listOf(
                     stringResource(R.string.footer_system_info) to IndustrialOrange,
-                    stringResource(R.string.footer_version) to Color.Gray,
+                    versionString to Color.Gray,
                     stringResource(R.string.footer_compatible) to Color.Gray,
                     stringResource(R.string.footer_design) to Color.Gray,
                 ),
