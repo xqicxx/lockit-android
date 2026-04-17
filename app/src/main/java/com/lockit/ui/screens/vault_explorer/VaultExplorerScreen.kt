@@ -24,7 +24,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -35,6 +37,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.lockit.LockitApp
+import com.lockit.R
 import com.lockit.domain.model.Credential
 import com.lockit.domain.model.CredentialType
 import com.lockit.ui.components.BrutalistPinVerifyDialog
@@ -109,11 +112,11 @@ class VaultExplorerViewModel(private val app: LockitApp) : ViewModel() {
             .launchIn(viewModelScope)
     }
 
-    fun deleteCredential(credential: Credential) {
+    fun deleteCredential(credential: Credential, context: android.content.Context) {
         viewModelScope.launch {
             try {
                 app.vaultManager.deleteCredential(credential)
-                _toastMessage.value = "CREDENTIAL_DELETED: ${credential.name}"
+                _toastMessage.value = context.getString(R.string.toast_credential_deleted, credential.name)
             } catch (e: Exception) {
                 _toastMessage.value = "ERROR: ${e.message}"
             }
@@ -145,6 +148,7 @@ fun VaultExplorerScreen(
     var searchQuery by remember { mutableStateOf(viewModel.searchQuery) }
     var phoneRegionForToast by remember { mutableStateOf("") }
     val clipboardManager = LocalClipboardManager.current
+    val context = LocalContext.current
     val services by remember { derivedStateOf { credentials.map { it.service.uppercase() }.distinct() } }
     val revealedCredentialIds = remember { mutableStateListOf<String>() }
     val view = LocalView.current
@@ -152,6 +156,12 @@ fun VaultExplorerScreen(
     fun getActivity() = view.findActivity()
 
     var pendingBiometricAction by remember { mutableStateOf<(() -> Unit)?>(null) }
+
+    // Pre-compute string resources for use in non-composable callbacks
+    val biometricRevealTitle = stringResource(R.string.biometric_reveal_title)
+    val biometricRevealSubtitle = stringResource(R.string.biometric_reveal_subtitle)
+    val biometricCopyTitle = stringResource(R.string.biometric_copy_title)
+    val biometricCopySubtitle = stringResource(R.string.biometric_copy_subtitle)
 
     fun handleCopy(credential: Credential, action: CopyAction) {
         val fields = parseCredentialFields(credential.value)
@@ -180,8 +190,8 @@ fun VaultExplorerScreen(
         if (activity != null && BiometricUtils.canAuthenticate(activity)) {
             BiometricUtils.requireBiometric(
                 activity = activity,
-                title = "Reveal Credential",
-                subtitle = "Biometric authentication required to reveal sensitive value",
+                title = biometricRevealTitle,
+                subtitle = biometricRevealSubtitle,
                 onSuccess = { revealedCredentialIds.add(credential.id) },
                 onError = { pendingBiometricAction = { revealedCredentialIds.add(credential.id) } },
             )
@@ -204,8 +214,8 @@ fun VaultExplorerScreen(
             item {
                 Spacer(modifier = Modifier.height(24.dp))
                 ScreenHero(
-                    title = "Vault Explorer",
-                    subtitle = "Unified Terminal View // Alpha-04 // [Read/Write]",
+                    title = stringResource(R.string.explorer_title),
+                    subtitle = stringResource(R.string.explorer_subtitle),
                 )
                 Spacer(modifier = Modifier.height(16.dp))
 
@@ -217,7 +227,7 @@ fun VaultExplorerScreen(
                 ) {
                     Column {
                         Text(
-                            text = "> QUICK_START",
+                            text = stringResource(R.string.explorer_quick_start),
                             fontFamily = JetBrainsMonoFamily,
                             fontWeight = FontWeight.Bold,
                             fontSize = 12.sp,
@@ -225,7 +235,7 @@ fun VaultExplorerScreen(
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            text = "To add your first credential, tap the + NEW button in the top bar. For CLI integration, run `lockit add --name <name> --service <service> --key <key> --value <secret>` in your terminal.",
+                            text = stringResource(R.string.explorer_quick_start_desc),
                             fontFamily = JetBrainsMonoFamily,
                             fontSize = 10.sp,
                             color = Color.Gray,
@@ -241,8 +251,8 @@ fun VaultExplorerScreen(
                         searchQuery = it
                         viewModel.searchQuery = it
                     },
-                    label = "SEARCH",
-                    placeholder = "Search by name, service, type, or key...",
+                    label = stringResource(R.string.explorer_search),
+                    placeholder = stringResource(R.string.explorer_search_placeholder),
                     modifier = Modifier.fillMaxWidth(),
                 )
                 Spacer(modifier = Modifier.height(24.dp))
@@ -255,7 +265,7 @@ fun VaultExplorerScreen(
                 ) {
                     if (searchQuery.isNotBlank()) {
                         Text(
-                            text = "SEARCH_RESULTS: \"$searchQuery\"",
+                            text = stringResource(R.string.explorer_search_results) + " \"$searchQuery\"",
                             fontFamily = JetBrainsMonoFamily,
                             fontWeight = FontWeight.Bold,
                             fontSize = 12.sp,
@@ -264,7 +274,7 @@ fun VaultExplorerScreen(
                         )
                     } else {
                         Text(
-                            text = "INVENTORY_MANIFEST",
+                            text = stringResource(R.string.explorer_manifest),
                             fontFamily = JetBrainsMonoFamily,
                             fontWeight = FontWeight.Bold,
                             fontSize = 12.sp,
@@ -273,7 +283,7 @@ fun VaultExplorerScreen(
                         )
                     }
                     Text(
-                        text = "${credentials.size} entries",
+                        text = "${credentials.size} " + stringResource(R.string.explorer_entries),
                         fontFamily = JetBrainsMonoFamily,
                         fontSize = 10.sp,
                         color = Color.Gray,
@@ -296,8 +306,8 @@ fun VaultExplorerScreen(
                             if (BiometricUtils.canAuthenticate(activity)) {
                                 BiometricUtils.requireBiometric(
                                     activity = activity,
-                                    title = "Copy Credential",
-                                    subtitle = "Biometric authentication required",
+                                    title = biometricCopyTitle,
+                                    subtitle = biometricCopySubtitle,
                                     onSuccess = { handleCopy(credential, action) },
                                     onError = {
                                         pendingBiometricAction = { handleCopy(credential, action) }
@@ -309,7 +319,7 @@ fun VaultExplorerScreen(
                         }
                     },
                     onNeedReveal = { handleReveal(credential) },
-                    onDelete = { viewModel.deleteCredential(credential) },
+                    onDelete = { viewModel.deleteCredential(credential, context) },
                     onEdit = { onNavigateToEdit(credential.id) },
                     isRevealed = revealedCredentialIds.contains(credential.id),
                     onHide = { revealedCredentialIds.remove(credential.id) },
@@ -326,7 +336,7 @@ fun VaultExplorerScreen(
                         contentAlignment = Alignment.Center,
                     ) {
                         Text(
-                            text = "NO_CREDENTIALS_FOUND",
+                            text = stringResource(R.string.explorer_no_credentials),
                             fontFamily = JetBrainsMonoFamily,
                             fontSize = 14.sp,
                             color = Color.Gray,
@@ -339,11 +349,11 @@ fun VaultExplorerScreen(
                 Spacer(modifier = Modifier.height(16.dp))
                 TerminalFooter(
                     lines = listOf(
-                        "> SYNCING_METADATA..." to IndustrialOrange,
-                        "LOCKIT-DAEMON: LOCAL_STORAGE_ACTIVE" to Color.Gray,
-                        "TOTAL_CREDENTIALS: ${credentials.size} [READY]" to Color.Gray,
-                        if (services.isNotEmpty()) "SERVICES: ${services.joinToString(", ")}" to Color.Gray
-                        else "NO_SERVICES_REGISTERED" to Color.Gray,
+                        stringResource(R.string.explorer_syncing) to IndustrialOrange,
+                        stringResource(R.string.explorer_daemon) to Color.Gray,
+                        stringResource(R.string.explorer_total_credentials) + " ${credentials.size} " + stringResource(R.string.explorer_ready) to Color.Gray,
+                        if (services.isNotEmpty()) stringResource(R.string.explorer_services) + " ${services.joinToString(", ")}" to Color.Gray
+                        else stringResource(R.string.explorer_no_services) to Color.Gray,
                     ),
                 )
                 Spacer(modifier = Modifier.height(16.dp))
