@@ -5,6 +5,7 @@ import android.content.SharedPreferences
 import android.os.Build
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
+import android.util.Base64
 import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
 import androidx.core.content.ContextCompat
@@ -109,12 +110,16 @@ class BiometricPinStorage(private val sharedPreferences: SharedPreferences) {
             object : BiometricPrompt.AuthenticationCallback() {
                 override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
                     try {
-                        val authenticatedCipher = result.cryptoObject?.cipher!!
+                        val authenticatedCipher = result.cryptoObject?.cipher
+                        if (authenticatedCipher == null) {
+                            onError("CIPHER_NULL")
+                            return
+                        }
                         val encrypted = authenticatedCipher.doFinal(pin.toByteArray(Charsets.UTF_8))
 
                         val editor = sharedPreferences.edit()
-                        editor.putString(ENCRYPTED_PIN_KEY, encrypted.toString(Charsets.ISO_8859_1))
-                        editor.putString(IV_KEY, iv.toString(Charsets.ISO_8859_1))
+                        editor.putString(ENCRYPTED_PIN_KEY, Base64.encodeToString(encrypted, Base64.NO_WRAP))
+                        editor.putString(IV_KEY, Base64.encodeToString(iv, Base64.NO_WRAP))
                         editor.apply()
 
                         onSuccess()
@@ -161,11 +166,12 @@ class BiometricPinStorage(private val sharedPreferences: SharedPreferences) {
             keyStore.load(null)
 
             val secretKey = keyStore.getKey(KEY_ALIAS, null) as SecretKey
+            val ivBytes = Base64.decode(ivData, Base64.NO_WRAP)
             Cipher.getInstance(TRANSFORMATION).apply {
                 init(
                     Cipher.DECRYPT_MODE,
                     secretKey,
-                    GCMParameterSpec(128, ivData.toByteArray(Charsets.ISO_8859_1)),
+                    GCMParameterSpec(128, ivBytes),
                 )
             }
         } catch (e: Exception) {
@@ -180,10 +186,15 @@ class BiometricPinStorage(private val sharedPreferences: SharedPreferences) {
             object : BiometricPrompt.AuthenticationCallback() {
                 override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
                     try {
-                        val decrypted = result.cryptoObject?.cipher?.doFinal(
-                            encryptedPin.toByteArray(Charsets.ISO_8859_1)
+                        val authenticatedCipher = result.cryptoObject?.cipher
+                        if (authenticatedCipher == null) {
+                            onError("CIPHER_NULL")
+                            return
+                        }
+                        val decrypted = authenticatedCipher.doFinal(
+                            Base64.decode(encryptedPin, Base64.NO_WRAP)
                         )
-                        val pin = String(decrypted!!, Charsets.UTF_8)
+                        val pin = String(decrypted, Charsets.UTF_8)
                         onSuccess(pin)
                     } catch (e: Exception) {
                         onError("DECRYPT_FAILED: ${e.message}")
