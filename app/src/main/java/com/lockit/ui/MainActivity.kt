@@ -10,6 +10,7 @@ import androidx.activity.compose.BackHandler
 import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.lockit.utils.BiometricUtils
 import com.lockit.utils.LocaleHelper
 import androidx.compose.foundation.layout.Box
@@ -54,7 +55,7 @@ class MainActivity : FragmentActivity() {
 
         val app = application as LockitApp
 
-        // Invalidate biometric session when app returns from background.
+        // Invalidate biometric session and lock vault when app goes to background.
         (application as Application).registerActivityLifecycleCallbacks(
             object : android.app.Application.ActivityLifecycleCallbacks {
                 private var startedActivities = 0
@@ -65,6 +66,8 @@ class MainActivity : FragmentActivity() {
                     startedActivities--
                     if (startedActivities <= 0) {
                         BiometricUtils.invalidateSession()
+                        // Lock vault immediately when app goes to background
+                        app.vaultManager.lockVault()
                     }
                 }
                 override fun onActivityCreated(activity: android.app.Activity, savedInstanceState: Bundle?) {}
@@ -97,6 +100,21 @@ enum class AppScreen {
 private fun MainFlow(app: LockitApp) {
     var isVaultUnlocked by remember { mutableStateOf(app.vaultManager.isUnlocked()) }
     val scope = rememberCoroutineScope()
+    val lifecycleOwner = LocalLifecycleOwner.current
+
+    // Observe lifecycle to update vault state when app returns from background
+    androidx.compose.runtime.DisposableEffect(lifecycleOwner) {
+        val observer = object : DefaultLifecycleObserver {
+            override fun onResume(owner: LifecycleOwner) {
+                // Check if vault was locked while app was in background
+                isVaultUnlocked = app.vaultManager.isUnlocked()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
 
     // Prefetch coding plan quota immediately on app startup using SharedPreferences data
     LaunchedEffect(Unit) {
