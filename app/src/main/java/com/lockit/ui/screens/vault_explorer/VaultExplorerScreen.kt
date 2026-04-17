@@ -413,7 +413,8 @@ fun VaultExplorerScreen(
             else -> ""
         }
 
-        val hasPhoneAction = message.startsWith("PHONE_COPIED")
+        val hasPhoneAction = data.resourceId == R.string.toast_phone_copied ||
+            data.rawMessage?.startsWith("PHONE_COPIED") == true
         Box(
             modifier = Modifier
                 .fillMaxSize()

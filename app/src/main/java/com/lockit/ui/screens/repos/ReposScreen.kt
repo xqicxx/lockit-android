@@ -577,7 +577,7 @@ fun ReposScreen(
                         )
                     }
                     Text(
-                        text = "${list.size} " + stringResource(R.string.repos_entries),
+                        text = stringResource(R.string.repos_entries, list.size),
                         fontFamily = JetBrainsMonoFamily,
                         fontSize = 10.sp,
                         color = Color.Gray,
