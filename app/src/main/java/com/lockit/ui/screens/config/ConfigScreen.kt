@@ -391,9 +391,9 @@ fun ConfigScreen(
                     stringResource(R.string.config_nonce_length) to stringResource(R.string.config_12_bytes),
                     stringResource(R.string.config_gcm_tag) to stringResource(R.string.config_128_bits),
                     stringResource(R.string.config_master_key) to stringResource(R.string.config_256_bits),
-                    stringResource(R.string.config_argon2_memory) to stringResource(R.string.config_64_mb),
-                    stringResource(R.string.config_argon2_iterations) to stringResource(R.string.config_3_iter),
-                    stringResource(R.string.config_argon2_parallelism) to stringResource(R.string.config_4_parallel),
+                    stringResource(R.string.config_argon2_memory) to stringResource(R.string.config_16_mb),
+                    stringResource(R.string.config_argon2_iterations) to stringResource(R.string.config_2_iter),
+                    stringResource(R.string.config_argon2_parallelism) to stringResource(R.string.config_1_parallel),
                 ),
             )
 

@@ -99,9 +99,9 @@
     <string name="config_12_bytes">12字节</string>
     <string name="config_128_bits">128位</string>
     <string name="config_256_bits">256位</string>
-    <string name="config_64_mb">64MB</string>
-    <string name="config_3_iter">3</string>
-    <string name="config_4_parallel">4</string>
+    <string name="config_16_mb">16MB</string>
+    <string name="config_2_iter">2</string>
+    <string name="config_1_parallel">1</string>
 
     <string name="config_upgrade">升级</string>
     <string name="config_current_version">当前版本</string>
