@@ -36,6 +36,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.platform.ClipboardManager
 import androidx.compose.ui.platform.LocalClipboardManager
 import com.lockit.domain.model.Credential
 import com.lockit.domain.model.CredentialType
@@ -450,52 +451,22 @@ private fun CredentialContent(
             val apiKey = fields.getOrNull(2)?.takeIf { it.isNotBlank() } ?: CredentialDefaults.FIELD_NOT_SET
             val baseUrl = fields.getOrNull(5)?.takeIf { it.isNotBlank() } ?: CredentialDefaults.FIELD_NOT_SET
 
-            // API_KEY row
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                FieldLabel("API_KEY")
-                IconButtonBox(
-                    icon = if (isRevealed) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                    description = if (isRevealed) "Hide" else "Reveal",
-                    onClick = { if (!isRevealed) onNeedReveal() else onHide() },
-                )
-            }
-            Spacer(modifier = Modifier.height(4.dp))
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(SurfaceLow)
-                    .border(1.dp, Primary)
-                    .padding(12.dp)
-                    .pointerInput(isRevealed) {
-                        detectTapGestures(
-                            onLongPress = {
-                                if (isRevealed && apiKey != CredentialDefaults.FIELD_NOT_SET) {
-                                    clipboardManager.setText(AnnotatedString(apiKey))
-                                    onCopy(CopyAction.API_KEY)
-                                } else {
-                                    onNeedReveal()
-                                }
-                            }
-                        )
-                    },
-            ) {
-                Text(
-                    text = if (isRevealed) apiKey else maskPlaceholder,
-                    fontFamily = JetBrainsMonoFamily,
-                    fontSize = 13.sp,
-                    color = if (isRevealed) Primary else Color.Gray,
-                    maxLines = if (isRevealed) 3 else 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
+            // API_KEY - revealable
+            RevealableValueBox(
+                label = "API_KEY",
+                value = apiKey,
+                isRevealed = isRevealed,
+                maskPlaceholder = maskPlaceholder,
+                maxLinesRevealed = 3,
+                onNeedReveal = onNeedReveal,
+                onHide = onHide,
+                onCopy = { onCopy(CopyAction.API_KEY) },
+                clipboardManager = clipboardManager,
+            )
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // BASE_URL row (always visible)
+            // BASE_URL - always visible
             FieldLabel("BASE_URL")
             Spacer(modifier = Modifier.height(4.dp))
             Box(
@@ -532,48 +503,18 @@ private fun CredentialContent(
             val account = fields.getOrNull(2)?.takeIf { it.isNotBlank() }
             val tokenType = fields.getOrNull(1)?.takeIf { it.isNotBlank() }
 
-            // TOKEN_VALUE row
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                FieldLabel("TOKEN")
-                IconButtonBox(
-                    icon = if (isRevealed) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                    description = if (isRevealed) "Hide" else "Reveal",
-                    onClick = { if (!isRevealed) onNeedReveal() else onHide() },
-                )
-            }
-            Spacer(modifier = Modifier.height(4.dp))
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(SurfaceLow)
-                    .border(1.dp, Primary)
-                    .padding(12.dp)
-                    .pointerInput(isRevealed) {
-                        detectTapGestures(
-                            onLongPress = {
-                                if (isRevealed && tokenValue != CredentialDefaults.FIELD_NOT_SET) {
-                                    clipboardManager.setText(AnnotatedString(tokenValue))
-                                    onCopy(CopyAction.VALUE)
-                                } else {
-                                    onNeedReveal()
-                                }
-                            }
-                        )
-                    },
-            ) {
-                Text(
-                    text = if (isRevealed) tokenValue else maskPlaceholder,
-                    fontFamily = JetBrainsMonoFamily,
-                    fontSize = 13.sp,
-                    color = if (isRevealed) Primary else Color.Gray,
-                    maxLines = if (isRevealed) 5 else 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
+            // TOKEN_VALUE - revealable
+            RevealableValueBox(
+                label = "TOKEN",
+                value = tokenValue,
+                isRevealed = isRevealed,
+                maskPlaceholder = maskPlaceholder,
+                maxLinesRevealed = 5,
+                onNeedReveal = onNeedReveal,
+                onHide = onHide,
+                onCopy = { onCopy(CopyAction.VALUE) },
+                clipboardManager = clipboardManager,
+            )
 
             // Show account and token type if available
             if (account != null) {
@@ -588,9 +529,10 @@ private fun CredentialContent(
 
         else -> {
             // Default: single value with reveal toggle
+            // Use pre-parsed fields instead of extractSecretValue to avoid redundant parsing
             val alwaysVisible = credential.type in listOf(CredentialType.IdCard, CredentialType.Note)
             val displayValue = if (alwaysVisible || isRevealed) {
-                extractSecretValue(credential.type, credential.value)
+                fields.lastOrNull()?.takeIf { it.isNotBlank() } ?: credential.value
             } else maskPlaceholder
 
             FieldValueBox(
@@ -696,4 +638,63 @@ private fun FieldValue(text: String, maxLines: Int = 1) {
         maxLines = maxLines,
         overflow = TextOverflow.Ellipsis,
     )
+}
+
+/**
+ * Reusable revealable value box with label, reveal toggle, and long-press copy.
+ * Used by CodingPlan (API_KEY) and GitHub (TOKEN) credential types.
+ */
+@Composable
+private fun RevealableValueBox(
+    label: String,
+    value: String,
+    isRevealed: Boolean,
+    maskPlaceholder: String,
+    maxLinesRevealed: Int = 3,
+    onNeedReveal: () -> Unit,
+    onHide: () -> Unit,
+    onCopy: () -> Unit,
+    clipboardManager: ClipboardManager,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        FieldLabel(label)
+        IconButtonBox(
+            icon = if (isRevealed) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+            description = if (isRevealed) "Hide" else "Reveal",
+            onClick = { if (!isRevealed) onNeedReveal() else onHide() },
+        )
+    }
+    Spacer(modifier = Modifier.height(4.dp))
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(SurfaceLow)
+            .border(1.dp, Primary)
+            .padding(12.dp)
+            .pointerInput(isRevealed) {
+                detectTapGestures(
+                    onLongPress = {
+                        if (isRevealed && value != CredentialDefaults.FIELD_NOT_SET) {
+                            clipboardManager.setText(AnnotatedString(value))
+                            onCopy()
+                        } else {
+                            onNeedReveal()
+                        }
+                    }
+                )
+            },
+    ) {
+        Text(
+            text = if (isRevealed) value else maskPlaceholder,
+            fontFamily = JetBrainsMonoFamily,
+            fontSize = 13.sp,
+            color = if (isRevealed) Primary else Color.Gray,
+            maxLines = if (isRevealed) maxLinesRevealed else 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+    }
 }
