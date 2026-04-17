@@ -194,19 +194,31 @@ class VaultUnlockViewModel(private val app: LockitApp) : ViewModel() {
         showBiometricButton = initialized
     }
 
-    fun linkBiometric(activity: FragmentActivity, onSuccess: () -> Unit, onError: (String) -> Unit) {
+    fun linkBiometric(
+        activity: FragmentActivity,
+        title: String,
+        subtitle: String,
+        onSuccess: () -> Unit,
+        onError: (String) -> Unit
+    ) {
         if (pin.isEmpty()) {
             onError("NO_PIN_TO_LINK")
             return
         }
-        biometricStorage.storePin(activity, pin, onSuccess = {
+        biometricStorage.storePin(activity, pin, title, subtitle, onSuccess = {
             showBiometricButton = true
             onSuccess()
         }, onError = onError)
     }
 
-    fun authenticateWithBiometric(activity: FragmentActivity, onSuccess: () -> Unit, onError: (String) -> Unit) {
-        biometricStorage.decryptPin(activity, onSuccess = { decryptedPin ->
+    fun authenticateWithBiometric(
+        activity: FragmentActivity,
+        title: String,
+        subtitle: String,
+        onSuccess: () -> Unit,
+        onError: (String) -> Unit
+    ) {
+        biometricStorage.decryptPin(activity, title, subtitle, onSuccess = { decryptedPin ->
             viewModelScope.launch {
                 pin = decryptedPin
                 val result = withContext(Dispatchers.IO) {
@@ -391,6 +403,10 @@ fun VaultUnlockScreen(
                                     else
                                         stringResource(R.string.vault_biometric_link)
                                     val enterPinFirstError = stringResource(R.string.error_enter_pin_first)
+                                    val linkTitle = stringResource(R.string.biometric_link_pin_title)
+                                    val linkSubtitle = stringResource(R.string.biometric_link_pin_subtitle)
+                                    val unlockTitle = stringResource(R.string.biometric_unlock_title)
+                                    val unlockSubtitle = stringResource(R.string.biometric_unlock_subtitle)
                                     BrutalistActionButton(
                                         text = bioText,
                                         onClick = {
@@ -399,6 +415,8 @@ fun VaultUnlockScreen(
                                                 if (viewModel.isBiometricLinked) {
                                                     viewModel.authenticateWithBiometric(
                                                         activity = activity,
+                                                        title = unlockTitle,
+                                                        subtitle = unlockSubtitle,
                                                         onSuccess = { },
                                                         onError = { viewModel.errorMessage = "BIOMETRIC_FAILED: $it" },
                                                     )
@@ -406,6 +424,8 @@ fun VaultUnlockScreen(
                                                     if (viewModel.pin.length >= 4) {
                                                         viewModel.linkBiometric(
                                                             activity = activity,
+                                                            title = linkTitle,
+                                                            subtitle = linkSubtitle,
                                                             onSuccess = { /* linked */ },
                                                             onError = { viewModel.errorMessage = "BIOMETRIC_LINK_FAILED: $it" },
                                                         )
@@ -469,6 +489,8 @@ fun VaultUnlockScreen(
 
         // Biometric setup dialog after initial PIN creation
         if (viewModel.showBiometricSetup) {
+            val linkTitle = stringResource(R.string.biometric_link_pin_title)
+            val linkSubtitle = stringResource(R.string.biometric_link_pin_subtitle)
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -523,6 +545,8 @@ fun VaultUnlockScreen(
                                 if (activity != null) {
                                     viewModel.linkBiometric(
                                         activity = activity,
+                                        title = linkTitle,
+                                        subtitle = linkSubtitle,
                                         onSuccess = {
                                             viewModel.showBiometricSetup = false
                                             viewModel.setAppState(true)

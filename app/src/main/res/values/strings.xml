@@ -193,6 +193,10 @@
     <string name="biometric_copy_subtitle">Biometric authentication required</string>
     <string name="biometric_view_title">View Credential</string>
     <string name="biometric_view_subtitle">Biometric authentication required</string>
+    <string name="biometric_link_pin_title">绑定生物识别</string>
+    <string name="biometric_link_pin_subtitle">认证以安全存储PIN用于指纹解锁</string>
+    <string name="biometric_unlock_title">解锁保险库</string>
+    <string name="biometric_unlock_subtitle">认证以解密PIN</string>
 
     <!-- Repos Screen -->
     <string name="repos_title">Repositories</string>
