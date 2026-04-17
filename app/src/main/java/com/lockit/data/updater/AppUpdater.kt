@@ -23,6 +23,15 @@ data class GitHubRelease(
     val downloadSize: Long?,
 )
 
+/**
+ * Download result containing file path and URI for installation.
+ */
+data class DownloadResult(
+    val downloadId: Long,
+    val filePath: String,
+    val fileUri: Uri,
+)
+
 class AppUpdater(context: Context) {
     // Use applicationContext to prevent memory leaks
     private val context = context.applicationContext
@@ -30,6 +39,14 @@ class AppUpdater(context: Context) {
     companion object {
         private const val GITHUB_REPO = "xqicxx/lockit-android"
         private const val RELEASES_API = "https://api.github.com/repos/$GITHUB_REPO/releases/latest"
+        const val DOWNLOAD_FILE_NAME = "lockit-update.apk"
+    }
+
+    /**
+     * Get the download directory path for user information.
+     */
+    fun getDownloadDirectory(): String {
+        return Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS).absolutePath
     }
 
     /**
