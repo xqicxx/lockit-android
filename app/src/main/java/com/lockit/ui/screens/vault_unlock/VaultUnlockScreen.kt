@@ -456,33 +456,39 @@ fun VaultUnlockScreen(
                         }
                 }
 
-                // Error message
-                viewModel.errorMessage?.let { errorKey ->
-                    val localizedError = getLocalizedErrorMessage(errorKey, context)
-                    if (localizedError != null) {
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .border(1.dp, TacticalRed)
-                                .padding(10.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            Text(
-                                text = "!",
-                                fontFamily = JetBrainsMonoFamily,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = TacticalRed,
-                            )
-                            Text(
-                                text = localizedError,
-                                fontFamily = JetBrainsMonoFamily,
-                                fontSize = 9.sp,
-                                color = TacticalRed,
-                                modifier = Modifier.weight(1f),
-                            )
+                // Error message area - fixed height to prevent UI jump
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(50.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    viewModel.errorMessage?.let { errorKey ->
+                        val localizedError = getLocalizedErrorMessage(errorKey, context)
+                        if (localizedError != null) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .border(1.dp, TacticalRed)
+                                    .padding(10.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                Text(
+                                    text = "!",
+                                    fontFamily = JetBrainsMonoFamily,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = TacticalRed,
+                                )
+                                Text(
+                                    text = localizedError,
+                                    fontFamily = JetBrainsMonoFamily,
+                                    fontSize = 9.sp,
+                                    color = TacticalRed,
+                                    modifier = Modifier.weight(1f),
+                                )
+                            }
                         }
                     }
                 }
