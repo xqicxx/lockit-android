@@ -153,6 +153,7 @@
     <string name="toast_sync_complete">同步完成</string>
     <string name="toast_signed_out">已退出</string>
     <string name="toast_download_started">下载已开始</string>
+    <string name="toast_download_location">下载位置:</string>
     <string name="toast_check_failed">检查失败:</string>
     <string name="toast_already_latest">已是最新版本</string>
     <string name="toast_vault_locked">密码库已锁定</string>

@@ -153,6 +153,7 @@
     <string name="toast_sync_complete">SYNC_COMPLETE</string>
     <string name="toast_signed_out">SIGNED_OUT</string>
     <string name="toast_download_started">DOWNLOAD_STARTED</string>
+    <string name="toast_download_location">DOWNLOAD_LOCATION:</string>
     <string name="toast_check_failed">CHECK_FAILED:</string>
     <string name="toast_already_latest">ALREADY_LATEST_VERSION</string>
     <string name="toast_vault_locked">VAULT_LOCKED</string>
