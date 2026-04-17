@@ -238,6 +238,8 @@ fun ReposScreen(
     app: LockitApp,
     modifier: Modifier = Modifier,
     onCredentialEdit: (String) -> Unit = {},
+    selectedService: String? = null,
+    onServiceSelected: (String?) -> Unit = {},
     viewModel: ReposViewModel = viewModel(factory = ReposViewModelFactory(app)),
 ) {
     val credentialList by viewModel.credentials.collectAsStateWithLifecycle()
@@ -257,13 +259,11 @@ fun ReposScreen(
     val serviceCount = servicesByGroup.size
     val credentialCount = credentialList.size
 
-    var selectedService by remember { mutableStateOf<String?>(null) }
-    var searchQuery by remember { mutableStateOf("") }
-
     // Handle Android back button when viewing a service's credentials
     BackHandler(enabled = selectedService != null) {
-        selectedService = null
+        onServiceSelected(null)
     }
+    var searchQuery by remember { mutableStateOf("") }
     val clipboardManager = LocalClipboardManager.current
     val context = LocalContext.current
     val view = LocalView.current
@@ -360,7 +360,7 @@ fun ReposScreen(
     }
 
     fun onServiceRowClick(serviceName: String) {
-        selectedService = serviceName
+        onServiceSelected(serviceName)
     }
 
     Column(
@@ -525,7 +525,7 @@ fun ReposScreen(
 
                 BackButtonRow(
                     onBack = {
-                        selectedService = null
+                        onServiceSelected(null)
                         revealedCredentialIds.clear()
                         revealedEmailPasswordMap.clear()
                     },
