@@ -49,7 +49,7 @@ class AppUpdater(context: Context) {
 
             // Add Authorization header if token provided (for private repos)
             if (githubToken != null && githubToken.isNotBlank()) {
-                connection.setRequestProperty("Authorization", "token $githubToken")
+                connection.setRequestProperty("Authorization", "Bearer $githubToken")
             }
 
             if (connection.responseCode != 200) {
@@ -137,7 +137,7 @@ class AppUpdater(context: Context) {
 
         // Add Authorization header for private repos
         if (!githubToken.isNullOrBlank()) {
-            request.addRequestHeader("Authorization", "token $githubToken")
+            request.addRequestHeader("Authorization", "Bearer $githubToken")
         }
 
         val downloadManager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager

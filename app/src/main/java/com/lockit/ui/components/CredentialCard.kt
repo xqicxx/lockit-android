@@ -143,6 +143,11 @@ fun extractSecretValue(type: CredentialType, value: String): String {
             val apiKey = fields.getOrNull(2)?.takeIf { it.isNotBlank() }
             rawCurl ?: apiKey ?: value
         }
+        CredentialType.GitHub -> {
+            // GitHub: TOKEN_VALUE is at index 3
+            val fields = parseCredentialFields(value)
+            fields.getOrNull(3)?.takeIf { it.isNotBlank() } ?: value
+        }
         else -> parseCredentialFields(value).lastOrNull()?.takeIf { it.isNotBlank() } ?: value
     }
 }
@@ -518,6 +523,66 @@ private fun CredentialContent(
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
+            }
+        }
+
+        CredentialType.GitHub -> {
+            // GitHub: show TOKEN_VALUE with reveal toggle
+            val tokenValue = fields.getOrNull(3)?.takeIf { it.isNotBlank() } ?: CredentialDefaults.FIELD_NOT_SET
+            val account = fields.getOrNull(2)?.takeIf { it.isNotBlank() }
+            val tokenType = fields.getOrNull(1)?.takeIf { it.isNotBlank() }
+
+            // TOKEN_VALUE row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                FieldLabel("TOKEN")
+                IconButtonBox(
+                    icon = if (isRevealed) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                    description = if (isRevealed) "Hide" else "Reveal",
+                    onClick = { if (!isRevealed) onNeedReveal() else onHide() },
+                )
+            }
+            Spacer(modifier = Modifier.height(4.dp))
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(SurfaceLow)
+                    .border(1.dp, Primary)
+                    .padding(12.dp)
+                    .pointerInput(isRevealed) {
+                        detectTapGestures(
+                            onLongPress = {
+                                if (isRevealed && tokenValue != CredentialDefaults.FIELD_NOT_SET) {
+                                    clipboardManager.setText(AnnotatedString(tokenValue))
+                                    onCopy(CopyAction.VALUE)
+                                } else {
+                                    onNeedReveal()
+                                }
+                            }
+                        )
+                    },
+            ) {
+                Text(
+                    text = if (isRevealed) tokenValue else maskPlaceholder,
+                    fontFamily = JetBrainsMonoFamily,
+                    fontSize = 13.sp,
+                    color = if (isRevealed) Primary else Color.Gray,
+                    maxLines = if (isRevealed) 5 else 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+
+            // Show account and token type if available
+            if (account != null) {
+                Spacer(modifier = Modifier.height(8.dp))
+                FieldLabelValueRow("ACCOUNT", account)
+            }
+            if (tokenType != null) {
+                Spacer(modifier = Modifier.height(4.dp))
+                FieldLabelValueRow("TYPE", tokenType)
             }
         }
 
