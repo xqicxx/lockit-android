@@ -25,18 +25,20 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.lockit.R
 import com.lockit.ui.theme.JetBrainsMonoFamily
 import com.lockit.ui.theme.Primary
 import com.lockit.ui.theme.White
 
-enum class BottomNavItem(val label: String, val icon: ImageVector) {
-    Repos("REPOS", Icons.Default.Storage),
-    Keys("KEYS", Icons.Default.Key),
-    Logs("LOGS", Icons.Default.Terminal),
-    Config("CONFIG", Icons.Default.Settings),
+enum class BottomNavItem(val labelRes: Int, val icon: ImageVector) {
+    Repos(R.string.nav_repos, Icons.Default.Storage),
+    Keys(R.string.nav_keys, Icons.Default.Key),
+    Logs(R.string.nav_logs, Icons.Default.Terminal),
+    Config(R.string.nav_config, Icons.Default.Settings),
 }
 
 @Composable
@@ -54,6 +56,7 @@ fun BrutalistBottomNav(
     ) {
         BottomNavItem.entries.forEachIndexed { index, item ->
             val isSelected = item == selected
+            val label = stringResource(item.labelRes)
 
             Box(
                 modifier = Modifier
@@ -68,12 +71,12 @@ fun BrutalistBottomNav(
                 ) {
                     Icon(
                         imageVector = item.icon,
-                        contentDescription = item.label,
+                        contentDescription = label,
                         tint = if (isSelected) White else Primary,
                         modifier = Modifier.height(20.dp),
                     )
                     Text(
-                        text = item.label,
+                        text = label,
                         fontFamily = JetBrainsMonoFamily,
                         fontWeight = FontWeight.Bold,
                         fontSize = 9.sp,
