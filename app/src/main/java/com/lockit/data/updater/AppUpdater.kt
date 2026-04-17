@@ -43,13 +43,13 @@ class AppUpdater(context: Context) {
         try {
             connection = URL(RELEASES_API).openConnection() as HttpURLConnection
             connection.requestMethod = "GET"
-            connection.connectTimeout = 10000
-            connection.readTimeout = 10000
+            connection.connectTimeout = 15000
+            connection.readTimeout = 15000
             connection.setRequestProperty("Accept", "application/json")
 
             // Add Authorization header if token provided (for private repos)
             if (githubToken != null && githubToken.isNotBlank()) {
-                connection.setRequestProperty("Authorization", "Bearer $githubToken")
+                connection.setRequestProperty("Authorization", "token $githubToken")
             }
 
             if (connection.responseCode != 200) {
@@ -137,7 +137,7 @@ class AppUpdater(context: Context) {
 
         // Add Authorization header for private repos
         if (!githubToken.isNullOrBlank()) {
-            request.addRequestHeader("Authorization", "Bearer $githubToken")
+            request.addRequestHeader("Authorization", "token $githubToken")
         }
 
         val downloadManager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
