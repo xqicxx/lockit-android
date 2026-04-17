@@ -3,6 +3,7 @@ package com.lockit.data.vault
 import android.content.Context
 import com.lockit.data.audit.AuditLogger
 import com.lockit.data.audit.AuditSeverity
+import com.lockit.data.crypto.Argon2Params
 import com.lockit.data.crypto.KeyManager
 import com.lockit.data.crypto.LockitCrypto
 import com.lockit.data.database.CredentialDao
@@ -24,15 +25,17 @@ class VaultManager(
 
     /**
      * Initialize a new vault with a master password.
+     * Uses OWASP-recommended Argon2 parameters (64MB, 3 iterations, 4 parallelism).
      */
     fun initVault(masterPassword: String) {
         if (keyManager.isVaultInitialized()) {
             throw IllegalStateException("Vault already initialized")
         }
         val salt = crypto.generateSalt()
-        val masterKey = crypto.deriveKey(masterPassword, salt)
+        val (memory, iterations, parallelism) = Argon2Params.DEFAULT
+        val masterKey = crypto.deriveKey(masterPassword, salt, memory, iterations, parallelism)
         keyManager.initVault(salt, masterKey)
-        auditLogger.log("VAULT_INITIALIZED", "New vault created with Argon2id", AuditSeverity.Warning)
+        auditLogger.log("VAULT_INITIALIZED", "New vault created with Argon2id OWASP params", AuditSeverity.Warning)
     }
 
     /**
@@ -72,12 +75,14 @@ class VaultManager(
     /**
      * Change the master password.
      * Decrypts all credentials with the old key, re-encrypts with the new key.
+     * Uses stored Argon2 params for derivation.
      */
     suspend fun changePassword(oldPassword: String, newPassword: String): Result<Unit> = runCatching {
         val salt = keyManager.getSalt()
             ?: throw IllegalStateException("Vault not initialized")
-        val oldKey = crypto.deriveKey(oldPassword, salt)
-        val newKey = crypto.deriveKey(newPassword, salt)
+        val (memory, iterations, parallelism) = keyManager.getArgon2Params()
+        val oldKey = crypto.deriveKey(oldPassword, salt, memory, iterations, parallelism)
+        val newKey = crypto.deriveKey(newPassword, salt, memory, iterations, parallelism)
 
         val allEntities = dao.getAllEntities()
         for (entity in allEntities) {
@@ -210,6 +215,12 @@ class VaultManager(
 
     fun getCredentialCount(): Flow<Int> = dao.getCount()
     fun getServiceCount(): Flow<Int> = dao.getServiceCount()
+
+    /**
+     * Get the Argon2 parameters used for this vault.
+     * Returns OWASP params for new vaults, legacy params for old vaults.
+     */
+    fun getArgon2ParamsInfo(): Triple<Int, Int, Int> = keyManager.getArgon2Params()
 
     private fun decryptCredential(entity: CredentialEntity, masterKey: ByteArray): Credential {
         val decryptedValue = crypto.decrypt(entity.value, masterKey)

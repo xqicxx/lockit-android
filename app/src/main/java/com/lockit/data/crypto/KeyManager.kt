@@ -9,6 +9,9 @@ import java.util.Base64
  * Manages the in-memory master key for the current session.
  * The master key is derived from the user's password via Argon2id
  * and stored in memory only - never persisted to disk.
+ *
+ * Argon2 parameters are stored alongside the salt to ensure
+ * compatibility when parameters change over versions.
  */
 class KeyManager(private val context: Context) {
 
@@ -27,8 +30,9 @@ class KeyManager(private val context: Context) {
     fun isVaultInitialized(): Boolean = prefs.contains("vault_salt")
 
     /**
-     * Initialize a new vault: store the salt and a hash of the derived master key
+     * Initialize a new vault: store the salt, Argon2 params, and a hash of the derived master key
      * for future password verification. Also sets the master key in memory.
+     * Uses OWASP-recommended Argon2 parameters for new vaults.
      */
     fun initVault(salt: ByteArray, masterKey: ByteArray) {
         this.masterKey = masterKey.copyOf()
@@ -36,6 +40,10 @@ class KeyManager(private val context: Context) {
         prefs.edit {
             putString("vault_salt", Base64.getEncoder().encodeToString(salt))
             putString("vault_key_hash", Base64.getEncoder().encodeToString(keyHash))
+            // Store OWASP params for new vaults
+            putInt("argon2_memory", Argon2Params.MEMORY_OWASP)
+            putInt("argon2_iterations", Argon2Params.ITERATIONS_OWASP)
+            putInt("argon2_parallelism", Argon2Params.PARALLELISM_OWASP)
         }
     }
 
@@ -48,8 +56,18 @@ class KeyManager(private val context: Context) {
     }
 
     /**
-     * Unlock the vault: derive master key from password and salt, then verify
-     * against the stored key hash.
+     * Get stored Argon2 parameters, or fallback to legacy params for old vaults.
+     */
+    fun getArgon2Params(): Triple<Int, Int, Int> {
+        val memory = prefs.getInt("argon2_memory", Argon2Params.MEMORY_LEGACY)
+        val iterations = prefs.getInt("argon2_iterations", Argon2Params.ITERATIONS_LEGACY)
+        val parallelism = prefs.getInt("argon2_parallelism", Argon2Params.PARALLELISM_LEGACY)
+        return Triple(memory, iterations, parallelism)
+    }
+
+    /**
+     * Unlock the vault: derive master key from password and salt using stored Argon2 params,
+     * then verify against the stored key hash.
      */
     fun unlockVault(password: String): Result<Unit> = runCatching {
         val salt = getSalt() ?: throw IllegalStateException("Vault not initialized")
@@ -57,7 +75,9 @@ class KeyManager(private val context: Context) {
             ?: throw IllegalStateException("Vault corrupted: no key hash")
         val storedHash = Base64.getDecoder().decode(storedHashStr)
 
-        val derivedKey = crypto.deriveKey(password, salt)
+        // Use stored Argon2 params (or legacy fallback for old vaults)
+        val (memory, iterations, parallelism) = getArgon2Params()
+        val derivedKey = crypto.deriveKey(password, salt, memory, iterations, parallelism)
         val derivedHash = hashKey(derivedKey)
 
         if (!derivedHash.contentEquals(storedHash)) {
@@ -94,15 +114,16 @@ class KeyManager(private val context: Context) {
 
     /**
      * Change the master password.
-     * Requires re-encrypting all stored values.
+     * Uses stored Argon2 params for derivation.
      */
     fun changePassword(oldPassword: String, newPassword: String): Result<Unit> = runCatching {
         val salt = getSalt() ?: throw IllegalStateException("Vault not initialized")
-        val oldKey = crypto.deriveKey(oldPassword, salt)
+        val (memory, iterations, parallelism) = getArgon2Params()
+        val oldKey = crypto.deriveKey(oldPassword, salt, memory, iterations, parallelism)
 
         // Decrypt all values with old key, re-encrypt with new key
         // This is handled by the use case layer
-        val newKey = crypto.deriveKey(newPassword, salt)
+        val newKey = crypto.deriveKey(newPassword, salt, memory, iterations, parallelism)
         masterKey = newKey
     }
 

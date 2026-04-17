@@ -12,10 +12,26 @@ private const val GCM_TAG_LENGTH = 128  // bits
 private const val KEY_LENGTH = 32       // 256 bits
 private const val SALT_LENGTH = 16
 
-// Argon2id parameters (optimized for mobile: ~0.5s unlock)
-private const val ARGON2_MEMORY = 16384     // 16 MB in KB
-private const val ARGON2_ITERATIONS = 2
-private const val ARGON2_PARALLELISM = 1
+/**
+ * Argon2id parameters - OWASP recommended (2024)
+ * memory=64MB, iterations=3, parallelism=4
+ * Approx ~1-2s unlock time on modern devices
+ */
+object Argon2Params {
+    // OWASP recommended params for new vaults
+    const val MEMORY_OWASP = 65536       // 64 MB in KB
+    const val ITERATIONS_OWASP = 3
+    const val PARALLELISM_OWASP = 4
+
+    // Legacy params (for existing vaults created before this update)
+    const val MEMORY_LEGACY = 16384      // 16 MB in KB
+    const val ITERATIONS_LEGACY = 2
+    const val PARALLELISM_LEGACY = 1
+
+    // Default for new vaults: OWASP params
+    val DEFAULT = Triple(MEMORY_OWASP, ITERATIONS_OWASP, PARALLELISM_OWASP)
+    val LEGACY = Triple(MEMORY_LEGACY, ITERATIONS_LEGACY, PARALLELISM_LEGACY)
+}
 
 class LockitCrypto {
 
@@ -23,14 +39,22 @@ class LockitCrypto {
 
     /**
      * Derive a 256-bit key from password and salt using Argon2id.
-     * Compatible with CLI crypto.rs (argon2 default params).
+     * @param memoryKB Memory in KB (OWASP recommends 64MB = 65536KB)
+     * @param iterations Number of passes (OWASP recommends 3)
+     * @param parallelism Number of threads (OWASP recommends 4)
      */
-    fun deriveKey(password: String, salt: ByteArray): ByteArray {
+    fun deriveKey(
+        password: String,
+        salt: ByteArray,
+        memoryKB: Int = Argon2Params.MEMORY_OWASP,
+        iterations: Int = Argon2Params.ITERATIONS_OWASP,
+        parallelism: Int = Argon2Params.PARALLELISM_OWASP
+    ): ByteArray {
         val params = Argon2Parameters.Builder(Argon2Parameters.ARGON2_id)
             .withSalt(salt)
-            .withMemoryAsKB(ARGON2_MEMORY)
-            .withIterations(ARGON2_ITERATIONS)
-            .withParallelism(ARGON2_PARALLELISM)
+            .withMemoryAsKB(memoryKB)
+            .withIterations(iterations)
+            .withParallelism(parallelism)
             .build()
 
         val generator = Argon2BytesGenerator()

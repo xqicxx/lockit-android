@@ -15,7 +15,7 @@ Lockit is a secure credential manager Android app using Technical Brutalism desi
 ## Security Requirements
 
 - AES-256-GCM encryption for credential values
-- Argon2id key derivation (memory=16MB, iterations=2, parallelism=1)
+- Argon2id key derivation (OWASP params: memory=64MB, iterations=3, parallelism=4)
 - Biometric authentication before revealing secrets
 - Audit logging for all security events
 

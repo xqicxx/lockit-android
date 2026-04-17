@@ -15,7 +15,7 @@ A secure credential manager for Android with **Technical Brutalism** design phil
 
 ### 🔒 Security
 - **AES-256-GCM encryption** for all credential values
-- **Argon2id** key derivation (memory=16MB, iterations=2, parallelism=1)
+- **Argon2id** key derivation (OWASP params: memory=64MB, iterations=3, parallelism=4)
 - **Biometric authentication** for revealing sensitive values
 - **15-minute session cache** for convenient access
 - **Audit logging** for all security events
@@ -133,7 +133,7 @@ Compatible with Rust CLI (`lockit/crypto.rs`):
 [12-byte nonce][ciphertext + 16-byte GCM tag]
 ```
 
-Key derivation: Argon2id (memory=16MB, iterations=2, parallelism=1)
+Key derivation: Argon2id (OWASP params: memory=64MB, iterations=3, parallelism=4)
 
 ## License
 
