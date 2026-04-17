@@ -402,7 +402,6 @@ fun VaultUnlockScreen(
                                         stringResource(R.string.vault_unlock_biometric)
                                     else
                                         stringResource(R.string.vault_biometric_link)
-                                    val enterPinFirstError = stringResource(R.string.error_enter_pin_first)
                                     val linkTitle = stringResource(R.string.biometric_link_pin_title)
                                     val linkSubtitle = stringResource(R.string.biometric_link_pin_subtitle)
                                     val unlockTitle = stringResource(R.string.biometric_unlock_title)
@@ -430,7 +429,7 @@ fun VaultUnlockScreen(
                                                             onError = { viewModel.errorMessage = "BIOMETRIC_LINK_FAILED: $it" },
                                                         )
                                                     } else {
-                                                        viewModel.errorMessage = enterPinFirstError
+                                                        viewModel.errorMessage = "ENTER_PIN_FIRST_TO_LINK"
                                                     }
                                                 }
                                             }
@@ -458,30 +457,33 @@ fun VaultUnlockScreen(
                 }
 
                 // Error message
-                viewModel.errorMessage?.let { error ->
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .border(1.dp, TacticalRed)
-                            .padding(10.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        Text(
-                            text = "!",
-                            fontFamily = JetBrainsMonoFamily,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = TacticalRed,
-                        )
-                        Text(
-                            text = error,
-                            fontFamily = JetBrainsMonoFamily,
-                            fontSize = 9.sp,
-                            color = TacticalRed,
-                            modifier = Modifier.weight(1f),
-                        )
+                viewModel.errorMessage?.let { errorKey ->
+                    val localizedError = getLocalizedErrorMessage(errorKey, context)
+                    if (localizedError != null) {
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .border(1.dp, TacticalRed)
+                                .padding(10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            Text(
+                                text = "!",
+                                fontFamily = JetBrainsMonoFamily,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = TacticalRed,
+                            )
+                            Text(
+                                text = localizedError,
+                                fontFamily = JetBrainsMonoFamily,
+                                fontSize = 9.sp,
+                                color = TacticalRed,
+                                modifier = Modifier.weight(1f),
+                            )
+                        }
                     }
                 }
             }
@@ -786,6 +788,36 @@ private fun BrutalistSmallButton(
             color = if (isDanger) White else Primary,
             letterSpacing = 1.sp,
         )
+    }
+}
+
+/**
+ * Maps error keys to localized string resources.
+ * Handles both simple keys and composite keys like "BIOMETRIC_FAILED: message"
+ */
+fun getLocalizedErrorMessage(errorKey: String, context: android.content.Context): String? {
+    // Handle composite error messages like "BIOMETRIC_FAILED: Some message"
+    val parts = errorKey.split(": ")
+    val baseKey = parts.firstOrNull() ?: errorKey
+    val extraMessage = if (parts.size > 1) parts[1] else null
+
+    val localizedBase = when (baseKey) {
+        "PIN_TOO_SHORT" -> context.getString(R.string.error_pin_too_short)
+        "WRONG_PIN" -> context.getString(R.string.error_wrong_pin)
+        "CONFIRM_PIN_TOO_SHORT" -> context.getString(R.string.error_confirm_pin_too_short)
+        "PIN_MISMATCH" -> context.getString(R.string.error_pin_mismatch)
+        "INIT_FAILED" -> context.getString(R.string.error_init_failed)
+        "NO_PIN_TO_LINK" -> context.getString(R.string.error_no_pin_to_link)
+        "ENTER_PIN_FIRST_TO_LINK" -> context.getString(R.string.error_enter_pin_first)
+        "BIOMETRIC_FAILED" -> context.getString(R.string.error_biometric_failed)
+        "BIOMETRIC_LINK_FAILED" -> context.getString(R.string.error_biometric_link_failed)
+        else -> null
+    }
+
+    return if (localizedBase != null && extraMessage != null) {
+        "$localizedBase: $extraMessage"
+    } else {
+        localizedBase ?: errorKey
     }
 }
 
