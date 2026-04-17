@@ -976,8 +976,9 @@ private fun UpdateDialog(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(100.dp)
+                        .height(150.dp)
                         .border(1.dp, Color.Gray)
+                        .verticalScroll(rememberScrollState())
                         .padding(8.dp),
                 ) {
                     Text(
