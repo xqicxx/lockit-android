@@ -101,8 +101,6 @@ class BiometricPinStorage(private val sharedPreferences: SharedPreferences) {
             return
         }
 
-        val iv = cipher.iv
-
         val executor = ContextCompat.getMainExecutor(activity)
         val biometricPrompt = BiometricPrompt(
             activity,
@@ -116,6 +114,8 @@ class BiometricPinStorage(private val sharedPreferences: SharedPreferences) {
                             return
                         }
                         val encrypted = authenticatedCipher.doFinal(pin.toByteArray(Charsets.UTF_8))
+                        // Get IV from the authenticated cipher that actually performed encryption
+                        val iv = authenticatedCipher.iv
 
                         val editor = sharedPreferences.edit()
                         editor.putString(ENCRYPTED_PIN_KEY, Base64.encodeToString(encrypted, Base64.NO_WRAP))
