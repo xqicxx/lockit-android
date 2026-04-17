@@ -81,7 +81,6 @@ fun ConfigScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
-    var showLockDialog by remember { mutableStateOf(false) }
     var showChangePinDialog by remember { mutableStateOf(false) }
     var toastMessage by remember { mutableStateOf<String?>(null) }
 
@@ -136,21 +135,6 @@ fun ConfigScreen(
             val timeResult = syncManager.getLastBackupTime(signedInAccount!!)
             lastBackupTime = timeResult.getOrNull()
         }
-    }
-
-    if (showLockDialog) {
-        BrutalistConfirmDialog(
-            title = context.getString(R.string.config_lock_vault),
-            message = context.getString(R.string.config_lock_vault_desc),
-            confirmText = context.getString(R.string.btn_lock),
-            confirmVariant = ButtonVariant.Warning,
-            onConfirm = {
-                showLockDialog = false
-                app.vaultManager.lockVault()
-                onLockVault()
-            },
-            onDismiss = { showLockDialog = false },
-        )
     }
 
     if (showChangePinDialog) {
@@ -234,7 +218,10 @@ fun ConfigScreen(
                     Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         BrutalistButton(
                             text = stringResource(R.string.config_lock_vault),
-                            onClick = { showLockDialog = true },
+                            onClick = {
+                                app.vaultManager.lockVault()
+                                onLockVault()
+                            },
                             variant = ButtonVariant.Warning,
                             modifier = Modifier.fillMaxWidth(),
                             useMonoFont = true,
