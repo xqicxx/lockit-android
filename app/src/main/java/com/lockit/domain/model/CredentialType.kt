@@ -154,28 +154,6 @@ enum class CredentialType(
             CredentialField("PRIVATE_KEY", "Paste private key..."),
         ),
     ),
-    BearerToken(
-        "BEARER_TOKEN", "badge",
-        "Store bearer tokens for OAuth2/API auth. Agent injects into Authorization: Bearer header.",
-        listOf(
-            CredentialField("NAME", "e.g. API_BEARER, AUTH_TOKEN"),
-            CredentialField("SERVICE", "e.g. my-api, staging..."),
-            CredentialField("KEY_IDENTIFIER", "e.g. default, production...", presets = listOf(
-                "default", "production", "staging", "development",
-            ), isDropdown = true),
-            CredentialField("TOKEN_VALUE", "Paste or enter the bearer token..."),
-        ),
-    ),
-    BasicAuth(
-        "BASIC_AUTH", "account_circle",
-        "Store HTTP Basic Auth credentials. Agent uses these for protected API endpoints.",
-        listOf(
-            CredentialField("USERNAME", "Enter username..."),
-            CredentialField("SERVICE", "e.g. admin-panel, jenkins..."),
-            CredentialField("REALM", "Realm (optional)..."),
-            CredentialField("PASSWORD", "Enter password..."),
-        ),
-    ),
     WebhookSecret(
         "WEBHOOK_SECRET", "webhook",
         "Store webhook signing secrets for verifying incoming webhooks. Agent validates webhook payloads.",
