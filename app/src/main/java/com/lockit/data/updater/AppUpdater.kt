@@ -28,7 +28,7 @@ class AppUpdater(context: Context) {
     private val context = context.applicationContext
 
     companion object {
-        private const val GITHUB_REPO = "xqicxx/lockit"
+        private const val GITHUB_REPO = "xqicxx/lockit-android"
         private const val RELEASES_API = "https://api.github.com/repos/$GITHUB_REPO/releases/latest"
     }
 
