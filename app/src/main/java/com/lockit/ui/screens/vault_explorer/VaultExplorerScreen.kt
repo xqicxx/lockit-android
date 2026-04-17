@@ -239,12 +239,11 @@ fun VaultExplorerScreen(
             contentPadding = PaddingValues(bottom = 140.dp),
         ) {
             item {
-                Spacer(modifier = Modifier.height(24.dp))
                 ScreenHero(
                     title = stringResource(R.string.explorer_title),
                     subtitle = stringResource(R.string.explorer_subtitle),
                 )
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(24.dp))
 
                 Box(
                     modifier = Modifier
