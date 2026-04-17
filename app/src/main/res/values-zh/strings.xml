@@ -267,4 +267,12 @@
 
     <!-- Credential Type Display -->
     <string name="type_id_card">身份证</string>
+
+    <!-- Copy Toast Messages -->
+    <string name="toast_value_copied">值已复制</string>
+    <string name="toast_structured_copied">结构化数据已复制</string>
+    <string name="toast_api_key_copied">API密钥已复制</string>
+    <string name="toast_base_url_copied">基础URL已复制</string>
+    <string name="toast_email_copied">邮箱已复制</string>
+    <string name="toast_phone_copied">电话已复制</string>
 </resources>

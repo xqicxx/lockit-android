@@ -70,6 +70,13 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 
+// Toast data class for localization-safe toast messages
+data class ToastData(
+    val resourceId: Int? = null,
+    val formatArgs: List<Any> = emptyList(),
+    val rawMessage: String? = null,
+)
+
 class VaultExplorerViewModel(private val app: LockitApp) : ViewModel() {
 
     private val _credentials = MutableStateFlow<List<Credential>>(emptyList())
@@ -91,8 +98,8 @@ class VaultExplorerViewModel(private val app: LockitApp) : ViewModel() {
             }
         }
 
-    private val _toastMessage = MutableStateFlow<String?>(null)
-    val toastMessage: StateFlow<String?> = _toastMessage.asStateFlow()
+    private val _toastData = MutableStateFlow<ToastData?>(null)
+    val toastData: StateFlow<ToastData?> = _toastData.asStateFlow()
 
     init {
         startObservingAllCredentials()
@@ -116,19 +123,39 @@ class VaultExplorerViewModel(private val app: LockitApp) : ViewModel() {
         viewModelScope.launch {
             try {
                 app.vaultManager.deleteCredential(credential)
-                _toastMessage.value = app.getString(R.string.toast_credential_deleted, credential.name)
+                _toastData.value = ToastData(
+                    resourceId = R.string.toast_credential_deleted,
+                    formatArgs = listOf(credential.name)
+                )
             } catch (e: Exception) {
-                _toastMessage.value = "ERROR: ${e.message}"
+                _toastData.value = ToastData(rawMessage = "ERROR: ${e.message}")
             }
         }
     }
 
     fun showToast(message: String) {
-        _toastMessage.value = message
+        _toastData.value = ToastData(rawMessage = message)
+    }
+
+    fun showCopyToast(actionName: String) {
+        val resourceId = when (actionName) {
+            "VALUE" -> R.string.toast_value_copied
+            "STRUCTURED" -> R.string.toast_structured_copied
+            "API_KEY" -> R.string.toast_api_key_copied
+            "BASE_URL" -> R.string.toast_base_url_copied
+            "EMAIL" -> R.string.toast_email_copied
+            "PHONE" -> R.string.toast_phone_copied
+            else -> null
+        }
+        if (resourceId != null) {
+            _toastData.value = ToastData(resourceId = resourceId)
+        } else {
+            _toastData.value = ToastData(rawMessage = "${actionName}_COPIED")
+        }
     }
 
     fun dismissToast() {
-        _toastMessage.value = null
+        _toastData.value = null
     }
 }
 
@@ -144,7 +171,7 @@ fun VaultExplorerScreen(
     ),
 ) {
     val credentials by viewModel.credentials.collectAsStateWithLifecycle()
-    val toastMessage by viewModel.toastMessage.collectAsStateWithLifecycle()
+    val toastData by viewModel.toastData.collectAsStateWithLifecycle()
     var searchQuery by remember { mutableStateOf(viewModel.searchQuery) }
     var phoneRegionForToast by remember { mutableStateOf("") }
     val clipboardManager = LocalClipboardManager.current
@@ -175,7 +202,7 @@ fun VaultExplorerScreen(
         }
         clipboardManager.setText(AnnotatedString(valueToCopy))
         app.vaultManager.logCredentialCopied(credential.name)
-        viewModel.showToast("${action.name}_COPIED")
+        viewModel.showCopyToast(action.name)
         if (action == CopyAction.PHONE) {
             phoneRegionForToast = credential.name
         }
@@ -373,14 +400,27 @@ fun VaultExplorerScreen(
         )
     }
 
-    toastMessage?.let { message ->
+    toastData?.let { data ->
+        // Resolve the localized string from ToastData
+        val message = when {
+            data.resourceId != null -> {
+                if (data.formatArgs.isNotEmpty()) {
+                    stringResource(data.resourceId, *data.formatArgs.toTypedArray())
+                } else {
+                    stringResource(data.resourceId)
+                }
+            }
+            data.rawMessage != null -> data.rawMessage
+            else -> ""
+        }
+
+        val hasPhoneAction = message.startsWith("PHONE_COPIED")
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(16.dp),
             contentAlignment = Alignment.BottomCenter,
         ) {
-            val hasPhoneAction = message.startsWith("PHONE_COPIED")
             BrutalistToast(
                 message = message,
                 onDismiss = { viewModel.dismissToast() },

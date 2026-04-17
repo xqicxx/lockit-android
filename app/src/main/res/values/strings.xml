@@ -267,4 +267,12 @@
 
     <!-- Credential Type Display -->
     <string name="type_id_card">ID CARD</string>
+
+    <!-- Copy Toast Messages -->
+    <string name="toast_value_copied">VALUE_COPIED</string>
+    <string name="toast_structured_copied">STRUCTURED_COPIED</string>
+    <string name="toast_api_key_copied">API_KEY_COPIED</string>
+    <string name="toast_base_url_copied">BASE_URL_COPIED</string>
+    <string name="toast_email_copied">EMAIL_COPIED</string>
+    <string name="toast_phone_copied">PHONE_COPIED</string>
 </resources>
