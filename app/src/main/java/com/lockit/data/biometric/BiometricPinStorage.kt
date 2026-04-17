@@ -5,6 +5,7 @@ import android.content.SharedPreferences
 import android.os.Build
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
+import android.util.Base64
 import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
 import androidx.core.content.ContextCompat
@@ -65,10 +66,22 @@ class BiometricPinStorage(private val sharedPreferences: SharedPreferences) {
             .build()
     }
 
-    fun storePin(activity: FragmentActivity, pin: String, onSuccess: () -> Unit, onError: (String) -> Unit) {
+    fun storePin(
+        activity: FragmentActivity,
+        pin: String,
+        title: String,
+        subtitle: String,
+        onSuccess: () -> Unit,
+        onError: (String) -> Unit
+    ) {
         val cipher = try {
             val keyStore = KeyStore.getInstance("AndroidKeyStore")
             keyStore.load(null)
+
+            // Delete existing key if present (regenerate for new PIN)
+            if (keyStore.containsAlias(KEY_ALIAS)) {
+                keyStore.deleteEntry(KEY_ALIAS)
+            }
 
             val keyGenerator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore")
             val spec = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
@@ -88,18 +101,59 @@ class BiometricPinStorage(private val sharedPreferences: SharedPreferences) {
             return
         }
 
-        val iv = cipher.iv
-        val encrypted = cipher.doFinal(pin.toByteArray(Charsets.UTF_8))
+        val executor = ContextCompat.getMainExecutor(activity)
+        val biometricPrompt = BiometricPrompt(
+            activity,
+            executor,
+            object : BiometricPrompt.AuthenticationCallback() {
+                override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
+                    try {
+                        val authenticatedCipher = result.cryptoObject?.cipher
+                        if (authenticatedCipher == null) {
+                            onError("CIPHER_NULL")
+                            return
+                        }
+                        val encrypted = authenticatedCipher.doFinal(pin.toByteArray(Charsets.UTF_8))
+                        // Get IV from the authenticated cipher that actually performed encryption
+                        val iv = authenticatedCipher.iv
 
-        val editor = sharedPreferences.edit()
-        editor.putString(ENCRYPTED_PIN_KEY, encrypted.toString(Charsets.ISO_8859_1))
-        editor.putString(IV_KEY, iv.toString(Charsets.ISO_8859_1))
-        editor.apply()
+                        val editor = sharedPreferences.edit()
+                        editor.putString(ENCRYPTED_PIN_KEY, Base64.encodeToString(encrypted, Base64.NO_WRAP))
+                        editor.putString(IV_KEY, Base64.encodeToString(iv, Base64.NO_WRAP))
+                        editor.apply()
 
-        onSuccess()
+                        onSuccess()
+                    } catch (e: Exception) {
+                        onError("ENCRYPT_FAILED: ${e.message}")
+                    }
+                }
+
+                override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
+                    onError(errString.toString())
+                }
+
+                override fun onAuthenticationFailed() {
+                    onError("Authentication failed. Try again.")
+                }
+            },
+        )
+
+        val promptInfo = BiometricPrompt.PromptInfo.Builder()
+            .setTitle(title)
+            .setSubtitle(subtitle)
+            .setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_STRONG)
+            .build()
+
+        biometricPrompt.authenticate(promptInfo, BiometricPrompt.CryptoObject(cipher))
     }
 
-    fun decryptPin(activity: FragmentActivity, onSuccess: (String) -> Unit, onError: (String) -> Unit) {
+    fun decryptPin(
+        activity: FragmentActivity,
+        title: String,
+        subtitle: String,
+        onSuccess: (String) -> Unit,
+        onError: (String) -> Unit
+    ) {
         val encryptedPin = sharedPreferences.getString(ENCRYPTED_PIN_KEY, null)
         val ivData = sharedPreferences.getString(IV_KEY, null)
         if (encryptedPin == null || ivData == null) {
@@ -112,11 +166,12 @@ class BiometricPinStorage(private val sharedPreferences: SharedPreferences) {
             keyStore.load(null)
 
             val secretKey = keyStore.getKey(KEY_ALIAS, null) as SecretKey
+            val ivBytes = Base64.decode(ivData, Base64.NO_WRAP)
             Cipher.getInstance(TRANSFORMATION).apply {
                 init(
                     Cipher.DECRYPT_MODE,
                     secretKey,
-                    GCMParameterSpec(128, ivData.toByteArray(Charsets.ISO_8859_1)),
+                    GCMParameterSpec(128, ivBytes),
                 )
             }
         } catch (e: Exception) {
@@ -131,10 +186,15 @@ class BiometricPinStorage(private val sharedPreferences: SharedPreferences) {
             object : BiometricPrompt.AuthenticationCallback() {
                 override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
                     try {
-                        val decrypted = result.cryptoObject?.cipher?.doFinal(
-                            encryptedPin.toByteArray(Charsets.ISO_8859_1)
+                        val authenticatedCipher = result.cryptoObject?.cipher
+                        if (authenticatedCipher == null) {
+                            onError("CIPHER_NULL")
+                            return
+                        }
+                        val decrypted = authenticatedCipher.doFinal(
+                            Base64.decode(encryptedPin, Base64.NO_WRAP)
                         )
-                        val pin = String(decrypted!!, Charsets.UTF_8)
+                        val pin = String(decrypted, Charsets.UTF_8)
                         onSuccess(pin)
                     } catch (e: Exception) {
                         onError("DECRYPT_FAILED: ${e.message}")
@@ -152,8 +212,8 @@ class BiometricPinStorage(private val sharedPreferences: SharedPreferences) {
         )
 
         val promptInfo = BiometricPrompt.PromptInfo.Builder()
-            .setTitle("Unlock Vault")
-            .setSubtitle("Authenticate to decrypt your vault PIN")
+            .setTitle(title)
+            .setSubtitle(subtitle)
             .setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_STRONG)
             .build()
 

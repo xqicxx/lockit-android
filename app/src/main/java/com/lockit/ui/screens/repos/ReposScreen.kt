@@ -3,6 +3,7 @@ package com.lockit.ui.screens.repos
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -258,6 +259,11 @@ fun ReposScreen(
 
     var selectedService by remember { mutableStateOf<String?>(null) }
     var searchQuery by remember { mutableStateOf("") }
+
+    // Handle Android back button when viewing a service's credentials
+    BackHandler(enabled = selectedService != null) {
+        selectedService = null
+    }
     val clipboardManager = LocalClipboardManager.current
     val context = LocalContext.current
     val view = LocalView.current

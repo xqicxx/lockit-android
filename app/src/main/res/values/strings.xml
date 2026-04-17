@@ -193,6 +193,10 @@
     <string name="biometric_copy_subtitle">Biometric authentication required</string>
     <string name="biometric_view_title">View Credential</string>
     <string name="biometric_view_subtitle">Biometric authentication required</string>
+    <string name="biometric_link_pin_title">Link Biometric</string>
+    <string name="biometric_link_pin_subtitle">Authenticate to securely store PIN for fingerprint unlock</string>
+    <string name="biometric_unlock_title">Unlock Vault</string>
+    <string name="biometric_unlock_subtitle">Authenticate to decrypt PIN</string>
 
     <!-- Repos Screen -->
     <string name="repos_title">Repositories</string>
