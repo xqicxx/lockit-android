@@ -215,7 +215,7 @@
     <string name="repos_search_placeholder">Search by name or type...</string>
     <string name="repos_search_results">SEARCH_RESULTS:</string>
     <string name="repos_manifest">INVENTORY_MANIFEST</string>
-    <string name="repos_entries">entries</string>
+    <string name="repos_entries">%1$d entries</string>
     <string name="repos_no_matching_credentials">NO_MATCHING_CREDENTIALS</string>
     <string name="repos_keys">%1$d keys</string>
     <string name="repos_local">LOCAL</string>

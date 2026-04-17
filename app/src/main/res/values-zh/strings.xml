@@ -215,7 +215,7 @@
     <string name="repos_search_placeholder">按名称或类型搜索...</string>
     <string name="repos_search_results">搜索结果:</string>
     <string name="repos_manifest">凭据清单</string>
-    <string name="repos_entries">条目</string>
+    <string name="repos_entries">%1$d 条目</string>
     <string name="repos_no_matching_credentials">无匹配凭据</string>
     <string name="repos_keys">%1$d 密钥</string>
     <string name="repos_local">本地</string>
