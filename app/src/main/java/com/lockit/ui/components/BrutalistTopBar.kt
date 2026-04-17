@@ -95,21 +95,21 @@ fun TopBarAddButton(onClick: () -> Unit) {
         modifier = Modifier
             .clickable(onClick = onClick)
             .border(1.dp, Primary)
-            .padding(horizontal = 10.dp, vertical = 6.dp),
+            .padding(horizontal = 8.dp, vertical = 4.dp),  // Match version number padding
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(
             imageVector = Icons.Default.Add,
             contentDescription = "Add",
             tint = Primary,
-            modifier = Modifier.size(16.dp),
+            modifier = Modifier.size(14.dp),  // Smaller icon to match text height
         )
-        Spacer(modifier = Modifier.width(4.dp))
+        Spacer(modifier = Modifier.width(3.dp))
         Text(
             text = "NEW",
             fontFamily = JetBrainsMonoFamily,
             fontWeight = FontWeight.Bold,
-            fontSize = 10.sp,
+            fontSize = 10.sp,  // Same as version number
             letterSpacing = 1.sp,
             color = Primary,
         )
