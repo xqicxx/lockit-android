@@ -207,14 +207,18 @@ class VaultUnlockViewModel(private val app: LockitApp) : ViewModel() {
 
     fun authenticateWithBiometric(activity: FragmentActivity, onSuccess: () -> Unit, onError: (String) -> Unit) {
         biometricStorage.decryptPin(activity, onSuccess = { decryptedPin ->
-            pin = decryptedPin
-            val result = app.vaultManager.unlockVault(decryptedPin)
-            if (result.isSuccess) {
-                _uiState.value = VaultUnlockUiState(navigated = true)
-                onSuccess()
-            } else {
-                onError("WRONG_PIN")
-                pin = ""
+            viewModelScope.launch {
+                pin = decryptedPin
+                val result = withContext(Dispatchers.IO) {
+                    app.vaultManager.unlockVault(decryptedPin)
+                }
+                if (result.isSuccess) {
+                    _uiState.value = VaultUnlockUiState(navigated = true)
+                    onSuccess()
+                } else {
+                    onError("WRONG_PIN")
+                    pin = ""
+                }
             }
         }, onError = onError)
     }
