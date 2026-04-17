@@ -38,6 +38,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -47,6 +48,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.lockit.LockitApp
+import com.lockit.R
 import com.lockit.ui.components.BrutalistTopBar
 import com.lockit.ui.components.findActivity
 import com.lockit.ui.theme.IndustrialOrange
@@ -86,12 +88,10 @@ class VaultUnlockViewModel(private val app: LockitApp) : ViewModel() {
         if (isConfirmStep) {
             if (confirmPin.length < 4) {
                 confirmPin += digit
-                errorMessage = null
             }
         } else {
             if (pin.length < 4) {
                 pin += digit
-                errorMessage = null
             }
         }
     }
@@ -100,12 +100,10 @@ class VaultUnlockViewModel(private val app: LockitApp) : ViewModel() {
         if (isConfirmStep) {
             if (confirmPin.isNotEmpty()) {
                 confirmPin = confirmPin.dropLast(1)
-                errorMessage = null
             }
         } else {
             if (pin.isNotEmpty()) {
                 pin = pin.dropLast(1)
-                errorMessage = null
             }
         }
     }
@@ -209,14 +207,18 @@ class VaultUnlockViewModel(private val app: LockitApp) : ViewModel() {
 
     fun authenticateWithBiometric(activity: FragmentActivity, onSuccess: () -> Unit, onError: (String) -> Unit) {
         biometricStorage.decryptPin(activity, onSuccess = { decryptedPin ->
-            pin = decryptedPin
-            val result = app.vaultManager.unlockVault(decryptedPin)
-            if (result.isSuccess) {
-                _uiState.value = VaultUnlockUiState(navigated = true)
-                onSuccess()
-            } else {
-                onError("WRONG_PIN")
-                pin = ""
+            viewModelScope.launch {
+                pin = decryptedPin
+                val result = withContext(Dispatchers.IO) {
+                    app.vaultManager.unlockVault(decryptedPin)
+                }
+                if (result.isSuccess) {
+                    _uiState.value = VaultUnlockUiState(navigated = true)
+                    onSuccess()
+                } else {
+                    onError("WRONG_PIN")
+                    pin = ""
+                }
             }
         }, onError = onError)
     }
@@ -277,7 +279,7 @@ fun VaultUnlockScreen(
                 // Logo + Title
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
-                        text = "LOCKIT",
+                        text = stringResource(R.string.vault_title),
                         fontFamily = JetBrainsMonoFamily,
                         fontWeight = FontWeight.ExtraBold,
                         fontSize = 36.sp,
@@ -287,7 +289,7 @@ fun VaultUnlockScreen(
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "OPERATOR AUTHORIZATION TERMINAL",
+                        text = stringResource(R.string.vault_subtitle),
                         fontFamily = JetBrainsMonoFamily,
                         fontSize = 8.sp,
                         color = Color.Black.copy(0.6f),
@@ -317,13 +319,13 @@ fun VaultUnlockScreen(
                             // Status bar text
                             Text(
                                 text = if (viewModel.isProcessing) {
-                                    "SYSTEM_STATE: PROCESSING..."
+                                    stringResource(R.string.vault_state_processing)
                                 } else if (viewModel.isInitialized) {
-                                    "SYSTEM_STATE: AWAITING_PIN"
+                                    stringResource(R.string.vault_state_awaiting)
                                 } else if (viewModel.isConfirmStep) {
-                                    "SYSTEM_STATE: CONFIRM_PIN"
+                                    stringResource(R.string.vault_state_confirm)
                                 } else {
-                                    "SYSTEM_STATE: INIT_PIN"
+                                    stringResource(R.string.vault_state_init)
                                 },
                                 fontFamily = JetBrainsMonoFamily,
                                 fontSize = 8.sp,
@@ -371,12 +373,12 @@ fun VaultUnlockScreen(
                             if (viewModel.isConfirmStep) {
                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                     BrutalistSmallButton(
-                                        text = "CANCEL",
+                                        text = stringResource(R.string.vault_cancel),
                                         onClick = { viewModel.cancelConfirm() },
                                         modifier = Modifier.weight(1f),
                                     )
                                     BrutalistSmallButton(
-                                        text = "REENTER_PIN",
+                                        text = stringResource(R.string.vault_reenter_pin),
                                         onClick = { viewModel.cancelConfirm() },
                                         modifier = Modifier.weight(1f),
                                         isDanger = true,
@@ -385,13 +387,14 @@ fun VaultUnlockScreen(
                             } else {
                                 if (viewModel.isInitialized) {
                                     val bioText = if (viewModel.isBiometricLinked)
-                                        "UNLOCK_WITH_BIOMETRIC"
+                                        stringResource(R.string.vault_unlock_biometric)
                                     else
-                                        "BIOMETRIC_LINK"
+                                        stringResource(R.string.vault_biometric_link)
+                                    val enterPinFirstError = stringResource(R.string.error_enter_pin_first)
                                     BrutalistActionButton(
                                         text = bioText,
                                         onClick = {
-                                            val activity = context as? FragmentActivity
+                                            val activity = view.findActivity()
                                             if (activity != null) {
                                                 if (viewModel.isBiometricLinked) {
                                                     viewModel.authenticateWithBiometric(
@@ -407,7 +410,7 @@ fun VaultUnlockScreen(
                                                             onError = { viewModel.errorMessage = "BIOMETRIC_LINK_FAILED: $it" },
                                                         )
                                                     } else {
-                                                        viewModel.errorMessage = "ENTER_PIN_FIRST_TO_LINK"
+                                                        viewModel.errorMessage = enterPinFirstError
                                                     }
                                                 }
                                             }
@@ -419,12 +422,12 @@ fun VaultUnlockScreen(
                                 }
                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                     BrutalistSmallButton(
-                                        text = "RECOVER_ID",
+                                        text = stringResource(R.string.vault_recover_id),
                                         onClick = { /* Post-MVP: account recovery flow */ },
                                         modifier = Modifier.weight(1f),
                                     )
                                     BrutalistSmallButton(
-                                        text = "EMERGENCY_SOS",
+                                        text = stringResource(R.string.vault_emergency_sos),
                                         onClick = { /* Post-MVP: emergency access protocol */ },
                                         modifier = Modifier.weight(1f),
                                         isDanger = true,
@@ -489,7 +492,7 @@ fun VaultUnlockScreen(
                     )
                     Spacer(modifier = Modifier.height(12.dp))
                     Text(
-                        text = "LINK BIOMETRIC?",
+                        text = stringResource(R.string.vault_link_biometric_title),
                         fontFamily = JetBrainsMonoFamily,
                         fontWeight = FontWeight.Bold,
                         fontSize = 14.sp,
@@ -497,7 +500,7 @@ fun VaultUnlockScreen(
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "Use your fingerprint to unlock the vault next time, without entering your PIN.",
+                        text = stringResource(R.string.vault_link_biometric_desc),
                         fontFamily = JetBrainsMonoFamily,
                         fontSize = 10.sp,
                         color = Color.Gray,
@@ -505,7 +508,7 @@ fun VaultUnlockScreen(
                     Spacer(modifier = Modifier.height(16.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         BrutalistSmallButton(
-                            text = "SKIP",
+                            text = stringResource(R.string.vault_skip),
                             onClick = {
                                 viewModel.showBiometricSetup = false
                                 viewModel.setAppState(true)
@@ -514,7 +517,7 @@ fun VaultUnlockScreen(
                             modifier = Modifier.weight(1f),
                         )
                         BrutalistSmallButton(
-                            text = "ENABLE",
+                            text = stringResource(R.string.vault_enable),
                             onClick = {
                                 val activity = view.findActivity()
                                 if (activity != null) {
@@ -559,21 +562,21 @@ fun VaultUnlockScreen(
                     )
                 }
                 Text(
-                    text = "ENC_LINK: ACTIVE",
+                    text = stringResource(R.string.vault_enc_link),
                     fontFamily = JetBrainsMonoFamily,
                     fontSize = 9.sp,
                     color = IndustrialOrange,
                     fontWeight = FontWeight.Bold,
                 )
                 Text(
-                    text = "OS_VER: 4.1.0_LOCKED",
+                    text = stringResource(R.string.vault_os_ver),
                     fontFamily = JetBrainsMonoFamily,
                     fontSize = 9.sp,
                     color = Color.White.copy(0.6f),
                 )
             }
             Text(
-                text = "NODE_ID: LX-88",
+                text = stringResource(R.string.vault_node_id),
                 fontFamily = JetBrainsMonoFamily,
                 fontSize = 9.sp,
                 color = Color.White.copy(0.4f),
