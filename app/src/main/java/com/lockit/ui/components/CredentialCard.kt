@@ -530,6 +530,43 @@ private fun CredentialContent(
             OptionalFieldRow("SCOPE", scope)
         }
 
+        CredentialType.Account -> {
+            // Account: show USERNAME + EMAIL + PASSWORD (password needs reveal)
+            val username = fields.getNotBlank(0) ?: credential.name
+            val email = fields.getNotBlank(2)
+            val password = fields.getNotBlank(3) ?: CredentialDefaults.FIELD_NOT_SET
+
+            FieldValueBox(label = "USERNAME", value = username)
+
+            // EMAIL - optional, show if present
+            if (email != null) {
+                Spacer(modifier = Modifier.height(8.dp))
+                FieldValueBox(label = "EMAIL", value = email)
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // PASSWORD - revealable
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                FieldLabel("PASSWORD")
+                IconButtonBox(
+                    icon = if (isRevealed) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                    description = if (isRevealed) "Hide" else "Reveal",
+                    onClick = { if (!isRevealed) onNeedReveal() else onHide() },
+                )
+            }
+            Spacer(modifier = Modifier.height(4.dp))
+            FieldValueBox(
+                label = "",
+                value = if (isRevealed) password else maskPlaceholder,
+                maxLines = 3,
+            )
+        }
+
         else -> {
             // Default: single value with reveal toggle
             // Use pre-parsed fields instead of extractSecretValue to avoid redundant parsing
