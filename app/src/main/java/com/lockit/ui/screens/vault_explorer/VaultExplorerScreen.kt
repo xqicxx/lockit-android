@@ -375,10 +375,9 @@ fun VaultExplorerScreen(
                 Spacer(modifier = Modifier.height(16.dp))
                 TerminalFooter(
                     lines = listOf(
-                        stringResource(R.string.explorer_syncing) to IndustrialOrange,
                         stringResource(R.string.explorer_daemon) to Color.Gray,
-                        stringResource(R.string.explorer_total_credentials) + " ${credentials.size} " + stringResource(R.string.explorer_ready) to Color.Gray,
-                        if (services.isNotEmpty()) stringResource(R.string.explorer_services) + " ${services.joinToString(", ")}" to Color.Gray
+                        stringResource(R.string.explorer_total_credentials) + " ${credentials.size}" to Color.Gray,
+                        if (services.isNotEmpty()) stringResource(R.string.explorer_services) + " ${services.take(3).joinToString(", ")}${if (services.size > 3) "..." else ""}" to Color.Gray
                         else stringResource(R.string.explorer_no_services) to Color.Gray,
                     ),
                 )
