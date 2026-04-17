@@ -1,0 +1,194 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- App Name -->
+    <string name="app_name">Lockit</string>
+
+    <!-- Navigation -->
+    <string name="nav_repos">REPOS</string>
+    <string name="nav_keys">KEYS</string>
+    <string name="nav_logs">LOGS</string>
+    <string name="nav_config">CONFIG</string>
+
+    <!-- Vault Unlock Screen -->
+    <string name="vault_title">LOCKIT</string>
+    <string name="vault_subtitle">OPERATOR AUTHORIZATION TERMINAL</string>
+    <string name="vault_state_processing">SYSTEM_STATE: PROCESSING...</string>
+    <string name="vault_state_awaiting">SYSTEM_STATE: AWAITING_PIN</string>
+    <string name="vault_state_confirm">SYSTEM_STATE: CONFIRM_PIN</string>
+    <string name="vault_state_init">SYSTEM_STATE: INIT_PIN</string>
+    <string name="vault_cancel">CANCEL</string>
+    <string name="vault_reenter_pin">REENTER_PIN</string>
+    <string name="vault_unlock_biometric">UNLOCK_WITH_BIOMETRIC</string>
+    <string name="vault_biometric_link">BIOMETRIC_LINK</string>
+    <string name="vault_recover_id">RECOVER_ID</string>
+    <string name="vault_emergency_sos">EMERGENCY_SOS</string>
+    <string name="vault_link_biometric_title">LINK BIOMETRIC?</string>
+    <string name="vault_link_biometric_desc">Use your fingerprint to unlock the vault next time, without entering your PIN.</string>
+    <string name="vault_skip">SKIP</string>
+    <string name="vault_enable">ENABLE</string>
+    <string name="vault_enc_link">ENC_LINK: ACTIVE</string>
+    <string name="vault_os_ver">OS_VER: 4.1.0_LOCKED</string>
+    <string name="vault_node_id">NODE_ID: LX-88</string>
+
+    <!-- Error Messages -->
+    <string name="error_pin_too_short">PIN_TOO_SHORT</string>
+    <string name="error_wrong_pin">WRONG_PIN</string>
+    <string name="error_confirm_pin_too_short">CONFIRM_PIN_TOO_SHORT</string>
+    <string name="error_pin_mismatch">PIN_MISMATCH</string>
+    <string name="error_init_failed">INIT_FAILED</string>
+    <string name="error_no_pin_to_link">NO_PIN_TO_LINK</string>
+    <string name="error_enter_pin_first">ENTER_PIN_FIRST_TO_LINK</string>
+    <string name="error_biometric_failed">BIOMETRIC_FAILED</string>
+    <string name="error_biometric_link_failed">BIOMETRIC_LINK_FAILED</string>
+
+    <!-- Vault Explorer Screen -->
+    <string name="explorer_title">Vault Explorer</string>
+    <string name="explorer_subtitle">Unified Terminal View // Alpha-04 // [Read/Write]</string>
+    <string name="explorer_quick_start">> QUICK_START</string>
+    <string name="explorer_quick_start_desc">To add your first credential, tap the + NEW button in the top bar. For CLI integration, run `lockit add --name &lt;name&gt; --service &lt;service&gt; --key &lt;key&gt; --value &lt;secret&gt;` in your terminal.</string>
+    <string name="explorer_search">SEARCH</string>
+    <string name="explorer_search_placeholder">Search by name, service, type, or key...</string>
+    <string name="explorer_search_results">SEARCH_RESULTS:</string>
+    <string name="explorer_manifest">INVENTORY_MANIFEST</string>
+    <string name="explorer_entries">entries</string>
+    <string name="explorer_no_credentials">NO_CREDENTIALS_FOUND</string>
+    <string name="explorer_syncing">> SYNCING_METADATA...</string>
+    <string name="explorer_daemon">LOCKIT-DAEMON: LOCAL_STORAGE_ACTIVE</string>
+    <string name="explorer_total_credentials">TOTAL_CREDENTIALS:</string>
+    <string name="explorer_ready">[READY]</string>
+    <string name="explorer_services">SERVICES:</string>
+    <string name="explorer_no_services">NO_SERVICES_REGISTERED</string>
+
+    <!-- Config Screen -->
+    <string name="config_title">CLI Setup</string>
+    <string name="config_subtitle">Initialize the command-line interface for the core repository</string>
+    <string name="config_vault_status">VAULT_STATUS</string>
+    <string name="config_state">STATE</string>
+    <string name="config_unlocked">UNLOCKED</string>
+    <string name="config_locked">LOCKED</string>
+    <string name="config_encryption">ENCRYPTION</string>
+    <string name="config_aes_gcm">AES-256-GCM</string>
+    <string name="config_key_derivation">KEY_DERIVATION</string>
+    <string name="config_argon2id">ARGON2ID</string>
+    <string name="config_storage">STORAGE</string>
+    <string name="config_sqlite">LOCAL_SQLITE</string>
+
+    <string name="config_actions">ACTIONS</string>
+    <string name="config_lock_vault">LOCK_VAULT</string>
+    <string name="config_lock_vault_desc">This will require re-entering the master password to continue.</string>
+    <string name="config_change_pin">CHANGE_MASTER_PIN</string>
+    <string name="config_export_keys">EXPORT_KEYS</string>
+    <string name="config_export_logs">EXPORT_LOGS</string>
+
+    <string name="config_cloud_sync">CLOUD_SYNC</string>
+    <string name="config_signed_in">SIGNED_IN:</string>
+    <string name="config_last_sync">LAST_SYNC:</string>
+    <string name="config_sign_in_google">SIGN_IN_WITH_GOOGLE</string>
+    <string name="config_sync_drive">SYNC_TO_DRIVE</string>
+    <string name="config_sign_out">SIGN_OUT</string>
+
+    <string name="config_security">SECURITY_INFO</string>
+    <string name="config_salt_length">SALT_LENGTH</string>
+    <string name="config_nonce_length">NONCE_LENGTH</string>
+    <string name="config_gcm_tag">GCM_TAG_LENGTH</string>
+    <string name="config_master_key">MASTER_KEY_LENGTH</string>
+    <string name="config_argon2_memory">ARGON2_MEMORY</string>
+    <string name="config_argon2_iterations">ARGON2_ITERATIONS</string>
+    <string name="config_argon2_parallelism">ARGON2_PARALLELISM</string>
+    <string name="config_16_bytes">16_BYTES</string>
+    <string name="config_12_bytes">12_BYTES</string>
+    <string name="config_128_bits">128_BITS</string>
+    <string name="config_256_bits">256_BITS</string>
+    <string name="config_16_mb">16_MB</string>
+    <string name="config_2_iter">2</string>
+    <string name="config_1_parallel">1</string>
+
+    <string name="config_upgrade">UPGRADE</string>
+    <string name="config_current_version">CURRENT_VERSION</string>
+    <string name="config_token_source">TOKEN_SOURCE</string>
+    <string name="config_checking">CHECKING...</string>
+    <string name="config_downloading">DOWNLOADING...</string>
+    <string name="config_check_update">CHECK_UPDATE</string>
+
+    <!-- Language Section -->
+    <string name="config_language">LANGUAGE</string>
+    <string name="config_language_desc">App display language</string>
+    <string name="config_lang_zh">中文</string>
+    <string name="config_lang_en">English</string>
+
+    <!-- Change PIN Dialog -->
+    <string name="change_pin_title">CHANGE_PIN</string>
+    <string name="change_pin_current">CURRENT_PIN</string>
+    <string name="change_pin_new">NEW_PIN</string>
+    <string name="change_pin_confirm">CONFIRM_NEW_PIN</string>
+    <string name="change_pin_placeholder">Enter 4-digit PIN</string>
+    <string name="change_pin_placeholder_confirm">Confirm 4-digit PIN</string>
+    <string name="change_pin_all_required">ALL_FIELDS_REQUIRED</string>
+    <string name="change_pin_mismatch">PASSWORDS_DO_NOT_MATCH</string>
+    <string name="change_pin_min_length">MIN_LENGTH_4</string>
+    <string name="change_pin_current_wrong">CURRENT_PASSWORD_INCORRECT</string>
+    <string name="change_pin_failed">PASSWORD_CHANGE_FAILED</string>
+    <string name="change_pin_updating">UPDATING...</string>
+    <string name="change_pin_update">UPDATE</string>
+
+    <!-- GitHub Token Dialog -->
+    <string name="github_token_title">CONFIG_GITHUB_TOKEN</string>
+    <string name="github_token_desc">Enter the credential name storing your GitHub Token. Lockit will read its value for API authentication (supports private repos).</string>
+    <string name="github_token_label">TOKEN_CREDENTIAL_NAME</string>
+    <string name="github_token_placeholder">e.g. GITHUB_TOKEN</string>
+
+    <!-- Update Dialog -->
+    <string name="update_new_version">NEW_VERSION:</string>
+    <string name="update_changelog">CHANGELOG</string>
+    <string name="update_size">SIZE:</string>
+    <string name="update_later">LATER</string>
+    <string name="update_download">DOWNLOAD_UPDATE</string>
+
+    <!-- Toast Messages -->
+    <string name="toast_google_signed_in">GOOGLE_SIGNED_IN:</string>
+    <string name="toast_google_failed">GOOGLE_SIGN_IN_FAILED:</string>
+    <string name="toast_password_changed">PASSWORD_CHANGED_SUCCESS</string>
+    <string name="toast_keys_exported">KEYS_EXPORTED</string>
+    <string name="toast_logs_exported">LOGS_EXPORTED</string>
+    <string name="toast_sync_complete">SYNC_COMPLETE</string>
+    <string name="toast_signed_out">SIGNED_OUT</string>
+    <string name="toast_download_started">DOWNLOAD_STARTED</string>
+    <string name="toast_check_failed">CHECK_FAILED:</string>
+    <string name="toast_already_latest">ALREADY_LATEST_VERSION</string>
+    <string name="toast_vault_locked">VAULT_LOCKED</string>
+    <string name="toast_token_source_set">TOKEN_SOURCE_SET:</string>
+    <string name="toast_credential_deleted">CREDENTIAL_DELETED:</string>
+    <string name="toast_copied">_COPIED</string>
+
+    <!-- Footer -->
+    <string name="footer_system_info">> SYSTEM_INFO:</string>
+    <string name="footer_version">LOCKIT_ANDROID v0.1.0</string>
+    <string name="footer_compatible">COMPATIBLE_WITH_CLI v0.1.0</string>
+    <string name="footer_design">DESIGN: TECHNICAL_BRUTALISM_V1</string>
+
+    <!-- Common Buttons -->
+    <string name="btn_cancel">CANCEL</string>
+    <string name="btn_save">SAVE</string>
+    <string name="btn_lock">LOCK</string>
+
+    <!-- Copy Actions -->
+    <string name="copy_value">VALUE</string>
+    <string name="copy_structured">STRUCTURED</string>
+    <string name="copy_api_key">API_KEY</string>
+    <string name="copy_base_url">BASE_URL</string>
+    <string name="copy_email">EMAIL</string>
+    <string name="copy_phone">PHONE</string>
+
+    <!-- Credential Card -->
+    <string name="card_copy">COPY</string>
+    <string name="card_reveal">REVEAL</string>
+    <string name="card_hide">HIDE</string>
+    <string name="card_edit">EDIT</string>
+    <string name="card_delete">DELETE</string>
+
+    <!-- Biometric -->
+    <string name="biometric_reveal_title">Reveal Credential</string>
+    <string name="biometric_reveal_subtitle">Biometric authentication required to reveal sensitive value</string>
+    <string name="biometric_copy_title">Copy Credential</string>
+    <string name="biometric_copy_subtitle">Biometric authentication required</string>
+</resources>

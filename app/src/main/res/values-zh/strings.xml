@@ -1,0 +1,194 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- App Name -->
+    <string name="app_name">Lockit</string>
+
+    <!-- Navigation -->
+    <string name="nav_repos">仓库</string>
+    <string name="nav_keys">密钥</string>
+    <string name="nav_logs">日志</string>
+    <string name="nav_config">设置</string>
+
+    <!-- Vault Unlock Screen -->
+    <string name="vault_title">LOCKIT</string>
+    <string name="vault_subtitle">操作员授权终端</string>
+    <string name="vault_state_processing">系统状态: 处理中...</string>
+    <string name="vault_state_awaiting">系统状态: 等待PIN</string>
+    <string name="vault_state_confirm">系统状态: 确认PIN</string>
+    <string name="vault_state_init">系统状态: 初始化PIN</string>
+    <string name="vault_cancel">取消</string>
+    <string name="vault_reenter_pin">重新输入</string>
+    <string name="vault_unlock_biometric">生物识别解锁</string>
+    <string name="vault_biometric_link">绑定生物识别</string>
+    <string name="vault_recover_id">恢复ID</string>
+    <string name="vault_emergency_sos">紧急求助</string>
+    <string name="vault_link_biometric_title">绑定生物识别?</string>
+    <string name="vault_link_biometric_desc">使用指纹解锁密码库，无需输入PIN。</string>
+    <string name="vault_skip">跳过</string>
+    <string name="vault_enable">启用</string>
+    <string name="vault_enc_link">加密链: 活动</string>
+    <string name="vault_os_ver">系统版本: 4.1.0_锁定</string>
+    <string name="vault_node_id">节点ID: LX-88</string>
+
+    <!-- Error Messages -->
+    <string name="error_pin_too_short">PIN太短</string>
+    <string name="error_wrong_pin">PIN错误</string>
+    <string name="error_confirm_pin_too_short">确认PIN太短</string>
+    <string name="error_pin_mismatch">PIN不匹配</string>
+    <string name="error_init_failed">初始化失败</string>
+    <string name="error_no_pin_to_link">无PIN可绑定</string>
+    <string name="error_enter_pin_first">请先输入PIN</string>
+    <string name="error_biometric_failed">生物识别失败:</string>
+    <string name="error_biometric_link_failed">绑定失败:</string>
+
+    <!-- Vault Explorer Screen -->
+    <string name="explorer_title">密码库浏览器</string>
+    <string name="explorer_subtitle">统一终端视图 // Alpha-04 // [读/写]</string>
+    <string name="explorer_quick_start">> 快速开始</string>
+    <string name="explorer_quick_start_desc">添加第一个凭据，点击顶部栏的 + 新建按钮。CLI集成请在终端运行 `lockit add --name &lt;名称&gt; --service &lt;服务&gt; --key &lt;键&gt; --value &lt;密值&gt;`。</string>
+    <string name="explorer_search">搜索</string>
+    <string name="explorer_search_placeholder">按名称、服务、类型或键搜索...</string>
+    <string name="explorer_search_results">搜索结果:</string>
+    <string name="explorer_manifest">凭据清单</string>
+    <string name="explorer_entries">条目</string>
+    <string name="explorer_no_credentials">无凭据</string>
+    <string name="explorer_syncing">> 同步元数据...</string>
+    <string name="explorer_daemon">LOCKIT-守护进程: 本地存储活动</string>
+    <string name="explorer_total_credentials">凭据总数:</string>
+    <string name="explorer_ready">[就绪]</string>
+    <string name="explorer_services">服务:</string>
+    <string name="explorer_no_services">无服务注册</string>
+
+    <!-- Config Screen -->
+    <string name="config_title">CLI设置</string>
+    <string name="config_subtitle">初始化核心仓库的命令行接口</string>
+    <string name="config_vault_status">密码库状态</string>
+    <string name="config_state">状态</string>
+    <string name="config_unlocked">已解锁</string>
+    <string name="config_locked">已锁定</string>
+    <string name="config_encryption">加密</string>
+    <string name="config_aes_gcm">AES-256-GCM</string>
+    <string name="config_key_derivation">密钥派生</string>
+    <string name="config_argon2id">ARGON2ID</string>
+    <string name="config_storage">存储</string>
+    <string name="config_sqlite">本地SQLite</string>
+
+    <string name="config_actions">操作</string>
+    <string name="config_lock_vault">锁定密码库</string>
+    <string name="config_lock_vault_desc">需要重新输入主密码才能继续。</string>
+    <string name="config_change_pin">更改主PIN</string>
+    <string name="config_export_keys">导出密钥</string>
+    <string name="config_export_logs">导出日志</string>
+
+    <string name="config_cloud_sync">云同步</string>
+    <string name="config_signed_in">已登录:</string>
+    <string name="config_last_sync">上次同步:</string>
+    <string name="config_sign_in_google">Google登录</string>
+    <string name="config_sync_drive">同步到Drive</string>
+    <string name="config_sign_out">退出登录</string>
+
+    <string name="config_security">安全信息</string>
+    <string name="config_salt_length">盐值长度</string>
+    <string name="config_nonce_length">Nonce长度</string>
+    <string name="config_gcm_tag">GCM标签长度</string>
+    <string name="config_master_key">主密钥长度</string>
+    <string name="config_argon2_memory">Argon2内存</string>
+    <string name="config_argon2_iterations">Argon2迭代</string>
+    <string name="config_argon2_parallelism">Argon2并行度</string>
+    <string name="config_16_bytes">16字节</string>
+    <string name="config_12_bytes">12字节</string>
+    <string name="config_128_bits">128位</string>
+    <string name="config_256_bits">256位</string>
+    <string name="config_16_mb">16MB</string>
+    <string name="config_2_iter">2</string>
+    <string name="config_1_parallel">1</string>
+
+    <string name="config_upgrade">升级</string>
+    <string name="config_current_version">当前版本</string>
+    <string name="config_token_source">Token来源</string>
+    <string name="config_checking">检查中...</string>
+    <string name="config_downloading">下载中...</string>
+    <string name="config_check_update">检查更新</string>
+
+    <!-- Language Section -->
+    <string name="config_language">语言</string>
+    <string name="config_language_desc">应用显示语言</string>
+    <string name="config_lang_zh">中文</string>
+    <string name="config_lang_en">English</string>
+
+    <!-- Change PIN Dialog -->
+    <string name="change_pin_title">更改PIN</string>
+    <string name="change_pin_current">当前PIN</string>
+    <string name="change_pin_new">新PIN</string>
+    <string name="change_pin_confirm">确认新PIN</string>
+    <string name="change_pin_placeholder">输入4位PIN</string>
+    <string name="change_pin_placeholder_confirm">确认4位PIN</string>
+    <string name="change_pin_all_required">所有字段必填</string>
+    <string name="change_pin_mismatch">密码不匹配</string>
+    <string name="change_pin_min_length">最小长度4</string>
+    <string name="change_pin_current_wrong">当前密码错误</string>
+    <string name="change_pin_failed">密码更改失败:</string>
+    <string name="change_pin_updating">更新中...</string>
+    <string name="change_pin_update">更新</string>
+
+    <!-- GitHub Token Dialog -->
+    <string name="github_token_title">配置GitHub Token</string>
+    <string name="github_token_desc">输入存储GitHub Token的凭据名称。Lockit将读取其值用于API认证（支持私有仓库）。</string>
+    <string name="github_token_label">Token凭据名称</string>
+    <string name="github_token_placeholder">例如: GITHUB_TOKEN</string>
+
+    <!-- Update Dialog -->
+    <string name="update_new_version">新版本:</string>
+    <string name="update_changelog">更新日志</string>
+    <string name="update_size">大小:</string>
+    <string name="update_later">稍后</string>
+    <string name="update_download">下载更新</string>
+
+    <!-- Toast Messages -->
+    <string name="toast_google_signed_in">Google已登录:</string>
+    <string name="toast_google_failed">Google登录失败:</string>
+    <string name="toast_password_changed">密码已更改</string>
+    <string name="toast_keys_exported">密钥已导出</string>
+    <string name="toast_logs_exported">日志已导出</string>
+    <string name="toast_sync_complete">同步完成</string>
+    <string name="toast_signed_out">已退出</string>
+    <string name="toast_download_started">下载已开始</string>
+    <string name="toast_check_failed">检查失败:</string>
+    <string name="toast_already_latest">已是最新版本</string>
+    <string name="toast_vault_locked">密码库已锁定</string>
+    <string name="toast_token_source_set">Token来源设置:</string>
+    <string name="toast_credential_deleted">凭据已删除:</string>
+    <string name="toast_copied">已复制</string>
+
+    <!-- Footer -->
+    <string name="footer_system_info">> 系统信息:</string>
+    <string name="footer_version">LOCKIT_ANDROID v0.1.0</string>
+    <string name="footer_compatible">兼容CLI v0.1.0</string>
+    <string name="footer_design">设计: 技术野性主义V1</string>
+
+    <!-- Common Buttons -->
+    <string name="btn_cancel">取消</string>
+    <string name="btn_save">保存</string>
+    <string name="btn_lock">锁定</string>
+
+    <!-- Copy Actions -->
+    <string name="copy_value">值</string>
+    <string name="copy_structured">结构化</string>
+    <string name="copy_api_key">API密钥</string>
+    <string name="copy_base_url">基础URL</string>
+    <string name="copy_email">邮箱</string>
+    <string name="copy_phone">电话</string>
+
+    <!-- Credential Card -->
+    <string name="card_copy">复制</string>
+    <string name="card_reveal">显示</string>
+    <string name="card_hide">隐藏</string>
+    <string name="card_edit">编辑</string>
+    <string name="card_delete">删除</string>
+
+    <!-- Biometric -->
+    <string name="biometric_reveal_title">显示凭据</string>
+    <string name="biometric_reveal_subtitle">需要生物识别认证以显示敏感值</string>
+    <string name="biometric_copy_title">复制凭据</string>
+    <string name="biometric_copy_subtitle">需要生物识别认证</string>
+</resources>

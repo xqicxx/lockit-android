@@ -22,7 +22,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -35,10 +37,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lockit.LockitApp
+import com.lockit.R
 import com.lockit.data.database.LockitDatabase
 import com.lockit.data.sync.GoogleDriveSyncManager
 import com.lockit.data.updater.AppUpdater
@@ -57,6 +61,7 @@ import com.lockit.ui.theme.JetBrainsMonoFamily
 import com.lockit.ui.theme.Primary
 import com.lockit.ui.theme.TacticalRed
 import com.lockit.ui.theme.White
+import com.lockit.utils.LocaleHelper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -123,9 +128,9 @@ fun ConfigScreen(
 
     if (showLockDialog) {
         BrutalistConfirmDialog(
-            title = "LOCK_VAULT",
-            message = "This will require re-entering the master password to continue.",
-            confirmText = "LOCK",
+            title = context.getString(R.string.config_lock_vault),
+            message = context.getString(R.string.config_lock_vault_desc),
+            confirmText = context.getString(R.string.btn_lock),
             confirmVariant = ButtonVariant.Warning,
             onConfirm = {
                 showLockDialog = false
@@ -142,7 +147,7 @@ fun ConfigScreen(
             onDismiss = { showChangePinDialog = false },
             onSuccess = {
                 showChangePinDialog = false
-                toastMessage = "PASSWORD_CHANGED_SUCCESS"
+                toastMessage = context.getString(R.string.toast_password_changed)
             },
         )
     }
@@ -158,7 +163,7 @@ fun ConfigScreen(
                 val apkUrl = availableUpdate?.apkUrl
                 if (apkUrl != null) {
                     appUpdater.downloadApk(apkUrl, lastCheckedToken)
-                    toastMessage = "DOWNLOAD_STARTED"
+                    toastMessage = context.getString(R.string.toast_download_started)
                     isDownloading = false
                 }
             },
@@ -173,7 +178,7 @@ fun ConfigScreen(
             onSave = { newName ->
                 githubTokenCredentialName = newName
                 showTokenConfigDialog = false
-                toastMessage = "TOKEN_SOURCE_SET: $newName"
+                toastMessage = "${context.getString(R.string.toast_token_source_set)} $newName"
             },
         )
     }
@@ -192,19 +197,19 @@ fun ConfigScreen(
                 .padding(16.dp),
         ) {
             ScreenHero(
-                title = "CLI Setup",
-                subtitle = "Initialize the command-line interface for the core repository",
+                title = stringResource(R.string.config_title),
+                subtitle = stringResource(R.string.config_subtitle),
             )
             Spacer(modifier = Modifier.height(24.dp))
 
             // Vault Status Section
             ConfigSection(
-                title = "VAULT_STATUS",
+                title = stringResource(R.string.config_vault_status),
                 items = listOf(
-                    "STATE" to if (app.vaultManager.isUnlocked()) "UNLOCKED" else "LOCKED",
-                    "ENCRYPTION" to "AES-256-GCM",
-                    "KEY_DERIVATION" to "ARGON2ID",
-                    "STORAGE" to "LOCAL_SQLITE",
+                    stringResource(R.string.config_state) to if (app.vaultManager.isUnlocked()) stringResource(R.string.config_unlocked) else stringResource(R.string.config_locked),
+                    stringResource(R.string.config_encryption) to stringResource(R.string.config_aes_gcm),
+                    stringResource(R.string.config_key_derivation) to stringResource(R.string.config_argon2id),
+                    stringResource(R.string.config_storage) to stringResource(R.string.config_sqlite),
                 ),
             )
 
@@ -212,25 +217,25 @@ fun ConfigScreen(
 
             // Actions Section
             ConfigSection(
-                title = "ACTIONS",
+                title = stringResource(R.string.config_actions),
                 content = {
                     Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         BrutalistButton(
-                            text = "LOCK_VAULT",
+                            text = stringResource(R.string.config_lock_vault),
                             onClick = { showLockDialog = true },
                             variant = ButtonVariant.Warning,
                             modifier = Modifier.fillMaxWidth(),
                             useMonoFont = true,
                         )
                         BrutalistButton(
-                            text = "CHANGE_MASTER_PIN",
+                            text = stringResource(R.string.config_change_pin),
                             onClick = { showChangePinDialog = true },
                             variant = ButtonVariant.Secondary,
                             modifier = Modifier.fillMaxWidth(),
                             useMonoFont = true,
                         )
                         BrutalistButton(
-                            text = "EXPORT_KEYS",
+                            text = stringResource(R.string.config_export_keys),
                             onClick = {
                                 exportKeys(app, context, scope) { uri, error ->
                                     if (error != null) {
@@ -245,7 +250,7 @@ fun ConfigScreen(
                                             Intent.createChooser(shareIntent, "Share Keys"),
                                         )
                                     } else {
-                                        toastMessage = "KEYS_EXPORTED"
+                                        toastMessage = context.getString(R.string.toast_keys_exported)
                                     }
                                 }
                             },
@@ -254,7 +259,7 @@ fun ConfigScreen(
                             useMonoFont = true,
                         )
                         BrutalistButton(
-                            text = "EXPORT_LOGS",
+                            text = stringResource(R.string.config_export_logs),
                             onClick = {
                                 exportLogs(app, context, scope) { uri, error ->
                                     if (error != null) {
@@ -269,7 +274,7 @@ fun ConfigScreen(
                                             Intent.createChooser(shareIntent, "Share Logs"),
                                         )
                                     } else {
-                                        toastMessage = "LOGS_EXPORTED"
+                                        toastMessage = context.getString(R.string.toast_logs_exported)
                                     }
                                 }
                             },
@@ -285,7 +290,7 @@ fun ConfigScreen(
 
             // Cloud Sync Section
             ConfigSection(
-                title = "CLOUD_SYNC",
+                title = stringResource(R.string.config_cloud_sync),
                 content = {
                     Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         // Google account status
@@ -298,7 +303,7 @@ fun ConfigScreen(
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
                                 Text(
-                                    text = "SIGNED_IN:",
+                                    text = stringResource(R.string.config_signed_in),
                                     fontFamily = JetBrainsMonoFamily,
                                     fontSize = 9.sp,
                                     color = Color.Gray,
@@ -314,7 +319,7 @@ fun ConfigScreen(
                                 )
                                 if (lastBackupTime != null) {
                                     Text(
-                                        text = "LAST_SYNC: ${lastBackupTime?.take(19) ?: "N/A"}",
+                                        text = "${stringResource(R.string.config_last_sync)} ${lastBackupTime?.take(19) ?: "N/A"}",
                                         fontFamily = JetBrainsMonoFamily,
                                         fontSize = 8.sp,
                                         color = Color.Gray,
@@ -325,7 +330,7 @@ fun ConfigScreen(
 
                         // Sync action buttons
                         BrutalistButton(
-                            text = if (signedInAccount == null) "SIGN_IN_WITH_GOOGLE" else "SYNC_TO_DRIVE",
+                            text = if (signedInAccount == null) stringResource(R.string.config_sign_in_google) else stringResource(R.string.config_sync_drive),
                             onClick = {
                                 if (signedInAccount == null) {
                                     signInLauncher.launch(syncManager.getSignInIntent())
@@ -334,7 +339,7 @@ fun ConfigScreen(
                                         if (error != null) {
                                             toastMessage = error
                                         } else {
-                                            toastMessage = "SYNC_COMPLETE"
+                                            toastMessage = context.getString(R.string.toast_sync_complete)
                                             scope.launch {
                                                 val timeResult = syncManager.getLastBackupTime(signedInAccount!!)
                                                 lastBackupTime = timeResult.getOrNull()
@@ -350,12 +355,12 @@ fun ConfigScreen(
                         )
                         if (signedInAccount != null) {
                             BrutalistButton(
-                                text = "SIGN_OUT",
+                                text = stringResource(R.string.config_sign_out),
                                 onClick = {
                                     syncManager.signOut()
                                     signedInAccount = null
                                     lastBackupTime = null
-                                    toastMessage = "SIGNED_OUT"
+                                    toastMessage = context.getString(R.string.toast_signed_out)
                                 },
                                 variant = ButtonVariant.Warning,
                                 modifier = Modifier.fillMaxWidth(),
@@ -380,23 +385,109 @@ fun ConfigScreen(
 
             // Security Section
             ConfigSection(
-                title = "SECURITY_INFO",
+                title = stringResource(R.string.config_security),
                 items = listOf(
-                    "SALT_LENGTH" to "16_BYTES",
-                    "NONCE_LENGTH" to "12_BYTES",
-                    "GCM_TAG_LENGTH" to "128_BITS",
-                    "MASTER_KEY_LENGTH" to "256_BITS",
-                    "ARGON2_MEMORY" to "64_MB",
-                    "ARGON2_ITERATIONS" to "3",
-                    "ARGON2_PARALLELISM" to "4",
+                    stringResource(R.string.config_salt_length) to stringResource(R.string.config_16_bytes),
+                    stringResource(R.string.config_nonce_length) to stringResource(R.string.config_12_bytes),
+                    stringResource(R.string.config_gcm_tag) to stringResource(R.string.config_128_bits),
+                    stringResource(R.string.config_master_key) to stringResource(R.string.config_256_bits),
+                    stringResource(R.string.config_argon2_memory) to stringResource(R.string.config_16_mb),
+                    stringResource(R.string.config_argon2_iterations) to stringResource(R.string.config_2_iter),
+                    stringResource(R.string.config_argon2_parallelism) to stringResource(R.string.config_1_parallel),
                 ),
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // Language Section
+            val currentLanguage = LocaleHelper.getSavedLanguage(context)
+            var selectedLanguage by remember { mutableStateOf(currentLanguage) }
+
+            ConfigSection(
+                title = stringResource(R.string.config_language),
+                content = {
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        Text(
+                            text = stringResource(R.string.config_language_desc),
+                            fontFamily = JetBrainsMonoFamily,
+                            fontSize = 10.sp,
+                            color = Color.Gray,
+                            modifier = Modifier.padding(bottom = 12.dp),
+                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(16.dp),
+                        ) {
+                            // Chinese option
+                            Row(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .border(1.dp, if (selectedLanguage == LocaleHelper.LANG_ZH) IndustrialOrange else Color.Gray)
+                                    .clickable {
+                                        if (selectedLanguage != LocaleHelper.LANG_ZH) {
+                                            selectedLanguage = LocaleHelper.LANG_ZH
+                                            LocaleHelper.saveLanguage(context, LocaleHelper.LANG_ZH)
+                                            // Recreate activity to apply new locale
+                                            (context as? android.app.Activity)?.recreate()
+                                        }
+                                    }
+                                    .padding(12.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center,
+                            ) {
+                                RadioButton(
+                                    selected = selectedLanguage == LocaleHelper.LANG_ZH,
+                                    onClick = null, // Handled by row clickable
+                                    modifier = Modifier.padding(end = 8.dp),
+                                )
+                                Text(
+                                    text = stringResource(R.string.config_lang_zh),
+                                    fontFamily = JetBrainsMonoFamily,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (selectedLanguage == LocaleHelper.LANG_ZH) IndustrialOrange else Color.Gray,
+                                )
+                            }
+                            // English option
+                            Row(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .border(1.dp, if (selectedLanguage == LocaleHelper.LANG_EN) IndustrialOrange else Color.Gray)
+                                    .clickable {
+                                        if (selectedLanguage != LocaleHelper.LANG_EN) {
+                                            selectedLanguage = LocaleHelper.LANG_EN
+                                            LocaleHelper.saveLanguage(context, LocaleHelper.LANG_EN)
+                                            // Recreate activity to apply new locale
+                                            (context as? android.app.Activity)?.recreate()
+                                        }
+                                    }
+                                    .padding(12.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center,
+                            ) {
+                                RadioButton(
+                                    selected = selectedLanguage == LocaleHelper.LANG_EN,
+                                    onClick = null, // Handled by row clickable
+                                    modifier = Modifier.padding(end = 8.dp),
+                                )
+                                Text(
+                                    text = stringResource(R.string.config_lang_en),
+                                    fontFamily = JetBrainsMonoFamily,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (selectedLanguage == LocaleHelper.LANG_EN) IndustrialOrange else Color.Gray,
+                                )
+                            }
+                        }
+                    }
+                },
             )
 
             Spacer(modifier = Modifier.height(24.dp))
 
             // Update Section
             ConfigSection(
-                title = "UPGRADE",
+                title = stringResource(R.string.config_upgrade),
                 content = {
                     Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         // Current version info with safe handling
@@ -419,7 +510,7 @@ fun ConfigScreen(
                             horizontalArrangement = Arrangement.SpaceBetween,
                         ) {
                             Text(
-                                text = "CURRENT_VERSION",
+                                text = stringResource(R.string.config_current_version),
                                 fontFamily = JetBrainsMonoFamily,
                                 fontSize = 10.sp,
                                 color = Color.Gray,
@@ -440,7 +531,7 @@ fun ConfigScreen(
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Text(
-                                text = "TOKEN_SOURCE",
+                                text = stringResource(R.string.config_token_source),
                                 fontFamily = JetBrainsMonoFamily,
                                 fontSize = 10.sp,
                                 color = Color.Gray,
@@ -458,13 +549,13 @@ fun ConfigScreen(
                         }
 
                         BrutalistButton(
-                            text = if (isCheckingUpdate) "CHECKING..." else if (isDownloading) "DOWNLOADING..." else "CHECK_UPDATE",
+                            text = if (isCheckingUpdate) stringResource(R.string.config_checking) else if (isDownloading) stringResource(R.string.config_downloading) else stringResource(R.string.config_check_update),
                             onClick = {
                                 isCheckingUpdate = true
                                 scope.launch {
                                     // Check vault is unlocked before reading credentials
                                     if (!app.vaultManager.isUnlocked()) {
-                                        toastMessage = "VAULT_LOCKED"
+                                        toastMessage = context.getString(R.string.toast_vault_locked)
                                         isCheckingUpdate = false
                                         return@launch
                                     }
@@ -477,9 +568,9 @@ fun ConfigScreen(
                                     val result = appUpdater.checkForUpdate(currentVersionCode, token)
                                     isCheckingUpdate = false
                                     if (result.isFailure) {
-                                        toastMessage = "CHECK_FAILED: ${result.exceptionOrNull()?.message}"
+                                        toastMessage = "${context.getString(R.string.toast_check_failed)} ${result.exceptionOrNull()?.message}"
                                     } else if (result.getOrNull() == null) {
-                                        toastMessage = "ALREADY_LATEST_VERSION"
+                                        toastMessage = context.getString(R.string.toast_already_latest)
                                     } else {
                                         availableUpdate = result.getOrNull()
                                         showUpdateDialog = true
@@ -499,10 +590,10 @@ fun ConfigScreen(
 
             TerminalFooter(
                 lines = listOf(
-                    "> SYSTEM_INFO:" to IndustrialOrange,
-                    "LOCKIT_ANDROID v0.1.0" to Color.Gray,
-                    "COMPATIBLE_WITH_CLI v0.1.0" to Color.Gray,
-                    "DESIGN: TECHNICAL_BRUTALISM_V1" to Color.Gray,
+                    stringResource(R.string.footer_system_info) to IndustrialOrange,
+                    stringResource(R.string.footer_version) to Color.Gray,
+                    stringResource(R.string.footer_compatible) to Color.Gray,
+                    stringResource(R.string.footer_design) to Color.Gray,
                 ),
             )
         }
@@ -536,6 +627,7 @@ private fun ChangePasswordDialog(
     var error by remember { mutableStateOf<String?>(null) }
     var isUpdating by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
 
     androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss) {
         Column(
@@ -546,7 +638,7 @@ private fun ChangePasswordDialog(
                 .padding(24.dp),
         ) {
             Text(
-                text = "CHANGE_PIN",
+                text = context.getString(R.string.change_pin_title),
                 fontFamily = JetBrainsMonoFamily,
                 fontWeight = FontWeight.Bold,
                 fontSize = 14.sp,
@@ -568,22 +660,22 @@ private fun ChangePasswordDialog(
             BrutalistTextField(
                 value = currentPassword,
                 onValueChange = { if (it.length <= 4) { currentPassword = it; error = null } },
-                label = "CURRENT_PIN",
-                placeholder = "Enter 4-digit PIN",
+                label = context.getString(R.string.change_pin_current),
+                placeholder = context.getString(R.string.change_pin_placeholder),
             )
             Spacer(modifier = Modifier.height(8.dp))
             BrutalistTextField(
                 value = newPassword,
                 onValueChange = { if (it.length <= 4) { newPassword = it; error = null } },
-                label = "NEW_PIN",
-                placeholder = "Enter 4-digit PIN",
+                label = context.getString(R.string.change_pin_new),
+                placeholder = context.getString(R.string.change_pin_placeholder),
             )
             Spacer(modifier = Modifier.height(8.dp))
             BrutalistTextField(
                 value = confirmPassword,
                 onValueChange = { if (it.length <= 4) { confirmPassword = it; error = null } },
-                label = "CONFIRM_NEW_PIN",
-                placeholder = "Confirm 4-digit PIN",
+                label = context.getString(R.string.change_pin_confirm),
+                placeholder = context.getString(R.string.change_pin_placeholder_confirm),
             )
             Spacer(modifier = Modifier.height(24.dp))
 
@@ -592,32 +684,32 @@ private fun ChangePasswordDialog(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 BrutalistButton(
-                    text = "CANCEL",
+                    text = context.getString(R.string.btn_cancel),
                     onClick = onDismiss,
                     variant = ButtonVariant.Secondary,
                     modifier = Modifier.weight(1f),
                     useMonoFont = true,
                 )
                 BrutalistButton(
-                    text = if (isUpdating) "UPDATING..." else "UPDATE",
+                    text = if (isUpdating) context.getString(R.string.change_pin_updating) else context.getString(R.string.change_pin_update),
                     onClick = {
                         if (isUpdating) return@BrutalistButton
                         if (currentPassword.isBlank() || newPassword.isBlank() || confirmPassword.isBlank()) {
-                            error = "ALL_FIELDS_REQUIRED"
+                            error = context.getString(R.string.change_pin_all_required)
                             return@BrutalistButton
                         }
                         if (newPassword != confirmPassword) {
-                            error = "PASSWORDS_DO_NOT_MATCH"
+                            error = context.getString(R.string.change_pin_mismatch)
                             return@BrutalistButton
                         }
                         if (newPassword.length < 4) {
-                            error = "MIN_LENGTH_4"
+                            error = context.getString(R.string.change_pin_min_length)
                             return@BrutalistButton
                         }
                         // Verify current password
                         val result = app.vaultManager.unlockVault(currentPassword)
                         if (result.isFailure) {
-                            error = "CURRENT_PASSWORD_INCORRECT"
+                            error = context.getString(R.string.change_pin_current_wrong)
                             return@BrutalistButton
                         }
                         // Change password
@@ -627,7 +719,7 @@ private fun ChangePasswordDialog(
                             if (changeResult.isSuccess) {
                                 onSuccess()
                             } else {
-                                error = "PASSWORD_CHANGE_FAILED: ${changeResult.exceptionOrNull()?.message}"
+                                error = "${context.getString(R.string.change_pin_failed)} ${changeResult.exceptionOrNull()?.message}"
                                 isUpdating = false
                             }
                         }
@@ -866,6 +958,7 @@ private fun UpdateDialog(
     onDismiss: () -> Unit,
     onDownload: () -> Unit,
 ) {
+    val context = LocalContext.current
     androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss) {
         Column(
             modifier = Modifier
@@ -875,7 +968,7 @@ private fun UpdateDialog(
                 .padding(24.dp),
         ) {
             Text(
-                text = "NEW_VERSION: ${release.versionName}",
+                text = "${context.getString(R.string.update_new_version)} ${release.versionName}",
                 fontFamily = JetBrainsMonoFamily,
                 fontWeight = FontWeight.Bold,
                 fontSize = 14.sp,
@@ -886,7 +979,7 @@ private fun UpdateDialog(
             // Changelog
             if (release.changelog.isNotBlank()) {
                 Text(
-                    text = "CHANGELOG",
+                    text = context.getString(R.string.update_changelog),
                     fontFamily = JetBrainsMonoFamily,
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Bold,
@@ -913,7 +1006,7 @@ private fun UpdateDialog(
             if (release.downloadSize != null && release.downloadSize > 0) {
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = "SIZE: ${release.downloadSize / 1024 / 1024} MB",
+                    text = "${context.getString(R.string.update_size)} ${release.downloadSize / 1024 / 1024} MB",
                     fontFamily = JetBrainsMonoFamily,
                     fontSize = 9.sp,
                     color = Color.Gray,
@@ -927,14 +1020,14 @@ private fun UpdateDialog(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 BrutalistButton(
-                    text = "LATER",
+                    text = context.getString(R.string.update_later),
                     onClick = onDismiss,
                     variant = ButtonVariant.Secondary,
                     modifier = Modifier.weight(1f),
                     useMonoFont = true,
                 )
                 BrutalistButton(
-                    text = "DOWNLOAD_UPDATE",
+                    text = context.getString(R.string.update_download),
                     onClick = onDownload,
                     variant = ButtonVariant.Primary,
                     modifier = Modifier.weight(1f),
@@ -956,6 +1049,7 @@ private fun GitHubTokenConfigDialog(
     onSave: (String) -> Unit,
 ) {
     var newName by remember { mutableStateOf(currentName) }
+    val context = LocalContext.current
 
     androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss) {
         Column(
@@ -966,7 +1060,7 @@ private fun GitHubTokenConfigDialog(
                 .padding(24.dp),
         ) {
             Text(
-                text = "CONFIG_GITHUB_TOKEN",
+                text = context.getString(R.string.github_token_title),
                 fontFamily = JetBrainsMonoFamily,
                 fontWeight = FontWeight.Bold,
                 fontSize = 14.sp,
@@ -975,7 +1069,7 @@ private fun GitHubTokenConfigDialog(
             Spacer(modifier = Modifier.height(12.dp))
 
             Text(
-                text = "Enter the credential name storing your GitHub Token. Lockit will read its value for API authentication (supports private repos).",
+                text = context.getString(R.string.github_token_desc),
                 fontFamily = JetBrainsMonoFamily,
                 fontSize = 10.sp,
                 color = Color.Gray,
@@ -986,8 +1080,8 @@ private fun GitHubTokenConfigDialog(
             BrutalistTextField(
                 value = newName,
                 onValueChange = { newName = it },
-                label = "TOKEN_CREDENTIAL_NAME",
-                placeholder = "e.g. GITHUB_TOKEN",
+                label = context.getString(R.string.github_token_label),
+                placeholder = context.getString(R.string.github_token_placeholder),
             )
             Spacer(modifier = Modifier.height(24.dp))
 
@@ -996,14 +1090,14 @@ private fun GitHubTokenConfigDialog(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 BrutalistButton(
-                    text = "CANCEL",
+                    text = context.getString(R.string.btn_cancel),
                     onClick = onDismiss,
                     variant = ButtonVariant.Secondary,
                     modifier = Modifier.weight(1f),
                     useMonoFont = true,
                 )
                 BrutalistButton(
-                    text = "SAVE",
+                    text = context.getString(R.string.btn_save),
                     onClick = { onSave(newName) },
                     variant = ButtonVariant.Primary,
                     modifier = Modifier.weight(1f),
