@@ -941,28 +941,32 @@ private fun CodingPlanBoard(
         Spacer(modifier = Modifier.height(8.dp))
 
         if (quota != null) {
-            // Details row: left side info, right side tags
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                // Left: remaining days and cost
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            // Details: use Column for better text handling on narrow screens
+            Column(modifier = Modifier.fillMaxWidth()) {
+                // Remaining days and cost
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
                     Text(
                         text = stringResource(R.string.repos_quota_remaining, quota.remainingDays),
                         fontFamily = JetBrainsMonoFamily,
                         fontSize = 10.sp,
                         color = Color.Gray,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false),
                     )
                     Text(
                         text = stringResource(R.string.repos_quota_cost, quota.chargeAmount),
                         fontFamily = JetBrainsMonoFamily,
                         fontSize = 10.sp,
                         color = Color.Gray,
+                        maxLines = 1,
                     )
                 }
-                // Right: status tag and auto-renew
+                Spacer(modifier = Modifier.height(6.dp))
+                // Status tags
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     if (quota.autoRenewFlag) {
                         Box(
