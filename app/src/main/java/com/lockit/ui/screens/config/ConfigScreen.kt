@@ -24,7 +24,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.RadioButton
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -401,7 +402,13 @@ fun ConfigScreen(
 
             // Language Section
             val currentLanguage = LocaleHelper.getSavedLanguage(context)
-            var selectedLanguage by remember { mutableStateOf(currentLanguage) }
+            var languageExpanded by remember { mutableStateOf(false) }
+            val languageOptions = listOf(
+                LocaleHelper.LANG_ZH to stringResource(R.string.config_lang_zh),
+                LocaleHelper.LANG_EN to stringResource(R.string.config_lang_en),
+            )
+            val currentLanguageLabel = languageOptions.find { it.first == currentLanguage }?.second
+                ?: stringResource(R.string.config_lang_zh)
 
             ConfigSection(
                 title = stringResource(R.string.config_language),
@@ -412,71 +419,47 @@ fun ConfigScreen(
                             fontFamily = JetBrainsMonoFamily,
                             fontSize = 10.sp,
                             color = Color.Gray,
-                            modifier = Modifier.padding(bottom = 12.dp),
+                            modifier = Modifier.padding(bottom = 8.dp),
                         )
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(16.dp),
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .border(1.dp, Primary)
+                                .clickable { languageExpanded = true }
+                                .padding(12.dp),
                         ) {
-                            // Chinese option
-                            Row(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .border(1.dp, if (selectedLanguage == LocaleHelper.LANG_ZH) IndustrialOrange else Color.Gray)
-                                    .clickable {
-                                        if (selectedLanguage != LocaleHelper.LANG_ZH) {
-                                            selectedLanguage = LocaleHelper.LANG_ZH
-                                            LocaleHelper.saveLanguage(context, LocaleHelper.LANG_ZH)
-                                            // Recreate activity to apply new locale
-                                            (context as? android.app.Activity)?.recreate()
-                                        }
-                                    }
-                                    .padding(12.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.Center,
+                            Text(
+                                text = currentLanguageLabel,
+                                fontFamily = JetBrainsMonoFamily,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = IndustrialOrange,
+                            )
+                            DropdownMenu(
+                                expanded = languageExpanded,
+                                onDismissRequest = { languageExpanded = false },
+                                modifier = Modifier.background(White).border(1.dp, Primary),
                             ) {
-                                RadioButton(
-                                    selected = selectedLanguage == LocaleHelper.LANG_ZH,
-                                    onClick = null, // Handled by row clickable
-                                    modifier = Modifier.padding(end = 8.dp),
-                                )
-                                Text(
-                                    text = stringResource(R.string.config_lang_zh),
-                                    fontFamily = JetBrainsMonoFamily,
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = if (selectedLanguage == LocaleHelper.LANG_ZH) IndustrialOrange else Color.Gray,
-                                )
-                            }
-                            // English option
-                            Row(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .border(1.dp, if (selectedLanguage == LocaleHelper.LANG_EN) IndustrialOrange else Color.Gray)
-                                    .clickable {
-                                        if (selectedLanguage != LocaleHelper.LANG_EN) {
-                                            selectedLanguage = LocaleHelper.LANG_EN
-                                            LocaleHelper.saveLanguage(context, LocaleHelper.LANG_EN)
-                                            // Recreate activity to apply new locale
-                                            (context as? android.app.Activity)?.recreate()
-                                        }
-                                    }
-                                    .padding(12.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.Center,
-                            ) {
-                                RadioButton(
-                                    selected = selectedLanguage == LocaleHelper.LANG_EN,
-                                    onClick = null, // Handled by row clickable
-                                    modifier = Modifier.padding(end = 8.dp),
-                                )
-                                Text(
-                                    text = stringResource(R.string.config_lang_en),
-                                    fontFamily = JetBrainsMonoFamily,
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = if (selectedLanguage == LocaleHelper.LANG_EN) IndustrialOrange else Color.Gray,
-                                )
+                                languageOptions.forEach { (langCode, langLabel) ->
+                                    DropdownMenuItem(
+                                        text = {
+                                            Text(
+                                                text = langLabel,
+                                                fontFamily = JetBrainsMonoFamily,
+                                                fontSize = 12.sp,
+                                                fontWeight = if (langCode == currentLanguage) FontWeight.Bold else FontWeight.Normal,
+                                                color = if (langCode == currentLanguage) IndustrialOrange else Color.Gray,
+                                            )
+                                        },
+                                        onClick = {
+                                            languageExpanded = false
+                                            if (langCode != currentLanguage) {
+                                                LocaleHelper.saveLanguage(context, langCode)
+                                                (context as? android.app.Activity)?.recreate()
+                                            }
+                                        },
+                                    )
+                                }
                             }
                         }
                     }

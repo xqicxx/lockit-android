@@ -38,10 +38,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lockit.LockitApp
+import com.lockit.R
 import com.lockit.data.audit.AuditEntry
 import com.lockit.data.audit.AuditSeverity
 import com.lockit.ui.components.BrutalistTopBar
@@ -77,8 +79,8 @@ fun LogsScreen(
                 .padding(16.dp),
         ) {
             ScreenHero(
-                title = "Audit Log",
-                subtitle = "Security event timeline // Local device only // 30 days",
+                title = stringResource(R.string.logs_title),
+                subtitle = stringResource(R.string.logs_subtitle),
             )
             Spacer(modifier = Modifier.height(24.dp))
 
@@ -88,7 +90,7 @@ fun LogsScreen(
                 verticalAlignment = Alignment.Bottom,
             ) {
                 Text(
-                    text = "EVENT_STREAM",
+                    text = stringResource(R.string.logs_event_stream),
                     fontFamily = JetBrainsMonoFamily,
                     fontWeight = FontWeight.Bold,
                     fontSize = 12.sp,
@@ -96,7 +98,7 @@ fun LogsScreen(
                     color = Primary,
                 )
                 Text(
-                    text = "${logs.size} entries",
+                    text = stringResource(R.string.logs_entries, logs.size),
                     fontFamily = JetBrainsMonoFamily,
                     fontSize = 10.sp,
                     color = Color.Gray,
@@ -111,7 +113,7 @@ fun LogsScreen(
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(
-                        text = "NO_AUDIT_EVENTS",
+                        text = stringResource(R.string.logs_no_events),
                         fontFamily = JetBrainsMonoFamily,
                         fontSize = 14.sp,
                         color = Color.Gray,
@@ -129,9 +131,9 @@ fun LogsScreen(
             TerminalFooter(
                 lines = listOf(
                     "> AUDIT_LOG_STATUS:" to IndustrialOrange,
-                    "STORAGE: LOCAL_DEVICE_ONLY" to Color.Gray,
-                    "RETENTION: 30_DAYS" to Color.Gray,
-                    "ENCRYPTION: AES-256-GCM" to Color.Gray,
+                    stringResource(R.string.logs_storage_local) to Color.Gray,
+                    stringResource(R.string.logs_retention) to Color.Gray,
+                    stringResource(R.string.logs_encryption) to Color.Gray,
                 ),
             )
         }
@@ -159,6 +161,21 @@ private fun LogRow(entry: AuditEntry) {
         AuditSeverity.Danger -> TacticalRed
     }
 
+    // Translate action names for display
+    val actionDisplay = when (entry.action) {
+        "VAULT_INITIALIZED" -> stringResource(R.string.action_vault_initialized)
+        "VAULT_UNLOCKED" -> stringResource(R.string.action_vault_unlocked)
+        "VAULT_UNLOCK_FAILED" -> stringResource(R.string.action_vault_unlock_failed)
+        "VAULT_LOCKED" -> stringResource(R.string.action_vault_locked)
+        "PASSWORD_CHANGED" -> stringResource(R.string.action_password_changed)
+        "CREDENTIAL_CREATED" -> stringResource(R.string.action_credential_created)
+        "CREDENTIAL_UPDATED" -> stringResource(R.string.action_credential_updated)
+        "CREDENTIAL_DELETED" -> stringResource(R.string.action_credential_deleted)
+        "CREDENTIAL_VIEWED" -> stringResource(R.string.action_credential_viewed)
+        "CREDENTIAL_COPIED" -> stringResource(R.string.action_credential_copied)
+        else -> entry.action
+    }
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -184,7 +201,7 @@ private fun LogRow(entry: AuditEntry) {
             Spacer(modifier = Modifier.width(8.dp))
             Column {
                 Text(
-                    text = entry.action,
+                    text = actionDisplay,
                     fontFamily = JetBrainsMonoFamily,
                     fontWeight = FontWeight.Bold,
                     fontSize = 11.sp,

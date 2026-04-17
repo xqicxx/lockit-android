@@ -19,6 +19,16 @@ val JetBrainsMonoFamily = FontFamily(
     Font(R.font.jetbrains_mono_medium, FontWeight.Medium),
 )
 
+// Chinese font family using Android's built-in font fallback
+// JetBrains Mono handles Latin characters, Android falls back to Noto Sans SC for Chinese
+// This provides a monospace aesthetic while properly displaying Chinese characters
+val MonospaceWithChineseFallback = FontFamily(
+    Font(R.font.jetbrains_mono_regular, FontWeight.Normal),
+    Font(R.font.jetbrains_mono_medium, FontWeight.Medium),
+    // Android automatically falls back to system Chinese fonts (Noto Sans SC)
+    // for characters not supported by JetBrains Mono
+)
+
 val LockitTypography = Typography(
     // Headlines - Inter
     displayLarge = TextStyle(

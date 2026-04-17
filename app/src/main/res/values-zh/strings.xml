@@ -191,4 +191,88 @@
     <string name="biometric_reveal_subtitle">需要生物识别认证以显示敏感值</string>
     <string name="biometric_copy_title">复制凭据</string>
     <string name="biometric_copy_subtitle">需要生物识别认证</string>
+    <string name="biometric_view_title">查看凭据</string>
+    <string name="biometric_view_subtitle">需要生物识别认证</string>
+
+    <!-- Repos Screen -->
+    <string name="repos_title">仓库</string>
+    <string name="repos_subtitle">服务分组与仓库映射 // [只读]</string>
+    <string name="repos_services">服务</string>
+    <string name="repos_credentials">凭据</string>
+    <string name="repos_coding_plan_board">编程计划面板</string>
+    <string name="repos_registered_services">已注册服务</string>
+    <string name="repos_no_services_registered">无已注册服务</string>
+    <string name="repos_status">> 仓库状态:</string>
+    <string name="repos_local_vault_active">本地密码库: 活动</string>
+    <string name="repos_remote_sync_not_configured">远程同步: 未配置</string>
+    <string name="repos_last_sync_never">上次同步: 从未</string>
+    <string name="repos_back">&lt; 返回</string>
+    <string name="repos_phone_subtitle">电话号码 // [只读]</string>
+    <string name="repos_coding_plan_subtitle">编程计划令牌 // [只读]</string>
+    <string name="repos_account_subtitle">账户凭据 // [只读]</string>
+    <string name="repos_service_subtitle">此服务的凭据 // [只读]</string>
+    <string name="repos_search">搜索</string>
+    <string name="repos_search_placeholder">按名称或类型搜索...</string>
+    <string name="repos_search_results">搜索结果:</string>
+    <string name="repos_manifest">凭据清单</string>
+    <string name="repos_entries">%1$d 条目</string>
+    <string name="repos_no_matching_credentials">无匹配凭据</string>
+    <string name="repos_keys">%1$d 密钥</string>
+    <string name="repos_local">本地</string>
+    <string name="repos_remote">远程</string>
+    <string name="repos_email">邮箱</string>
+    <string name="repos_card_masked">卡 ****%1$s</string>
+    <string name="repos_id_card">身份证</string>
+    <string name="repos_api_key_masked">API密钥: %1$s</string>
+    <string name="repos_modal_close_hint">点击外部关闭</string>
+    <string name="repos_coding_plan">编程计划</string>
+    <string name="repos_fetching">获取中...</string>
+    <string name="repos_refresh">刷新</string>
+    <string name="repos_quota_remaining">剩余: %1$d天</string>
+    <string name="repos_quota_cost">费用: ¥%1$s</string>
+    <string name="repos_quota_auto_renew">自动续费</string>
+    <string name="repos_quota_status_valid">有效</string>
+    <string name="repos_quota_status_expired">已过期</string>
+    <string name="repos_quota_fetch_failed">获取失败</string>
+    <string name="repos_quota_cookie_expired">COOKIE已过期</string>
+    <string name="repos_quota_no_data">暂无数据</string>
+    <string name="repos_quota_retry_hint">请检查凭据或点击刷新重试</string>
+
+    <!-- Logs Screen -->
+    <string name="logs_title">审计日志</string>
+    <string name="logs_subtitle">安全事件时间线 // 仅本地设备 // 30天</string>
+    <string name="logs_event_stream">事件流</string>
+    <string name="logs_entries">%1$d 条目</string>
+    <string name="logs_no_events">无审计事件</string>
+    <string name="logs_storage_local">存储: 仅本地设备</string>
+    <string name="logs_retention">保留: 30天</string>
+    <string name="logs_encryption">加密: AES-256-GCM</string>
+
+    <!-- Audit Action Names -->
+    <string name="action_vault_initialized">密码库初始化</string>
+    <string name="action_vault_unlocked">密码库解锁</string>
+    <string name="action_vault_unlock_failed">密码库解锁失败</string>
+    <string name="action_vault_locked">密码库锁定</string>
+    <string name="action_password_changed">密码已更改</string>
+    <string name="action_credential_created">凭据已创建</string>
+    <string name="action_credential_updated">凭据已更新</string>
+    <string name="action_credential_deleted">凭据已删除</string>
+    <string name="action_credential_viewed">凭据已查看</string>
+    <string name="action_credential_copied">凭据已复制</string>
+
+    <!-- Quota Gauge Labels -->
+    <string name="quota_5h">5小时</string>
+    <string name="quota_week">周</string>
+    <string name="quota_month">月</string>
+
+    <!-- Credential Type Display -->
+    <string name="type_id_card">身份证</string>
+
+    <!-- Copy Toast Messages -->
+    <string name="toast_value_copied">值已复制</string>
+    <string name="toast_structured_copied">结构化数据已复制</string>
+    <string name="toast_api_key_copied">API密钥已复制</string>
+    <string name="toast_base_url_copied">基础URL已复制</string>
+    <string name="toast_email_copied">邮箱已复制</string>
+    <string name="toast_phone_copied">电话已复制</string>
 </resources>

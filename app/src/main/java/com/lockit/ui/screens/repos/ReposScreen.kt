@@ -47,6 +47,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -57,6 +58,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.lockit.LockitApp
+import com.lockit.R
 import com.lockit.domain.CodingPlanQuota
 import com.lockit.domain.CodingPlanFetchers
 import com.lockit.domain.CodingPlanPrefetchState
@@ -258,6 +260,10 @@ fun ReposScreen(
     fun getActivity() = view.findActivity()
     val scope = rememberCoroutineScope()
 
+    // Pre-compute string resources for use in non-composable callbacks
+    val biometricViewTitle = stringResource(R.string.biometric_view_title)
+    val biometricViewSubtitle = stringResource(R.string.biometric_view_subtitle)
+
     val credsByType = remember(credentialList) {
         credentialList.groupBy { it.type }
     }
@@ -364,21 +370,21 @@ fun ReposScreen(
             ) {
                 // ... (keep service list as-is)
                 ScreenHero(
-                    title = "Repositories",
-                    subtitle = "Service groupings & repository mappings // [Read-Only]",
+                    title = stringResource(R.string.repos_title),
+                    subtitle = stringResource(R.string.repos_subtitle),
                 )
                 Spacer(modifier = Modifier.height(24.dp))
 
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    StatCard("SERVICES", servicesByGroup.size.toString(), Modifier.weight(1f))
-                    StatCard("CREDENTIALS", credentialCount.toString(), Modifier.weight(1f))
+                    StatCard(stringResource(R.string.repos_services), servicesByGroup.size.toString(), Modifier.weight(1f))
+                    StatCard(stringResource(R.string.repos_credentials), credentialCount.toString(), Modifier.weight(1f))
                 }
                 Spacer(modifier = Modifier.height(24.dp))
 
                 // Coding Plan Board — on main page, above REGISTERED_SERVICES
                 if (codingPlanCredentials.isNotEmpty()) {
                     Text(
-                        text = "CODING_PLAN_BOARD",
+                        text = stringResource(R.string.repos_coding_plan_board),
                         fontFamily = JetBrainsMonoFamily,
                         fontWeight = FontWeight.Bold,
                         fontSize = 12.sp,
@@ -396,7 +402,7 @@ fun ReposScreen(
                 }
 
                 Text(
-                    text = "REGISTERED_SERVICES",
+                    text = stringResource(R.string.repos_registered_services),
                     fontFamily = JetBrainsMonoFamily,
                     fontWeight = FontWeight.Bold,
                     fontSize = 12.sp,
@@ -416,7 +422,7 @@ fun ReposScreen(
                 }
 
                 if (servicesByGroup.isEmpty() && phoneCredentials.isEmpty()) {
-                    BrutalistEmptyState("NO_SERVICES_REGISTERED")
+                    BrutalistEmptyState(stringResource(R.string.repos_no_services_registered))
                 } else {
                     servicesByGroup.entries.sortedBy { it.key }.forEach { (serviceName, count) ->
                         ServiceRow(
@@ -433,10 +439,10 @@ fun ReposScreen(
 
                 TerminalFooter(
                     lines = listOf(
-                        "> REPOSITORIES_STATUS:" to IndustrialOrange,
-                        "LOCAL_VAULT: ACTIVE" to Color.Gray,
-                        "REMOTE_SYNC: NOT_CONFIGURED" to Color.Gray,
-                        "LAST_SYNC: NEVER" to Color.Gray,
+                        stringResource(R.string.repos_status) to IndustrialOrange,
+                        stringResource(R.string.repos_local_vault_active) to Color.Gray,
+                        stringResource(R.string.repos_remote_sync_not_configured) to Color.Gray,
+                        stringResource(R.string.repos_last_sync_never) to Color.Gray,
                     ),
                 )
             }
@@ -520,7 +526,7 @@ fun ReposScreen(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     Text(
-                        text = "< BACK",
+                        text = stringResource(R.string.repos_back),
                         fontFamily = JetBrainsMonoFamily,
                         fontSize = 10.sp,
                         color = Primary,
@@ -530,10 +536,10 @@ fun ReposScreen(
                 ScreenHero(
                     title = selectedService!!.uppercase(),
                     subtitle = when {
-                        isPhone -> "Phone numbers // [Read-Only]"
-                        isCodingPlan -> "Coding plan tokens // [Read-Only]"
-                        isAccount -> "Account credentials // [Read-Only]"
-                        else -> "Credentials for this service // [Read-Only]"
+                        isPhone -> stringResource(R.string.repos_phone_subtitle)
+                        isCodingPlan -> stringResource(R.string.repos_coding_plan_subtitle)
+                        isAccount -> stringResource(R.string.repos_account_subtitle)
+                        else -> stringResource(R.string.repos_service_subtitle)
                     },
                 )
                 Spacer(modifier = Modifier.height(16.dp))
@@ -541,8 +547,8 @@ fun ReposScreen(
                 BrutalistTextField(
                     value = searchQuery,
                     onValueChange = { searchQuery = it },
-                    label = "SEARCH",
-                    placeholder = "Search by name or type...",
+                    label = stringResource(R.string.repos_search),
+                    placeholder = stringResource(R.string.repos_search_placeholder),
                     modifier = Modifier.fillMaxWidth(),
                 )
                 Spacer(modifier = Modifier.height(24.dp))
@@ -553,7 +559,7 @@ fun ReposScreen(
                 ) {
                     if (searchQuery.isNotBlank()) {
                         Text(
-                            text = "SEARCH_RESULTS: \"$searchQuery\"",
+                            text = stringResource(R.string.repos_search_results) + " \"$searchQuery\"",
                             fontFamily = JetBrainsMonoFamily,
                             fontWeight = FontWeight.Bold,
                             fontSize = 12.sp,
@@ -562,7 +568,7 @@ fun ReposScreen(
                         )
                     } else {
                         Text(
-                            text = "INVENTORY_MANIFEST",
+                            text = stringResource(R.string.repos_manifest),
                             fontFamily = JetBrainsMonoFamily,
                             fontWeight = FontWeight.Bold,
                             fontSize = 12.sp,
@@ -571,7 +577,7 @@ fun ReposScreen(
                         )
                     }
                     Text(
-                        text = "${list.size} entries",
+                        text = stringResource(R.string.repos_entries, list.size),
                         fontFamily = JetBrainsMonoFamily,
                         fontSize = 10.sp,
                         color = Color.Gray,
@@ -598,8 +604,8 @@ fun ReposScreen(
                                     if (BiometricUtils.canAuthenticate(activity)) {
                                         BiometricUtils.requireBiometric(
                                             activity = activity,
-                                            title = "View Credential",
-                                            subtitle = "Biometric authentication required",
+                                            title = biometricViewTitle,
+                                            subtitle = biometricViewSubtitle,
                                             onSuccess = { selectedCredential = credential },
                                             onError = {
                                                 pendingCredentialForPinVerify = credential
@@ -623,7 +629,7 @@ fun ReposScreen(
                                 contentAlignment = Alignment.Center,
                             ) {
                                 Text(
-                                    text = if (searchQuery.isNotBlank()) "NO_MATCHING_CREDENTIALS" else "NO_CREDENTIALS_FOUND",
+                                    text = if (searchQuery.isNotBlank()) stringResource(R.string.repos_no_matching_credentials) else stringResource(R.string.explorer_no_credentials),
                                     fontFamily = JetBrainsMonoFamily,
                                     fontSize = 14.sp,
                                     color = Color.Gray,
@@ -636,10 +642,10 @@ fun ReposScreen(
                         Spacer(modifier = Modifier.height(16.dp))
                         TerminalFooter(
                             lines = listOf(
-                                "> REPOSITORIES_STATUS:" to IndustrialOrange,
-                                "LOCAL_VAULT: ACTIVE" to Color.Gray,
-                                "REMOTE_SYNC: NOT_CONFIGURED" to Color.Gray,
-                                "LAST_SYNC: NEVER" to Color.Gray,
+                                stringResource(R.string.repos_status) to IndustrialOrange,
+                                stringResource(R.string.repos_local_vault_active) to Color.Gray,
+                                stringResource(R.string.repos_remote_sync_not_configured) to Color.Gray,
+                                stringResource(R.string.repos_last_sync_never) to Color.Gray,
                             ),
                         )
                         Spacer(modifier = Modifier.height(16.dp))
@@ -724,7 +730,7 @@ private fun ServiceRow(
         }
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
-                text = "$count keys",
+                text = stringResource(R.string.repos_keys, count),
                 fontFamily = JetBrainsMonoFamily,
                 fontSize = 10.sp,
                 color = Color.Gray,
@@ -737,7 +743,7 @@ private fun ServiceRow(
                     .padding(horizontal = 6.dp, vertical = 2.dp),
             ) {
                 Text(
-                    text = if (isLocal) "LOCAL" else "REMOTE",
+                    text = if (isLocal) stringResource(R.string.repos_local) else stringResource(R.string.repos_remote),
                     fontFamily = JetBrainsMonoFamily,
                     fontSize = 8.sp,
                     fontWeight = FontWeight.Bold,
@@ -773,7 +779,7 @@ internal fun CompactCredentialRow(
                 CredentialType.Phone -> credential.displayTitle()
                 CredentialType.Email -> "EMAIL"
                 CredentialType.BankCard -> "CARD ****${credential.name.takeLast(4)}"
-                CredentialType.IdCard -> "ID CARD"
+                CredentialType.IdCard -> stringResource(R.string.type_id_card)
                 else -> credential.displayTitle()
             }
             Text(
@@ -867,7 +873,7 @@ internal fun CredentialCardModal(
             )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = "Tap outside to close",
+                text = stringResource(R.string.repos_modal_close_hint),
                 fontFamily = JetBrainsMonoFamily,
                 fontSize = 9.sp,
                 color = Color.Gray,
@@ -903,7 +909,7 @@ private fun CodingPlanBoard(
         ) {
             // Title: instance name or default
             Text(
-                text = if (quota?.instanceName?.isNotBlank() == true) quota.instanceName.uppercase() else "CODING PLAN",
+                text = if (quota?.instanceName?.isNotBlank() == true) quota.instanceName.uppercase() else stringResource(R.string.repos_coding_plan),
                 fontFamily = JetBrainsMonoFamily,
                 fontWeight = FontWeight.Bold,
                 fontSize = 12.sp,
@@ -912,7 +918,7 @@ private fun CodingPlanBoard(
             // REFRESH button - prominent color
             if (isLoading) {
                 Text(
-                    text = "FETCHING...",
+                    text = stringResource(R.string.repos_fetching),
                     fontFamily = JetBrainsMonoFamily,
                     fontSize = 9.sp,
                     color = Color.Gray,
@@ -925,7 +931,7 @@ private fun CodingPlanBoard(
                         .padding(horizontal = 8.dp, vertical = 3.dp),
                 ) {
                     Text(
-                        text = "REFRESH",
+                        text = stringResource(R.string.repos_refresh),
                         fontFamily = JetBrainsMonoFamily,
                         fontSize = 9.sp,
                         fontWeight = FontWeight.Bold,
@@ -946,13 +952,13 @@ private fun CodingPlanBoard(
                 // Left: remaining days and cost
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text(
-                        text = "剩余: ${quota.remainingDays}天",
+                        text = stringResource(R.string.repos_quota_remaining, quota.remainingDays),
                         fontFamily = JetBrainsMonoFamily,
                         fontSize = 10.sp,
                         color = Color.Gray,
                     )
                     Text(
-                        text = "费用: ¥${quota.chargeAmount}",
+                        text = stringResource(R.string.repos_quota_cost, quota.chargeAmount),
                         fontFamily = JetBrainsMonoFamily,
                         fontSize = 10.sp,
                         color = Color.Gray,
@@ -967,7 +973,7 @@ private fun CodingPlanBoard(
                                 .padding(horizontal = 3.dp, vertical = 1.dp),
                         ) {
                             Text(
-                                text = "自动续费",
+                                text = stringResource(R.string.repos_quota_auto_renew),
                                 fontFamily = JetBrainsMonoFamily,
                                 fontSize = 8.sp,
                                 color = IndustrialOrange,
@@ -983,7 +989,7 @@ private fun CodingPlanBoard(
                             .padding(horizontal = 4.dp, vertical = 1.dp),
                     ) {
                         Text(
-                            text = if (isValid) quota.status else "已过期",
+                            text = if (isValid) stringResource(R.string.repos_quota_status_valid) else stringResource(R.string.repos_quota_status_expired),
                             fontFamily = JetBrainsMonoFamily,
                             fontSize = 8.sp,
                             fontWeight = FontWeight.Bold,
@@ -1005,9 +1011,9 @@ private fun CodingPlanBoard(
 
             // Quota gauges
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                QuotaGauge("5H", quota.fiveHourUsed, quota.fiveHourTotal, Modifier.weight(1f))
-                QuotaGauge("WEEK", quota.weekUsed, quota.weekTotal, Modifier.weight(1f))
-                QuotaGauge("MONTH", quota.monthUsed, quota.monthTotal, Modifier.weight(1f))
+                QuotaGauge(stringResource(R.string.quota_5h), quota.fiveHourUsed, quota.fiveHourTotal, Modifier.weight(1f))
+                QuotaGauge(stringResource(R.string.quota_week), quota.weekUsed, quota.weekTotal, Modifier.weight(1f))
+                QuotaGauge(stringResource(R.string.quota_month), quota.monthUsed, quota.monthTotal, Modifier.weight(1f))
             }
         } else {
             // Error or empty state
@@ -1021,9 +1027,9 @@ private fun CodingPlanBoard(
                 Column {
                     Text(
                         text = when (error) {
-                            "NO_QUOTA_DATA" -> "获取失败"
-                            "NOT_LOGIN" -> "COOKIE已过期"
-                            null -> "暂无数据"
+                            "NO_QUOTA_DATA" -> stringResource(R.string.repos_quota_fetch_failed)
+                            "NOT_LOGIN" -> stringResource(R.string.repos_quota_cookie_expired)
+                            null -> stringResource(R.string.repos_quota_no_data)
                             else -> error
                         },
                         fontFamily = JetBrainsMonoFamily,
@@ -1033,7 +1039,7 @@ private fun CodingPlanBoard(
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "请检查 credential 或点击 REFRESH 重试",
+                        text = stringResource(R.string.repos_quota_retry_hint),
                         fontFamily = JetBrainsMonoFamily,
                         fontSize = 9.sp,
                         color = Color.Gray,

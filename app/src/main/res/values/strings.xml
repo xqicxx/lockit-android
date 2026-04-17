@@ -191,4 +191,88 @@
     <string name="biometric_reveal_subtitle">Biometric authentication required to reveal sensitive value</string>
     <string name="biometric_copy_title">Copy Credential</string>
     <string name="biometric_copy_subtitle">Biometric authentication required</string>
+    <string name="biometric_view_title">View Credential</string>
+    <string name="biometric_view_subtitle">Biometric authentication required</string>
+
+    <!-- Repos Screen -->
+    <string name="repos_title">Repositories</string>
+    <string name="repos_subtitle">Service groupings &amp; repository mappings // [Read-Only]</string>
+    <string name="repos_services">SERVICES</string>
+    <string name="repos_credentials">CREDENTIALS</string>
+    <string name="repos_coding_plan_board">CODING_PLAN_BOARD</string>
+    <string name="repos_registered_services">REGISTERED_SERVICES</string>
+    <string name="repos_no_services_registered">NO_SERVICES_REGISTERED</string>
+    <string name="repos_status">> REPOSITORIES_STATUS:</string>
+    <string name="repos_local_vault_active">LOCAL_VAULT: ACTIVE</string>
+    <string name="repos_remote_sync_not_configured">REMOTE_SYNC: NOT_CONFIGURED</string>
+    <string name="repos_last_sync_never">LAST_SYNC: NEVER</string>
+    <string name="repos_back">&lt; BACK</string>
+    <string name="repos_phone_subtitle">Phone numbers // [Read-Only]</string>
+    <string name="repos_coding_plan_subtitle">Coding plan tokens // [Read-Only]</string>
+    <string name="repos_account_subtitle">Account credentials // [Read-Only]</string>
+    <string name="repos_service_subtitle">Credentials for this service // [Read-Only]</string>
+    <string name="repos_search">SEARCH</string>
+    <string name="repos_search_placeholder">Search by name or type...</string>
+    <string name="repos_search_results">SEARCH_RESULTS:</string>
+    <string name="repos_manifest">INVENTORY_MANIFEST</string>
+    <string name="repos_entries">%1$d entries</string>
+    <string name="repos_no_matching_credentials">NO_MATCHING_CREDENTIALS</string>
+    <string name="repos_keys">%1$d keys</string>
+    <string name="repos_local">LOCAL</string>
+    <string name="repos_remote">REMOTE</string>
+    <string name="repos_email">EMAIL</string>
+    <string name="repos_card_masked">CARD ****%1$s</string>
+    <string name="repos_id_card">ID CARD</string>
+    <string name="repos_api_key_masked">API_KEY: %1$s</string>
+    <string name="repos_modal_close_hint">Tap outside to close</string>
+    <string name="repos_coding_plan">CODING PLAN</string>
+    <string name="repos_fetching">FETCHING...</string>
+    <string name="repos_refresh">REFRESH</string>
+    <string name="repos_quota_remaining">Remaining: %1$d days</string>
+    <string name="repos_quota_cost">Cost: ¥%1$s</string>
+    <string name="repos_quota_auto_renew">Auto Renew</string>
+    <string name="repos_quota_status_valid">VALID</string>
+    <string name="repos_quota_status_expired">EXPIRED</string>
+    <string name="repos_quota_fetch_failed">Fetch failed</string>
+    <string name="repos_quota_cookie_expired">Cookie expired</string>
+    <string name="repos_quota_no_data">No data available</string>
+    <string name="repos_quota_retry_hint">Please check credential or tap REFRESH to retry</string>
+
+    <!-- Logs Screen -->
+    <string name="logs_title">Audit Log</string>
+    <string name="logs_subtitle">Security event timeline // Local device only // 30 days</string>
+    <string name="logs_event_stream">EVENT_STREAM</string>
+    <string name="logs_entries">%1$d entries</string>
+    <string name="logs_no_events">NO_AUDIT_EVENTS</string>
+    <string name="logs_storage_local">STORAGE: LOCAL_DEVICE_ONLY</string>
+    <string name="logs_retention">RETENTION: 30_DAYS</string>
+    <string name="logs_encryption">ENCRYPTION: AES-256-GCM</string>
+
+    <!-- Audit Action Names -->
+    <string name="action_vault_initialized">VAULT_INITIALIZED</string>
+    <string name="action_vault_unlocked">VAULT_UNLOCKED</string>
+    <string name="action_vault_unlock_failed">VAULT_UNLOCK_FAILED</string>
+    <string name="action_vault_locked">VAULT_LOCKED</string>
+    <string name="action_password_changed">PASSWORD_CHANGED</string>
+    <string name="action_credential_created">CREDENTIAL_CREATED</string>
+    <string name="action_credential_updated">CREDENTIAL_UPDATED</string>
+    <string name="action_credential_deleted">CREDENTIAL_DELETED</string>
+    <string name="action_credential_viewed">CREDENTIAL_VIEWED</string>
+    <string name="action_credential_copied">CREDENTIAL_COPIED</string>
+
+    <!-- Quota Gauge Labels -->
+    <string name="quota_5h">5H</string>
+    <string name="quota_week">WEEK</string>
+    <string name="quota_month">MONTH</string>
+
+    <!-- Credential Type Display -->
+    <string name="type_id_card">ID CARD</string>
+
+    <!-- Copy Toast Messages -->
+    <string name="toast_value_copied">VALUE_COPIED</string>
+    <string name="toast_structured_copied">STRUCTURED_COPIED</string>
+    <string name="toast_api_key_copied">API_KEY_COPIED</string>
+    <string name="toast_base_url_copied">BASE_URL_COPIED</string>
+    <string name="toast_email_copied">EMAIL_COPIED</string>
+    <string name="toast_phone_copied">PHONE_COPIED</string>
 </resources>

@@ -24,7 +24,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -35,6 +37,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.lockit.LockitApp
+import com.lockit.R
 import com.lockit.domain.model.Credential
 import com.lockit.domain.model.CredentialType
 import com.lockit.ui.components.BrutalistPinVerifyDialog
@@ -67,6 +70,13 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 
+// Toast data class for localization-safe toast messages
+data class ToastData(
+    val resourceId: Int? = null,
+    val formatArgs: List<Any> = emptyList(),
+    val rawMessage: String? = null,
+)
+
 class VaultExplorerViewModel(private val app: LockitApp) : ViewModel() {
 
     private val _credentials = MutableStateFlow<List<Credential>>(emptyList())
@@ -88,8 +98,8 @@ class VaultExplorerViewModel(private val app: LockitApp) : ViewModel() {
             }
         }
 
-    private val _toastMessage = MutableStateFlow<String?>(null)
-    val toastMessage: StateFlow<String?> = _toastMessage.asStateFlow()
+    private val _toastData = MutableStateFlow<ToastData?>(null)
+    val toastData: StateFlow<ToastData?> = _toastData.asStateFlow()
 
     init {
         startObservingAllCredentials()
@@ -113,19 +123,39 @@ class VaultExplorerViewModel(private val app: LockitApp) : ViewModel() {
         viewModelScope.launch {
             try {
                 app.vaultManager.deleteCredential(credential)
-                _toastMessage.value = "CREDENTIAL_DELETED: ${credential.name}"
+                _toastData.value = ToastData(
+                    resourceId = R.string.toast_credential_deleted,
+                    formatArgs = listOf(credential.name)
+                )
             } catch (e: Exception) {
-                _toastMessage.value = "ERROR: ${e.message}"
+                _toastData.value = ToastData(rawMessage = "ERROR: ${e.message}")
             }
         }
     }
 
     fun showToast(message: String) {
-        _toastMessage.value = message
+        _toastData.value = ToastData(rawMessage = message)
+    }
+
+    fun showCopyToast(actionName: String) {
+        val resourceId = when (actionName) {
+            "VALUE" -> R.string.toast_value_copied
+            "STRUCTURED" -> R.string.toast_structured_copied
+            "API_KEY" -> R.string.toast_api_key_copied
+            "BASE_URL" -> R.string.toast_base_url_copied
+            "EMAIL" -> R.string.toast_email_copied
+            "PHONE" -> R.string.toast_phone_copied
+            else -> null
+        }
+        if (resourceId != null) {
+            _toastData.value = ToastData(resourceId = resourceId)
+        } else {
+            _toastData.value = ToastData(rawMessage = "${actionName}_COPIED")
+        }
     }
 
     fun dismissToast() {
-        _toastMessage.value = null
+        _toastData.value = null
     }
 }
 
@@ -141,10 +171,11 @@ fun VaultExplorerScreen(
     ),
 ) {
     val credentials by viewModel.credentials.collectAsStateWithLifecycle()
-    val toastMessage by viewModel.toastMessage.collectAsStateWithLifecycle()
+    val toastData by viewModel.toastData.collectAsStateWithLifecycle()
     var searchQuery by remember { mutableStateOf(viewModel.searchQuery) }
     var phoneRegionForToast by remember { mutableStateOf("") }
     val clipboardManager = LocalClipboardManager.current
+    val context = LocalContext.current
     val services by remember { derivedStateOf { credentials.map { it.service.uppercase() }.distinct() } }
     val revealedCredentialIds = remember { mutableStateListOf<String>() }
     val view = LocalView.current
@@ -152,6 +183,12 @@ fun VaultExplorerScreen(
     fun getActivity() = view.findActivity()
 
     var pendingBiometricAction by remember { mutableStateOf<(() -> Unit)?>(null) }
+
+    // Pre-compute string resources for use in non-composable callbacks
+    val biometricRevealTitle = stringResource(R.string.biometric_reveal_title)
+    val biometricRevealSubtitle = stringResource(R.string.biometric_reveal_subtitle)
+    val biometricCopyTitle = stringResource(R.string.biometric_copy_title)
+    val biometricCopySubtitle = stringResource(R.string.biometric_copy_subtitle)
 
     fun handleCopy(credential: Credential, action: CopyAction) {
         val fields = parseCredentialFields(credential.value)
@@ -165,7 +202,7 @@ fun VaultExplorerScreen(
         }
         clipboardManager.setText(AnnotatedString(valueToCopy))
         app.vaultManager.logCredentialCopied(credential.name)
-        viewModel.showToast("${action.name}_COPIED")
+        viewModel.showCopyToast(action.name)
         if (action == CopyAction.PHONE) {
             phoneRegionForToast = credential.name
         }
@@ -180,8 +217,8 @@ fun VaultExplorerScreen(
         if (activity != null && BiometricUtils.canAuthenticate(activity)) {
             BiometricUtils.requireBiometric(
                 activity = activity,
-                title = "Reveal Credential",
-                subtitle = "Biometric authentication required to reveal sensitive value",
+                title = biometricRevealTitle,
+                subtitle = biometricRevealSubtitle,
                 onSuccess = { revealedCredentialIds.add(credential.id) },
                 onError = { pendingBiometricAction = { revealedCredentialIds.add(credential.id) } },
             )
@@ -199,15 +236,14 @@ fun VaultExplorerScreen(
 
         LazyColumn(
             modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
-            contentPadding = PaddingValues(bottom = 140.dp),
+            contentPadding = PaddingValues(top = 16.dp, bottom = 140.dp),
         ) {
             item {
-                Spacer(modifier = Modifier.height(24.dp))
                 ScreenHero(
-                    title = "Vault Explorer",
-                    subtitle = "Unified Terminal View // Alpha-04 // [Read/Write]",
+                    title = stringResource(R.string.explorer_title),
+                    subtitle = stringResource(R.string.explorer_subtitle),
                 )
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(24.dp))
 
                 Box(
                     modifier = Modifier
@@ -217,7 +253,7 @@ fun VaultExplorerScreen(
                 ) {
                     Column {
                         Text(
-                            text = "> QUICK_START",
+                            text = stringResource(R.string.explorer_quick_start),
                             fontFamily = JetBrainsMonoFamily,
                             fontWeight = FontWeight.Bold,
                             fontSize = 12.sp,
@@ -225,7 +261,7 @@ fun VaultExplorerScreen(
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            text = "To add your first credential, tap the + NEW button in the top bar. For CLI integration, run `lockit add --name <name> --service <service> --key <key> --value <secret>` in your terminal.",
+                            text = stringResource(R.string.explorer_quick_start_desc),
                             fontFamily = JetBrainsMonoFamily,
                             fontSize = 10.sp,
                             color = Color.Gray,
@@ -241,8 +277,8 @@ fun VaultExplorerScreen(
                         searchQuery = it
                         viewModel.searchQuery = it
                     },
-                    label = "SEARCH",
-                    placeholder = "Search by name, service, type, or key...",
+                    label = stringResource(R.string.explorer_search),
+                    placeholder = stringResource(R.string.explorer_search_placeholder),
                     modifier = Modifier.fillMaxWidth(),
                 )
                 Spacer(modifier = Modifier.height(24.dp))
@@ -255,7 +291,7 @@ fun VaultExplorerScreen(
                 ) {
                     if (searchQuery.isNotBlank()) {
                         Text(
-                            text = "SEARCH_RESULTS: \"$searchQuery\"",
+                            text = stringResource(R.string.explorer_search_results) + " \"$searchQuery\"",
                             fontFamily = JetBrainsMonoFamily,
                             fontWeight = FontWeight.Bold,
                             fontSize = 12.sp,
@@ -264,7 +300,7 @@ fun VaultExplorerScreen(
                         )
                     } else {
                         Text(
-                            text = "INVENTORY_MANIFEST",
+                            text = stringResource(R.string.explorer_manifest),
                             fontFamily = JetBrainsMonoFamily,
                             fontWeight = FontWeight.Bold,
                             fontSize = 12.sp,
@@ -273,7 +309,7 @@ fun VaultExplorerScreen(
                         )
                     }
                     Text(
-                        text = "${credentials.size} entries",
+                        text = "${credentials.size} " + stringResource(R.string.explorer_entries),
                         fontFamily = JetBrainsMonoFamily,
                         fontSize = 10.sp,
                         color = Color.Gray,
@@ -296,8 +332,8 @@ fun VaultExplorerScreen(
                             if (BiometricUtils.canAuthenticate(activity)) {
                                 BiometricUtils.requireBiometric(
                                     activity = activity,
-                                    title = "Copy Credential",
-                                    subtitle = "Biometric authentication required",
+                                    title = biometricCopyTitle,
+                                    subtitle = biometricCopySubtitle,
                                     onSuccess = { handleCopy(credential, action) },
                                     onError = {
                                         pendingBiometricAction = { handleCopy(credential, action) }
@@ -326,7 +362,7 @@ fun VaultExplorerScreen(
                         contentAlignment = Alignment.Center,
                     ) {
                         Text(
-                            text = "NO_CREDENTIALS_FOUND",
+                            text = stringResource(R.string.explorer_no_credentials),
                             fontFamily = JetBrainsMonoFamily,
                             fontSize = 14.sp,
                             color = Color.Gray,
@@ -339,11 +375,11 @@ fun VaultExplorerScreen(
                 Spacer(modifier = Modifier.height(16.dp))
                 TerminalFooter(
                     lines = listOf(
-                        "> SYNCING_METADATA..." to IndustrialOrange,
-                        "LOCKIT-DAEMON: LOCAL_STORAGE_ACTIVE" to Color.Gray,
-                        "TOTAL_CREDENTIALS: ${credentials.size} [READY]" to Color.Gray,
-                        if (services.isNotEmpty()) "SERVICES: ${services.joinToString(", ")}" to Color.Gray
-                        else "NO_SERVICES_REGISTERED" to Color.Gray,
+                        stringResource(R.string.explorer_syncing) to IndustrialOrange,
+                        stringResource(R.string.explorer_daemon) to Color.Gray,
+                        stringResource(R.string.explorer_total_credentials) + " ${credentials.size} " + stringResource(R.string.explorer_ready) to Color.Gray,
+                        if (services.isNotEmpty()) stringResource(R.string.explorer_services) + " ${services.joinToString(", ")}" to Color.Gray
+                        else stringResource(R.string.explorer_no_services) to Color.Gray,
                     ),
                 )
                 Spacer(modifier = Modifier.height(16.dp))
@@ -363,14 +399,28 @@ fun VaultExplorerScreen(
         )
     }
 
-    toastMessage?.let { message ->
+    toastData?.let { data ->
+        // Resolve the localized string from ToastData
+        val message = when {
+            data.resourceId != null -> {
+                if (data.formatArgs.isNotEmpty()) {
+                    stringResource(data.resourceId, *data.formatArgs.toTypedArray())
+                } else {
+                    stringResource(data.resourceId)
+                }
+            }
+            data.rawMessage != null -> data.rawMessage
+            else -> ""
+        }
+
+        val hasPhoneAction = data.resourceId == R.string.toast_phone_copied ||
+            data.rawMessage?.startsWith("PHONE_COPIED") == true
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(16.dp),
             contentAlignment = Alignment.BottomCenter,
         ) {
-            val hasPhoneAction = message.startsWith("PHONE_COPIED")
             BrutalistToast(
                 message = message,
                 onDismiss = { viewModel.dismissToast() },

@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.AlertDialog
@@ -44,20 +45,27 @@ fun ScreenHero(
     subtitle: String,
     modifier: Modifier = Modifier,
 ) {
-    Column(modifier = modifier) {
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(IntrinsicSize.Min)  // Ensure consistent minimum height
+    ) {
         Text(
             text = title,
             fontFamily = JetBrainsMonoFamily,
             fontWeight = FontWeight.ExtraBold,
-            fontSize = 28.sp,
+            fontSize = 24.sp,  // Consistent size for all pages
             color = Primary,
             letterSpacing = (-0.5).sp,
+            maxLines = 1,
         )
+        Spacer(modifier = Modifier.height(2.dp))
         Text(
             text = subtitle,
             fontFamily = JetBrainsMonoFamily,
             fontSize = 11.sp,
             color = Color.Gray,
+            maxLines = 1,
         )
     }
 }
