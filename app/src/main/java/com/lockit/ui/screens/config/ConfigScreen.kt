@@ -219,6 +219,7 @@ fun ConfigScreen(
                         BrutalistButton(
                             text = stringResource(R.string.config_lock_vault),
                             onClick = {
+                                toastMessage = null
                                 app.vaultManager.lockVault()
                                 onLockVault()
                             },
