@@ -199,8 +199,10 @@ class VaultManager(
         val masterKey = requireMasterKey()
         val encryptedValue = crypto.encrypt(value.toByteArray(Charsets.UTF_8), masterKey)
         val existing = dao.getById(id)
+        val now = Instant.now().toEpochMilli()
 
-        val entity = CredentialEntity(
+        // Use explicit query to ensure updatedAt is correctly set
+        dao.updateById(
             id = id,
             name = name,
             type = type.name,
@@ -208,10 +210,9 @@ class VaultManager(
             key = key,
             value = encryptedValue,
             metadata = metadata ?: existing?.metadata ?: "{}",
-            createdAt = existing?.createdAt ?: Instant.now().toEpochMilli(),
-            updatedAt = Instant.now().toEpochMilli(),
+            createdAt = existing?.createdAt ?: now,
+            updatedAt = now,
         )
-        dao.update(entity)
         auditLogger.log("CREDENTIAL_UPDATED", "$name - value modified", AuditSeverity.Warning)
     }
 

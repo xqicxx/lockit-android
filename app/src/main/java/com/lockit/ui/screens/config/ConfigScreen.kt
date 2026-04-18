@@ -160,8 +160,9 @@ fun ConfigScreen(
                 showUpdateDialog = false
                 isDownloading = true
                 val apkUrl = availableUpdate?.apkUrl
+                val versionName = availableUpdate?.versionName
                 if (apkUrl != null) {
-                    appUpdater.downloadApk(apkUrl, lastCheckedToken)
+                    appUpdater.downloadApk(apkUrl, versionName, lastCheckedToken)
                     val downloadDir = appUpdater.getDownloadDirectory()
                     toastMessage = "${context.getString(R.string.toast_download_started)}\n${context.getString(R.string.toast_download_location)} $downloadDir"
                     isDownloading = false
@@ -961,6 +962,7 @@ private fun ConfigSection(
     content: (@Composable () -> Unit)? = null,
 ) {
     Column {
+        // Title row with underline extending to the right
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -974,12 +976,12 @@ private fun ConfigSection(
                 fontWeight = FontWeight.Bold,
                 letterSpacing = 2.sp,
                 color = Primary,
-                modifier = Modifier.weight(1f),
             )
+            Spacer(modifier = Modifier.width(8.dp))
             Box(
                 modifier = Modifier
                     .height(1.dp)
-                    .weight(1f)
+                    .fillMaxWidth()
                     .background(Primary),
             )
         }

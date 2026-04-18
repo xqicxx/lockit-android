@@ -35,6 +35,30 @@ interface CredentialDao {
     @Update
     suspend fun update(entity: CredentialEntity)
 
+    @Query("""
+        UPDATE credentials SET
+            name = :name,
+            type = :type,
+            service = :service,
+            key = :key,
+            value = :value,
+            metadata = :metadata,
+            createdAt = :createdAt,
+            updatedAt = :updatedAt
+        WHERE id = :id
+    """)
+    suspend fun updateById(
+        id: String,
+        name: String,
+        type: String,
+        service: String,
+        key: String,
+        value: ByteArray,
+        metadata: String,
+        createdAt: Long,
+        updatedAt: Long,
+    )
+
     @Delete
     suspend fun delete(entity: CredentialEntity)
 

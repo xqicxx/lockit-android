@@ -617,10 +617,14 @@ private fun OptionalFieldRow(
 private fun CardFooter(credential: Credential) {
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Row {
+        // Tags row with weight to constrain width and prevent overlap
+        Row(
+            modifier = Modifier.weight(1f, fill = false),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
             val tagText = when (credential.type) {
                 CredentialType.Phone -> credential.name.uppercase()
                 CredentialType.Account -> credential.service.uppercase().takeIf { it.isNotBlank() } ?: "SERVICE"
@@ -638,6 +642,8 @@ private fun CardFooter(credential: Credential) {
             fontSize = 10.sp,
             color = IndustrialOrange,
             fontWeight = FontWeight.Bold,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
         )
     }
 }
