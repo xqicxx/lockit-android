@@ -24,6 +24,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Fingerprint
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -251,6 +252,7 @@ fun VaultUnlockScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val view = LocalView.current
+    val colorScheme = MaterialTheme.colorScheme
 
     LaunchedEffect(Unit) {
         viewModel.setAppState(app.vaultManager.isInitialized())
@@ -266,11 +268,12 @@ fun VaultUnlockScreen(
     Scaffold(
         topBar = { Box(Modifier.statusBarsPadding()) { BrutalistTopBar() } },
     ) { paddingValues ->
+        val colorScheme = MaterialTheme.colorScheme
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .background(White),
+                .background(colorScheme.background),
         ) {
             // Main Content
             Box(
@@ -315,15 +318,15 @@ fun VaultUnlockScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .border(1.dp, Primary)
-                        .background(White),
+                        .border(1.dp, colorScheme.primary)
+                        .background(colorScheme.surface),
                 ) {
                     // PIN Input Display
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
                             .drawBehind {
-                                drawLine(Primary, Offset(0f, size.height), Offset(size.width, size.height), 1.dp.toPx())
+                                drawLine(colorScheme.primary, Offset(0f, size.height), Offset(size.width, size.height), 1.dp.toPx())
                             }
                                 .padding(vertical = 12.dp),
                             horizontalAlignment = Alignment.CenterHorizontally,
@@ -377,7 +380,7 @@ fun VaultUnlockScreen(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .drawBehind {
-                                    drawLine(Primary, Offset(0f, 0f), Offset(size.width, 0f), 1.dp.toPx())
+                                    drawLine(colorScheme.primary, Offset(0f, 0f), Offset(size.width, 0f), 1.dp.toPx())
                                 }
                                 .padding(12.dp),
                             verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -663,17 +666,21 @@ private fun KeypadKey(
     hasRightBorder: Boolean,
     hasBottomBorder: Boolean,
 ) {
+    val colorScheme = MaterialTheme.colorScheme
+    val bgColor = colorScheme.surface
+    val borderColor = colorScheme.primary
+
     Box(
         modifier = modifier
             .aspectRatio(4f / 3f)
-            .background(if (enabled) White else Color.Black.copy(0.05f))
+            .background(if (enabled) bgColor else borderColor.copy(0.05f))
             .drawBehind {
                 val sw = 1.dp.toPx()
                 if (hasRightBorder) {
-                    drawLine(Primary, Offset(size.width, 0f), Offset(size.width, size.height), sw)
+                    drawLine(borderColor, Offset(size.width, 0f), Offset(size.width, size.height), sw)
                 }
                 if (hasBottomBorder) {
-                    drawLine(Primary, Offset(0f, size.height), Offset(size.width, size.height), sw)
+                    drawLine(borderColor, Offset(0f, size.height), Offset(size.width, size.height), sw)
                 }
             }
             .clickable(enabled = enabled) {
