@@ -663,15 +663,39 @@ fun ConfigScreen(
                                     val tokenCredential = app.vaultManager.getAllCredentials()
                                         .first()
                                         .find { it.name == githubTokenCredentialName }
+
+                                    // Diagnostic: Check if credential exists
+                                    if (tokenCredential == null) {
+                                        toastMessage = "${context.getString(R.string.toast_token_not_found)}: $githubTokenCredentialName"
+                                        isCheckingUpdate = false
+                                        return@launch
+                                    }
+
                                     // Parse combined value to extract TOKEN_VALUE (index 3)
                                     // For GitHub/Token/ApiKey types, the secret is always at field index 3
-                                    val fields = tokenCredential?.value?.let { parseCredentialFields(it) }
+                                    val fields = tokenCredential.value?.let { parseCredentialFields(it) }
                                     val token = fields?.getOrNull(3)?.takeIf { it.isNotBlank() }
+
+                                    // Diagnostic: Check if token is empty
+                                    if (token == null || token.isBlank()) {
+                                        toastMessage = context.getString(R.string.toast_token_empty)
+                                        isCheckingUpdate = false
+                                        return@launch
+                                    }
+
                                     lastCheckedToken = token // Store for download
                                     val result = appUpdater.checkForUpdate(currentVersionCode, token)
                                     isCheckingUpdate = false
                                     if (result.isFailure) {
-                                        toastMessage = "${context.getString(R.string.toast_check_failed)} ${result.exceptionOrNull()?.message}"
+                                        val errorMsg = result.exceptionOrNull()?.message ?: "Unknown error"
+                                        // Provide specific guidance for common errors
+                                        val detailedMessage = when {
+                                            errorMsg.contains("404") -> "${context.getString(R.string.toast_private_repo_denied)} (Token needs 'repo' scope)"
+                                            errorMsg.contains("403") -> "${context.getString(R.string.toast_rate_limit)}"
+                                            errorMsg.contains("Release not found") -> context.getString(R.string.toast_release_not_found)
+                                            else -> "${context.getString(R.string.toast_check_failed)} $errorMsg"
+                                        }
+                                        toastMessage = detailedMessage
                                     } else if (result.getOrNull() == null) {
                                         toastMessage = context.getString(R.string.toast_already_latest)
                                     } else {

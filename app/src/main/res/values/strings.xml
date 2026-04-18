@@ -170,14 +170,19 @@
     <string name="toast_check_failed">CHECK_FAILED:</string>
     <string name="toast_already_latest">ALREADY_LATEST_VERSION</string>
     <string name="toast_vault_locked">VAULT_LOCKED</string>
+    <string name="toast_token_not_found">TOKEN_CREDENTIAL_NOT_FOUND</string>
+    <string name="toast_token_empty">TOKEN_VALUE_EMPTY</string>
+    <string name="toast_private_repo_denied">PRIVATE_REPO_ACCESS_DENIED</string>
+    <string name="toast_rate_limit">GITHUB_RATE_LIMIT_EXCEEDED</string>
+    <string name="toast_release_not_found">RELEASE_NOT_FOUND</string>
     <string name="toast_token_source_set">TOKEN_SOURCE_SET:</string>
     <string name="toast_credential_deleted">CREDENTIAL_DELETED:</string>
     <string name="toast_copied">_COPIED</string>
 
     <!-- Footer -->
     <string name="footer_system_info">> SYSTEM_INFO:</string>
-    <string name="footer_version">LOCKIT_ANDROID v0.1.0</string>
-    <string name="footer_compatible">COMPATIBLE_WITH_CLI v0.1.0</string>
+    <string name="footer_version">LOCKIT_ANDROID v0.2.0</string>
+    <string name="footer_compatible">COMPATIBLE_WITH_CLI v0.2.0</string>
     <string name="footer_design">DESIGN: TECHNICAL_BRUTALISM_V1</string>
 
     <!-- Common Buttons -->

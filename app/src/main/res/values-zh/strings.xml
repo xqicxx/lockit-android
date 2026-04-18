@@ -170,14 +170,19 @@
     <string name="toast_check_failed">检查失败:</string>
     <string name="toast_already_latest">已是最新版本</string>
     <string name="toast_vault_locked">密码库已锁定</string>
+    <string name="toast_token_not_found">Token凭据未找到</string>
+    <string name="toast_token_empty">Token值为空</string>
+    <string name="toast_private_repo_denied">私有仓库访问被拒绝</string>
+    <string name="toast_rate_limit">GitHub API速率限制</string>
+    <string name="toast_release_not_found">未找到发布版本</string>
     <string name="toast_token_source_set">Token来源设置:</string>
     <string name="toast_credential_deleted">凭据已删除:</string>
     <string name="toast_copied">已复制</string>
 
     <!-- Footer -->
     <string name="footer_system_info">> 系统信息:</string>
-    <string name="footer_version">LOCKIT_ANDROID v0.1.0</string>
-    <string name="footer_compatible">兼容CLI v0.1.0</string>
+    <string name="footer_version">LOCKIT_ANDROID v0.2.0</string>
+    <string name="footer_compatible">兼容CLI v0.2.0</string>
     <string name="footer_design">设计: 技术野性主义V1</string>
 
     <!-- Common Buttons -->
