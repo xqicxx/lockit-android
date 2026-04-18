@@ -70,7 +70,12 @@ class AppUpdater(context: Context) {
             }
 
             if (connection.responseCode != 200) {
-                return@withContext Result.failure(Exception("HTTP ${connection.responseCode}"))
+                val errorMsg = when (connection.responseCode) {
+                    403 -> "GitHub API rate limit exceeded. Try again later or add a GitHub token."
+                    404 -> "Release not found"
+                    else -> "HTTP ${connection.responseCode}"
+                }
+                return@withContext Result.failure(Exception(errorMsg))
             }
 
             // Use use{} to ensure inputStream is closed properly
@@ -141,24 +146,70 @@ class AppUpdater(context: Context) {
 
     /**
      * Download APK using system DownloadManager.
+     * @param versionName Version string used for file naming (e.g., "1.2.0")
      * @param githubToken Optional token for private repos (added as Authorization header)
+     * @return Download ID for tracking
      */
-    fun downloadApk(apkUrl: String, githubToken: String? = null, fileName: String = "lockit-update.apk"): Long {
+    fun downloadApk(apkUrl: String, versionName: String? = null, githubToken: String? = null): Long {
+        // Use version-specific filename to avoid overwriting previous downloads
+        val fileName = if (versionName != null) {
+            "lockit-${versionName}.apk"
+        } else {
+            "lockit-update.apk"
+        }
+
         val request = DownloadManager.Request(Uri.parse(apkUrl))
-            .setTitle("Lockit Update")
+            .setTitle("Lockit Update $versionName")
             .setDescription("Downloading latest version...")
             .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
             .setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, fileName)
             .setAllowedOverMetered(true)
             .setAllowedOverRoaming(true)
+            .setRequiresCharging(false)
 
-        // Add Authorization header for private repos
+        // Add Authorization header for private repos or rate limit bypass
         if (!githubToken.isNullOrBlank()) {
             request.addRequestHeader("Authorization", "token $githubToken")
         }
 
         val downloadManager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
         return downloadManager.enqueue(request)
+    }
+
+    /**
+     * Check download status.
+     * @param downloadId The ID returned by downloadApk()
+     * @return Download status: STATUS_PENDING, STATUS_RUNNING, STATUS_SUCCESSFUL, STATUS_FAILED
+     */
+    fun getDownloadStatus(downloadId: Long): Int {
+        val downloadManager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+        val query = DownloadManager.Query().setFilterById(downloadId)
+        val cursor = downloadManager.query(query)
+        if (!cursor.moveToFirst()) {
+            cursor.close()
+            return DownloadManager.STATUS_FAILED
+        }
+        val status = cursor.getInt(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS))
+        cursor.close()
+        return status
+    }
+
+    /**
+     * Get download error reason if failed.
+     * @param downloadId The ID returned by downloadApk()
+     * @return Error reason code, or 0 if not failed
+     */
+    fun getDownloadErrorReason(downloadId: Long): Int {
+        val downloadManager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+        val query = DownloadManager.Query().setFilterById(downloadId)
+        val cursor = downloadManager.query(query)
+        if (!cursor.moveToFirst()) {
+            cursor.close()
+            return DownloadManager.ERROR_UNKNOWN
+        }
+        val reason = cursor.getInt(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_REASON))
+        cursor.close()
+        return reason
     }
 
     /**

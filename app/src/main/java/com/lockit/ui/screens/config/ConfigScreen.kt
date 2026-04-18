@@ -157,8 +157,9 @@ fun ConfigScreen(
                 showUpdateDialog = false
                 isDownloading = true
                 val apkUrl = availableUpdate?.apkUrl
+                val versionName = availableUpdate?.versionName
                 if (apkUrl != null) {
-                    appUpdater.downloadApk(apkUrl, lastCheckedToken)
+                    appUpdater.downloadApk(apkUrl, versionName, lastCheckedToken)
                     val downloadDir = appUpdater.getDownloadDirectory()
                     toastMessage = "${context.getString(R.string.toast_download_started)}\n${context.getString(R.string.toast_download_location)} $downloadDir"
                     isDownloading = false

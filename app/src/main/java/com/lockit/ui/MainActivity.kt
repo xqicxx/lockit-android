@@ -56,6 +56,8 @@ class MainActivity : FragmentActivity() {
         val app = application as LockitApp
 
         // Invalidate biometric session and lock vault when app goes to background.
+        // Note: isChangingConfigurations is true during recreate (e.g., language change),
+        // we should NOT lock vault in that case.
         (application as Application).registerActivityLifecycleCallbacks(
             object : android.app.Application.ActivityLifecycleCallbacks {
                 private var startedActivities = 0
@@ -64,7 +66,8 @@ class MainActivity : FragmentActivity() {
                 }
                 override fun onActivityStopped(activity: android.app.Activity) {
                     startedActivities--
-                    if (startedActivities <= 0) {
+                    // Skip locking if activity is recreating (language/theme change)
+                    if (startedActivities <= 0 && !activity.isChangingConfigurations) {
                         BiometricUtils.invalidateSession()
                         // Lock vault immediately when app goes to background
                         app.vaultManager.lockVault()

@@ -117,15 +117,21 @@ class VaultUnlockViewModel(private val app: LockitApp) : ViewModel() {
             }
             isProcessing = true
             viewModelScope.launch {
-                val result = withContext(Dispatchers.IO) {
-                    app.vaultManager.unlockVault(pin)
-                }
-                isProcessing = false
-                if (result.isSuccess) {
-                    _uiState.value = VaultUnlockUiState(navigated = true)
-                } else {
-                    errorMessage = "WRONG_PIN"
+                try {
+                    val result = withContext(Dispatchers.IO) {
+                        app.vaultManager.unlockVault(pin)
+                    }
+                    if (result.isSuccess) {
+                        _uiState.value = VaultUnlockUiState(navigated = true)
+                    } else {
+                        errorMessage = "WRONG_PIN"
+                        pin = ""
+                    }
+                } catch (e: Exception) {
+                    errorMessage = e.message?.uppercase() ?: "WRONG_PIN"
                     pin = ""
+                } finally {
+                    isProcessing = false
                 }
             }
         } else {
@@ -252,8 +258,10 @@ fun VaultUnlockScreen(
     val context = LocalContext.current
     val view = LocalView.current
 
+    // Clear PIN when screen is shown (e.g., after manual lock from Config)
     LaunchedEffect(Unit) {
         viewModel.setAppState(app.vaultManager.isInitialized())
+        viewModel.clearPin()  // Ensure PIN is empty when lock screen is shown
     }
 
     LaunchedEffect(uiState.navigated) {
