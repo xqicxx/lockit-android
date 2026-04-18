@@ -74,14 +74,16 @@ class MainActivity : FragmentActivity() {
         if (bgTimestamp > 0) {
             // Clear timestamp immediately to prevent repeated locks
             bgPrefs.edit().remove(KEY_BACKGROUND_TIMESTAMP).apply()
-            // Lock vault - process was killed while in background
+            // Lock vault and invalidate session - process was killed while in background
             app.vaultManager.lockVault()
+            BiometricUtils.invalidateSession()
         }
 
-        // Invalidate biometric session and lock vault when app goes to background.
+        // Record background timestamp when app goes to background.
+        // On resume: if > 5 minutes passed, lock vault and invalidate session.
+        // On cold start: if timestamp exists, lock immediately (process was killed).
         // Note: isChangingConfigurations is true during recreate (e.g., language change),
-        // we should NOT lock vault in that case.
-        // Only register callbacks ONCE to avoid duplicate registrations on recreate.
+        // we should NOT record timestamp in that case.
         if (!lifecycleCallbacksRegistered) {
             lifecycleCallbacksRegistered = true
             (application as Application).registerActivityLifecycleCallbacks(
@@ -94,7 +96,6 @@ class MainActivity : FragmentActivity() {
                         startedActivities--
                         // Skip if activity is recreating (language/theme change)
                         if (startedActivities <= 0 && !activity.isChangingConfigurations) {
-                            BiometricUtils.invalidateSession()
                             // Record background timestamp instead of immediate lock
                             // On cold start after process kill, will lock immediately
                             val prefs = activity.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -146,8 +147,9 @@ private fun MainFlow(app: LockitApp) {
                 if (bgTimestamp > 0) {
                     val elapsed = System.currentTimeMillis() - bgTimestamp
                     if (elapsed > MainActivity.BACKGROUND_LOCK_DELAY_MS) {
-                        // More than 5 minutes: lock vault
+                        // More than 5 minutes: lock vault and invalidate session
                         app.vaultManager.lockVault()
+                        BiometricUtils.invalidateSession()
                     }
                     // Clear timestamp (app is now in foreground)
                     bgPrefs.edit().remove(MainActivity.KEY_BACKGROUND_TIMESTAMP).apply()
