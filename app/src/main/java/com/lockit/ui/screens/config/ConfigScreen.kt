@@ -24,8 +24,11 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -476,13 +479,24 @@ fun ConfigScreen(
                                 .clickable { languageExpanded = true }
                                 .padding(12.dp),
                         ) {
-                            Text(
-                                text = currentLanguageLabel,
-                                fontFamily = JetBrainsMonoFamily,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = IndustrialOrange,
-                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text(
+                                    text = currentLanguageLabel,
+                                    fontFamily = JetBrainsMonoFamily,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = IndustrialOrange,
+                                )
+                                Icon(
+                                    imageVector = Icons.Default.ArrowDropDown,
+                                    contentDescription = "Dropdown",
+                                    tint = IndustrialOrange,
+                                )
+                            }
                             DropdownMenu(
                                 expanded = languageExpanded,
                                 onDismissRequest = { languageExpanded = false },
@@ -545,13 +559,24 @@ fun ConfigScreen(
                                 .clickable { themeExpanded = true }
                                 .padding(12.dp),
                         ) {
-                            Text(
-                                text = currentThemeLabel,
-                                fontFamily = JetBrainsMonoFamily,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = IndustrialOrange,
-                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text(
+                                    text = currentThemeLabel,
+                                    fontFamily = JetBrainsMonoFamily,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = IndustrialOrange,
+                                )
+                                Icon(
+                                    imageVector = Icons.Default.ArrowDropDown,
+                                    contentDescription = "Dropdown",
+                                    tint = IndustrialOrange,
+                                )
+                            }
                             DropdownMenu(
                                 expanded = themeExpanded,
                                 onDismissRequest = { themeExpanded = false },
