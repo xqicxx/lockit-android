@@ -27,8 +27,15 @@ jobs:
     - name: Grant execute permission for gradlew
       run: chmod +x gradlew
 
-    - name: Build Release APK
-      run: ./gradlew assembleRelease
+    # NOTE: Using debug APK for now. For production releases,
+    # set up proper signing with GitHub secrets:
+    # - KEYSTORE_BASE64 (base64 encoded keystore file)
+    # - KEYSTORE_PASSWORD
+    # - KEY_ALIAS
+    # - KEY_PASSWORD
+    # Then decode keystore and configure signing in build.gradle.kts
+    - name: Build Debug APK
+      run: ./gradlew assembleDebug
 
     - name: Upload APK to Release
       uses: softprops/action-gh-release@v2
@@ -36,5 +43,5 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        files: app/build/outputs/apk/release/app-release.apk
+        files: app/build/outputs/apk/debug/app-debug.apk
         fail_on_unmatched_files: true
