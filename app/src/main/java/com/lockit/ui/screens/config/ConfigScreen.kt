@@ -884,6 +884,7 @@ private fun ConfigSection(
     content: (@Composable () -> Unit)? = null,
 ) {
     Column {
+        // Title row with underline extending to the right
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -897,12 +898,12 @@ private fun ConfigSection(
                 fontWeight = FontWeight.Bold,
                 letterSpacing = 2.sp,
                 color = Primary,
-                modifier = Modifier.weight(1f),
             )
+            Spacer(modifier = Modifier.width(8.dp))
             Box(
                 modifier = Modifier
                     .height(1.dp)
-                    .weight(1f)
+                    .fillMaxWidth()
                     .background(Primary),
             )
         }
