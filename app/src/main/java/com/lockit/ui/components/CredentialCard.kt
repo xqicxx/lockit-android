@@ -357,8 +357,8 @@ private fun CardHeader(
         }
         Row {
             // Reveal/hide button in header ONLY for types that don't have inline reveal in content
-            // CodingPlan and GitHub have RevealableValueBox in content, so skip header icon
-            if (!alwaysVisible && credential.type != CredentialType.CodingPlan && credential.type != CredentialType.GitHub) {
+            // CodingPlan, GitHub, Email, Account have RevealableValueBox or inline reveal in content, so skip header icon
+            if (!alwaysVisible && credential.type != CredentialType.CodingPlan && credential.type != CredentialType.GitHub && credential.type != CredentialType.Account) {
                 IconButtonBox(
                     icon = if (isRevealed) Icons.Default.VisibilityOff else Icons.Default.Visibility,
                     description = if (isRevealed) "Hide value" else "Reveal value",
