@@ -260,8 +260,8 @@ fun VaultUnlockScreen(
     val view = LocalView.current
     val colorScheme = MaterialTheme.colorScheme
 
-    // Clear PIN when screen is shown (e.g., after manual lock from Config)
-    LaunchedEffect(Unit) {
+    // Clear PIN whenever screen is shown (key = isVaultLocked to re-trigger after lock)
+    LaunchedEffect(app.vaultManager.isUnlocked()) {
         viewModel.setAppState(app.vaultManager.isInitialized())
         viewModel.clearPin()  // Ensure PIN is empty when lock screen is shown
     }
