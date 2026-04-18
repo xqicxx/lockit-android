@@ -259,10 +259,6 @@ fun ReposScreen(
     val serviceCount = servicesByGroup.size
     val credentialCount = credentialList.size
 
-    // Handle Android back button when viewing a service's credentials
-    BackHandler(enabled = selectedService != null) {
-        onServiceSelected(null)
-    }
     var searchQuery by remember { mutableStateOf("") }
     val clipboardManager = LocalClipboardManager.current
     val context = LocalContext.current
@@ -352,7 +348,6 @@ fun ReposScreen(
     val revealedEmailPasswordMap = remember { mutableMapOf<String, String?>() }
     val revealedCredentialIds = remember { mutableStateListOf<String>() }
     var reposToastMessage by remember { mutableStateOf<String?>(null) }
-    var pendingCredentialForPinVerify by remember { mutableStateOf<Credential?>(null) }
 
     LaunchedEffect(selectedService) {
         viewModel.selectService(selectedService)
@@ -469,6 +464,34 @@ fun ReposScreen(
             }
 
             var selectedCredential by remember { mutableStateOf<Credential?>(null) }
+            var pendingCredentialForPinVerify by remember { mutableStateOf<Credential?>(null) }
+
+            // Handle Android back button: PIN dialog → modal → service detail
+            BackHandler(enabled = pendingCredentialForPinVerify != null) {
+                pendingCredentialForPinVerify = null  // Close PIN dialog first
+            }
+            BackHandler(enabled = selectedCredential != null && pendingCredentialForPinVerify == null) {
+                selectedCredential = null  // Close modal
+                revealedCredentialIds.clear()
+                revealedEmailPasswordMap.clear()
+            }
+            BackHandler(enabled = selectedCredential == null && pendingCredentialForPinVerify == null) {
+                onServiceSelected(null)  // Go back to service list
+                revealedCredentialIds.clear()
+                revealedEmailPasswordMap.clear()
+            }
+
+            // PIN verification dialog
+            pendingCredentialForPinVerify?.let { credential ->
+                BrutalistPinVerifyDialog(
+                    app = app,
+                    onVerified = {
+                        pendingCredentialForPinVerify = null
+                        selectedCredential = credential
+                    },
+                    onDismiss = { pendingCredentialForPinVerify = null },
+                )
+            }
 
             if (selectedCredential != null) {
                 CredentialCardModal(
@@ -502,17 +525,6 @@ fun ReposScreen(
                     onNeedReveal = { },
                     isRevealed = true,
                     onHide = { },
-                )
-            }
-
-            pendingCredentialForPinVerify?.let { credential ->
-                BrutalistPinVerifyDialog(
-                    app = app,
-                    onVerified = {
-                        pendingCredentialForPinVerify = null
-                        selectedCredential = credential
-                    },
-                    onDismiss = { pendingCredentialForPinVerify = null },
                 )
             }
 
