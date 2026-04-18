@@ -633,16 +633,21 @@ private fun CardFooter(credential: Credential) {
             InfoTag(text = credential.type.displayName)
         }
         Spacer(modifier = Modifier.height(4.dp))
-        // Timestamp row - separate line to prevent overlap
-        Text(
-            text = "Secure // ${credential.formatUpdatedAt()}",
-            fontFamily = JetBrainsMonoFamily,
-            fontSize = 10.sp,
-            color = IndustrialOrange,
-            fontWeight = FontWeight.Bold,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
+        // Timestamp row - right aligned to match card's visual style
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.End,
+        ) {
+            Text(
+                text = "Secure // ${credential.formatUpdatedAt()}",
+                fontFamily = JetBrainsMonoFamily,
+                fontSize = 10.sp,
+                color = IndustrialOrange,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
     }
 }
 
