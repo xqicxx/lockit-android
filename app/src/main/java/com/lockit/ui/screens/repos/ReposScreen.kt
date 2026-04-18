@@ -1115,7 +1115,7 @@ private fun QuotaGauge(label: String, used: Int, total: Int, modifier: Modifier 
                 color = Primary,
             )
             Text(
-                text = "$pct%",
+                text = "($pct%)",
                 fontFamily = JetBrainsMonoFamily,
                 fontSize = 9.sp,
                 fontWeight = FontWeight.Bold,
