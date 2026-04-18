@@ -99,7 +99,8 @@ class MainActivity : FragmentActivity() {
                             // Record background timestamp instead of immediate lock
                             // On cold start after process kill, will lock immediately
                             val prefs = activity.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-                            prefs.edit().putLong(KEY_BACKGROUND_TIMESTAMP, System.currentTimeMillis()).apply()
+                            // Use commit() for synchronous write - security-critical
+                            prefs.edit().putLong(KEY_BACKGROUND_TIMESTAMP, System.currentTimeMillis()).commit()
                         }
                     }
                     override fun onActivityCreated(activity: android.app.Activity, savedInstanceState: Bundle?) {}
