@@ -46,6 +46,11 @@ import kotlinx.coroutines.withContext
 
 class MainActivity : FragmentActivity() {
 
+    companion object {
+        // Flag to ensure lifecycle callbacks are registered only once
+        private var lifecycleCallbacksRegistered = false
+    }
+
     override fun attachBaseContext(newBase: Context) {
         super.attachBaseContext(LocaleHelper.applyLocale(newBase))
     }
@@ -59,28 +64,32 @@ class MainActivity : FragmentActivity() {
         // Invalidate biometric session and lock vault when app goes to background.
         // Note: isChangingConfigurations is true during recreate (e.g., language change),
         // we should NOT lock vault in that case.
-        (application as Application).registerActivityLifecycleCallbacks(
-            object : android.app.Application.ActivityLifecycleCallbacks {
-                private var startedActivities = 0
-                override fun onActivityStarted(activity: android.app.Activity) {
-                    startedActivities++
-                }
-                override fun onActivityStopped(activity: android.app.Activity) {
-                    startedActivities--
-                    // Skip locking if activity is recreating (language/theme change)
-                    if (startedActivities <= 0 && !activity.isChangingConfigurations) {
-                        BiometricUtils.invalidateSession()
-                        // Lock vault immediately when app goes to background
-                        app.vaultManager.lockVault()
+        // Only register callbacks ONCE to avoid duplicate registrations on recreate.
+        if (!lifecycleCallbacksRegistered) {
+            lifecycleCallbacksRegistered = true
+            (application as Application).registerActivityLifecycleCallbacks(
+                object : android.app.Application.ActivityLifecycleCallbacks {
+                    private var startedActivities = 0
+                    override fun onActivityStarted(activity: android.app.Activity) {
+                        startedActivities++
                     }
+                    override fun onActivityStopped(activity: android.app.Activity) {
+                        startedActivities--
+                        // Skip locking if activity is recreating (language/theme change)
+                        if (startedActivities <= 0 && !activity.isChangingConfigurations) {
+                            BiometricUtils.invalidateSession()
+                            // Lock vault immediately when app goes to background
+                            app.vaultManager.lockVault()
+                        }
+                    }
+                    override fun onActivityCreated(activity: android.app.Activity, savedInstanceState: Bundle?) {}
+                    override fun onActivityResumed(activity: android.app.Activity) {}
+                    override fun onActivityPaused(activity: android.app.Activity) {}
+                    override fun onActivitySaveInstanceState(activity: android.app.Activity, outState: Bundle) {}
+                    override fun onActivityDestroyed(activity: android.app.Activity) {}
                 }
-                override fun onActivityCreated(activity: android.app.Activity, savedInstanceState: Bundle?) {}
-                override fun onActivityResumed(activity: android.app.Activity) {}
-                override fun onActivityPaused(activity: android.app.Activity) {}
-                override fun onActivitySaveInstanceState(activity: android.app.Activity, outState: Bundle) {}
-                override fun onActivityDestroyed(activity: android.app.Activity) {}
-            }
-        )
+            )
+        }
 
         setContent {
             val themeMode = ThemePreference.getThemeMode(this)
