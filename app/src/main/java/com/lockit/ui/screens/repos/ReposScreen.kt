@@ -1103,11 +1103,24 @@ private fun QuotaGauge(label: String, used: Int, total: Int, modifier: Modifier 
         }
 
         Spacer(modifier = Modifier.height(2.dp))
-        Text(
-            text = "$used / $total ($pct%)",
-            fontFamily = JetBrainsMonoFamily,
-            fontSize = 9.sp,
-            color = Primary,
-        )
+        // Usage row - percentage right-aligned for consistency
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Text(
+                text = "$used / $total",
+                fontFamily = JetBrainsMonoFamily,
+                fontSize = 9.sp,
+                color = Primary,
+            )
+            Text(
+                text = "$pct%",
+                fontFamily = JetBrainsMonoFamily,
+                fontSize = 9.sp,
+                fontWeight = FontWeight.Bold,
+                color = barColor,
+            )
+        }
     }
 }
