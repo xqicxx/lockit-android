@@ -429,12 +429,14 @@ fun ConfigScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // Security Section - Dynamic Argon2 params
+            // Security Section - Dynamic Argon2 params (calculated from actual values)
             val argon2Params = app.vaultManager.getArgon2ParamsInfo()
-            val (argon2Memory, argon2Iterations, argon2Parallelism) = argon2Params
-            val memoryStr = if (argon2Memory >= 65536) stringResource(R.string.config_64_mb) else stringResource(R.string.config_16_mb)
-            val iterStr = if (argon2Iterations >= 3) stringResource(R.string.config_3_iter) else stringResource(R.string.config_2_iter)
-            val parallelStr = if (argon2Parallelism >= 4) stringResource(R.string.config_4_parallel) else stringResource(R.string.config_1_parallel)
+            val (argon2MemoryKB, argon2Iterations, argon2Parallelism) = argon2Params
+            // Convert KB to MB for display (argon2MemoryKB is in KB)
+            val memoryMB = argon2MemoryKB / 1024
+            val memoryStr = "${memoryMB}MB"
+            val iterStr = argon2Iterations.toString()
+            val parallelStr = argon2Parallelism.toString()
 
             ConfigSection(
                 title = stringResource(R.string.config_security),
