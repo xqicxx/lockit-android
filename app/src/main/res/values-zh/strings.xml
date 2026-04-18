@@ -116,6 +116,13 @@
     <string name="config_lang_zh">中文</string>
     <string name="config_lang_en">English</string>
 
+    <!-- Theme Section -->
+    <string name="config_theme">主题</string>
+    <string name="config_theme_desc">应用颜色主题</string>
+    <string name="config_theme_system">跟随系统</string>
+    <string name="config_theme_light">亮色</string>
+    <string name="config_theme_dark">暗色</string>
+
     <!-- Change PIN Dialog -->
     <string name="change_pin_title">更改PIN</string>
     <string name="change_pin_current">当前PIN</string>

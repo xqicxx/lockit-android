@@ -36,6 +36,7 @@ import com.lockit.ui.screens.secret_details.SecretDetailsScreen
 import com.lockit.ui.screens.vault_explorer.VaultExplorerScreen
 import com.lockit.ui.screens.vault_unlock.VaultUnlockScreen
 import com.lockit.ui.theme.LockitTheme
+import com.lockit.ui.theme.ThemePreference
 import com.lockit.data.vault.CodingPlanPrefs
 import com.lockit.domain.CodingPlanFetchers
 import com.lockit.domain.CodingPlanPrefetchState
@@ -79,7 +80,8 @@ class MainActivity : FragmentActivity() {
         )
 
         setContent {
-            LockitTheme {
+            val themeMode = ThemePreference.getThemeMode(this)
+            LockitTheme(themeMode = themeMode) {
                 MainFlow(app = app)
             }
         }

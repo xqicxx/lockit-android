@@ -62,6 +62,8 @@ import com.lockit.ui.theme.IndustrialOrange
 import com.lockit.ui.theme.JetBrainsMonoFamily
 import com.lockit.ui.theme.Primary
 import com.lockit.ui.theme.TacticalRed
+import com.lockit.ui.theme.ThemeMode
+import com.lockit.ui.theme.ThemePreference
 import com.lockit.ui.theme.White
 import com.lockit.utils.LocaleHelper
 import kotlinx.coroutines.Dispatchers
@@ -455,6 +457,75 @@ fun ConfigScreen(
                                             languageExpanded = false
                                             if (langCode != currentLanguage) {
                                                 LocaleHelper.saveLanguage(context, langCode)
+                                                (context as? android.app.Activity)?.recreate()
+                                            }
+                                        },
+                                    )
+                                }
+                            }
+                        }
+                    }
+                },
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // Theme Section
+            val currentThemeMode = ThemePreference.getThemeMode(context)
+            var themeExpanded by remember { mutableStateOf(false) }
+            val themeOptions = listOf(
+                ThemeMode.SYSTEM to stringResource(R.string.config_theme_system),
+                ThemeMode.LIGHT to stringResource(R.string.config_theme_light),
+                ThemeMode.DARK to stringResource(R.string.config_theme_dark),
+            )
+            val currentThemeLabel = themeOptions.find { it.first == currentThemeMode }?.second
+                ?: stringResource(R.string.config_theme_system)
+
+            ConfigSection(
+                title = stringResource(R.string.config_theme),
+                content = {
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        Text(
+                            text = stringResource(R.string.config_theme_desc),
+                            fontFamily = JetBrainsMonoFamily,
+                            fontSize = 10.sp,
+                            color = Color.Gray,
+                            modifier = Modifier.padding(bottom = 8.dp),
+                        )
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .border(1.dp, Primary)
+                                .clickable { themeExpanded = true }
+                                .padding(12.dp),
+                        ) {
+                            Text(
+                                text = currentThemeLabel,
+                                fontFamily = JetBrainsMonoFamily,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = IndustrialOrange,
+                            )
+                            DropdownMenu(
+                                expanded = themeExpanded,
+                                onDismissRequest = { themeExpanded = false },
+                                modifier = Modifier.background(White).border(1.dp, Primary),
+                            ) {
+                                themeOptions.forEach { (mode, modeLabel) ->
+                                    DropdownMenuItem(
+                                        text = {
+                                            Text(
+                                                text = modeLabel,
+                                                fontFamily = JetBrainsMonoFamily,
+                                                fontSize = 12.sp,
+                                                fontWeight = if (mode == currentThemeMode) FontWeight.Bold else FontWeight.Normal,
+                                                color = if (mode == currentThemeMode) IndustrialOrange else Color.Gray,
+                                            )
+                                        },
+                                        onClick = {
+                                            themeExpanded = false
+                                            if (mode != currentThemeMode) {
+                                                ThemePreference.setThemeMode(context, mode)
                                                 (context as? android.app.Activity)?.recreate()
                                             }
                                         },

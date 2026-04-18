@@ -116,6 +116,13 @@
     <string name="config_lang_zh">中文</string>
     <string name="config_lang_en">English</string>
 
+    <!-- Theme Section -->
+    <string name="config_theme">THEME</string>
+    <string name="config_theme_desc">App color theme</string>
+    <string name="config_theme_system">Follow System</string>
+    <string name="config_theme_light">Light</string>
+    <string name="config_theme_dark">Dark</string>
+
     <!-- Change PIN Dialog -->
     <string name="change_pin_title">CHANGE_PIN</string>
     <string name="change_pin_current">CURRENT_PIN</string>

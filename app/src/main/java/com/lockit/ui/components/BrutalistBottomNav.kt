@@ -20,7 +20,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -47,12 +46,20 @@ fun BrutalistBottomNav(
     onItemSelected: (BottomNavItem) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val colorScheme = MaterialTheme.colorScheme
+    // Use theme-aware colors
+    val backgroundColor = colorScheme.surface
+    val borderColor = colorScheme.primary
+    val selectedBgColor = colorScheme.primary
+    val selectedContentColor = colorScheme.onPrimary
+    val unselectedContentColor = colorScheme.onSurfaceVariant
+
     Row(
         modifier = modifier
             .fillMaxWidth()
             .height(56.dp)
-            .background(White)
-            .border(1.dp, Color.Black),
+            .background(backgroundColor)
+            .border(1.dp, borderColor),
     ) {
         BottomNavItem.entries.forEachIndexed { index, item ->
             val isSelected = item == selected
@@ -61,7 +68,7 @@ fun BrutalistBottomNav(
             Box(
                 modifier = Modifier
                     .weight(1f)
-                    .background(if (isSelected) Primary else Color.Transparent)
+                    .background(if (isSelected) selectedBgColor else Color.Transparent)
                     .clickable { onItemSelected(item) },
                 contentAlignment = Alignment.Center,
             ) {
@@ -72,7 +79,7 @@ fun BrutalistBottomNav(
                     Icon(
                         imageVector = item.icon,
                         contentDescription = label,
-                        tint = if (isSelected) White else Primary,
+                        tint = if (isSelected) selectedContentColor else unselectedContentColor,
                         modifier = Modifier.height(20.dp),
                     )
                     Text(
@@ -80,7 +87,7 @@ fun BrutalistBottomNav(
                         fontFamily = JetBrainsMonoFamily,
                         fontWeight = FontWeight.Bold,
                         fontSize = 9.sp,
-                        color = if (isSelected) White else Primary,
+                        color = if (isSelected) selectedContentColor else unselectedContentColor,
                     )
                 }
             }
@@ -91,7 +98,7 @@ fun BrutalistBottomNav(
                     modifier = Modifier
                         .width(1.dp)
                         .fillMaxHeight()
-                        .background(Color.Black),
+                        .background(borderColor),
                 )
             }
         }
