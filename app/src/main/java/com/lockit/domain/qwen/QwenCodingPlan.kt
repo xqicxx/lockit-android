@@ -131,6 +131,8 @@ object QwenCodingPlan : CodingPlanFetcher {
             chargeAmount = instance.optDouble("chargeAmount", 0.0),
             chargeType = instance.optString("chargeType", ""),
             autoRenewFlag = instance.optBoolean("autoRenewFlag", false),
+            // 保存原始 JSON 数据 (原文呈上)
+            rawData = response,
         )
     }
 
