@@ -225,7 +225,7 @@ fun ConfigScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(White),
+            .background(MaterialTheme.colorScheme.surface),
     ) {
         BrutalistTopBar()
 
@@ -736,8 +736,8 @@ private fun ChangePasswordDialog(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(White)
-                .border(2.dp, Color.Black)
+                .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                .border(2.dp, MaterialTheme.colorScheme.primary)
                 .padding(24.dp),
         ) {
             Text(
@@ -1067,8 +1067,8 @@ private fun UpdateDialog(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(White)
-                .border(2.dp, Color.Black)
+                .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                .border(2.dp, MaterialTheme.colorScheme.primary)
                 .padding(24.dp),
         ) {
             Text(
@@ -1160,8 +1160,8 @@ private fun GitHubTokenConfigDialog(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(White)
-                .border(2.dp, Color.Black)
+                .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                .border(2.dp, MaterialTheme.colorScheme.primary)
                 .padding(24.dp),
         ) {
             Text(

@@ -28,6 +28,7 @@ import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -68,7 +69,7 @@ fun LogsScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(White),
+            .background(MaterialTheme.colorScheme.surface),
     ) {
         BrutalistTopBar()
 

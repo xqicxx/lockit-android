@@ -24,6 +24,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import com.lockit.ui.components.BrutalistTextField
 import com.lockit.ui.components.CopyAction
@@ -361,7 +362,7 @@ fun ReposScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(White),
+            .background(MaterialTheme.colorScheme.surface),
     ) {
         BrutalistTopBar()
 
@@ -867,7 +868,7 @@ internal fun CredentialCardModal(
         Column(
             modifier = Modifier
                 .fillMaxWidth(0.9f)
-                .background(White)
+                .background(MaterialTheme.colorScheme.surfaceContainerHigh)
                 .clickable(enabled = false) {},
         ) {
             CredentialCard(
