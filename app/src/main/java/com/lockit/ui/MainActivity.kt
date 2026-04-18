@@ -134,6 +134,14 @@ enum class AppScreen {
 
 @androidx.compose.runtime.Composable
 private fun MainFlow(app: LockitApp) {
+    // Navigation state - must be declared BEFORE vault unlock check
+    // so they survive the vault lock/unlock cycle
+    var currentScreen by rememberSaveable { mutableStateOf(AppScreen.Repos) }
+    var selectedCredentialId by rememberSaveable { mutableStateOf<String?>(null) }
+    var editingCredentialId by rememberSaveable { mutableStateOf<String?>(null) }
+    var reposSelectedService by rememberSaveable { mutableStateOf<String?>(null) }
+    var previousScreen by rememberSaveable { mutableStateOf(AppScreen.VaultExplorer) }
+
     var isVaultUnlocked by remember { mutableStateOf(app.vaultManager.isUnlocked()) }
     val scope = rememberCoroutineScope()
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -211,13 +219,7 @@ private fun MainFlow(app: LockitApp) {
         return
     }
 
-    var currentScreen by rememberSaveable { mutableStateOf(AppScreen.Repos) }
-    var selectedCredentialId by rememberSaveable { mutableStateOf<String?>(null) }
-    var editingCredentialId by rememberSaveable { mutableStateOf<String?>(null) }
-    var reposSelectedService by rememberSaveable { mutableStateOf<String?>(null) }
-    // Track previous screen for proper back navigation
-    var previousScreen by rememberSaveable { mutableStateOf(AppScreen.VaultExplorer) }
-
+    // Navigation state already declared before vault check
     LaunchedEffect(currentScreen) {
         if (currentScreen != AppScreen.SecretDetails) {
             selectedCredentialId = null
