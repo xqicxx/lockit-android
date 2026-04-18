@@ -452,26 +452,11 @@ private fun CredentialContent(
         }
 
         CredentialType.CodingPlan -> {
-            // CodingPlan: API_KEY + BASE_URL
+            // CodingPlan: BASE_URL first, then API_KEY below
             val apiKey = fields.getNotBlank(2) ?: CredentialDefaults.FIELD_NOT_SET
             val baseUrl = fields.getNotBlank(5) ?: CredentialDefaults.FIELD_NOT_SET
 
-            // API_KEY - revealable
-            RevealableValueBox(
-                label = "API_KEY",
-                value = apiKey,
-                isRevealed = isRevealed,
-                maskPlaceholder = maskPlaceholder,
-                maxLinesRevealed = 3,
-                onNeedReveal = onNeedReveal,
-                onHide = onHide,
-                onCopy = { onCopy(CopyAction.API_KEY) },
-                clipboardManager = clipboardManager,
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // BASE_URL - always visible
+            // BASE_URL - always visible, shown first at top
             FieldLabel("BASE_URL")
             Spacer(modifier = Modifier.height(4.dp))
             Box(
@@ -500,6 +485,21 @@ private fun CredentialContent(
                     overflow = TextOverflow.Ellipsis,
                 )
             }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // API_KEY - revealable
+            RevealableValueBox(
+                label = "API_KEY",
+                value = apiKey,
+                isRevealed = isRevealed,
+                maskPlaceholder = maskPlaceholder,
+                maxLinesRevealed = 3,
+                onNeedReveal = onNeedReveal,
+                onHide = onHide,
+                onCopy = { onCopy(CopyAction.API_KEY) },
+                clipboardManager = clipboardManager,
+            )
         }
 
         CredentialType.GitHub -> {
