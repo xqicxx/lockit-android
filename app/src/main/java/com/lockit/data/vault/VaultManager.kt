@@ -1,6 +1,7 @@
 package com.lockit.data.vault
 
 import android.content.Context
+import androidx.room.withTransaction
 import com.lockit.data.audit.AuditLogger
 import com.lockit.data.audit.AuditSeverity
 import com.lockit.data.crypto.Argon2Params
@@ -8,6 +9,7 @@ import com.lockit.data.crypto.KeyManager
 import com.lockit.data.crypto.LockitCrypto
 import com.lockit.data.database.CredentialDao
 import com.lockit.data.database.CredentialEntity
+import com.lockit.data.database.LockitDatabase
 import com.lockit.domain.model.Credential
 import com.lockit.domain.model.CredentialType
 import kotlinx.coroutines.flow.Flow
@@ -76,22 +78,46 @@ class VaultManager(
      * Change the master password.
      * Decrypts all credentials with the old key, re-encrypts with the new key.
      * Uses stored Argon2 params for derivation.
+     * Uses transaction to ensure atomicity - all updates succeed or none.
      */
     suspend fun changePassword(oldPassword: String, newPassword: String): Result<Unit> = runCatching {
         val salt = keyManager.getSalt()
             ?: throw IllegalStateException("Vault not initialized")
         val (memory, iterations, parallelism) = keyManager.getArgon2Params()
+
+        // Derive keys for re-encryption
         val oldKey = crypto.deriveKey(oldPassword, salt, memory, iterations, parallelism)
         val newKey = crypto.deriveKey(newPassword, salt, memory, iterations, parallelism)
 
-        val allEntities = dao.getAllEntities()
-        for (entity in allEntities) {
-            val decrypted = crypto.decrypt(entity.value, oldKey)
-            val reEncrypted = crypto.encrypt(decrypted, newKey)
-            dao.update(entity.copy(value = reEncrypted, updatedAt = Instant.now().toEpochMilli()))
+        // Verify old password by checking key hash
+        val oldKeyHash = java.security.MessageDigest.getInstance("SHA-256").digest(oldKey)
+        val storedHashStr = context.getSharedPreferences("lockit_vault", Context.MODE_PRIVATE)
+            .getString("vault_key_hash", null)
+            ?: throw IllegalStateException("Vault corrupted: no key hash")
+        val storedHash = java.util.Base64.getDecoder().decode(storedHashStr)
+        if (!oldKeyHash.contentEquals(storedHash)) {
+            oldKey.fill(0)
+            newKey.fill(0)
+            throw IllegalStateException("Invalid old password")
         }
 
+        // Use transaction to ensure atomicity - re-encrypt all credentials
+        LockitDatabase.getInstance(context).withTransaction {
+            val allEntities = dao.getAllEntities()
+            for (entity in allEntities) {
+                val decrypted = crypto.decrypt(entity.value, oldKey)
+                val reEncrypted = crypto.encrypt(decrypted, newKey)
+                dao.update(entity.copy(value = reEncrypted, updatedAt = Instant.now().toEpochMilli()))
+            }
+        }
+
+        // Update stored key hash AFTER successful re-encryption
         keyManager.updateMasterKey(newKey)
+
+        // Zero out sensitive keys after use
+        oldKey.fill(0)
+        newKey.fill(0)
+
         auditLogger.log("PASSWORD_CHANGED", "Master password updated", AuditSeverity.Danger)
     }
 

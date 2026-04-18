@@ -37,7 +37,8 @@ class KeyManager(private val context: Context) {
     fun initVault(salt: ByteArray, masterKey: ByteArray) {
         this.masterKey = masterKey.copyOf()
         val keyHash = hashKey(masterKey)
-        prefs.edit {
+        // Use commit() for synchronous write to prevent data loss during system crashes
+        prefs.edit(commit = true) {
             putString("vault_salt", Base64.getEncoder().encodeToString(salt))
             putString("vault_key_hash", Base64.getEncoder().encodeToString(keyHash))
             // Store OWASP params for new vaults
@@ -115,27 +116,50 @@ class KeyManager(private val context: Context) {
     /**
      * Change the master password.
      * Uses stored Argon2 params for derivation.
+     * Updates stored key hash after successful password change.
      */
     fun changePassword(oldPassword: String, newPassword: String): Result<Unit> = runCatching {
         val salt = getSalt() ?: throw IllegalStateException("Vault not initialized")
         val (memory, iterations, parallelism) = getArgon2Params()
         val oldKey = crypto.deriveKey(oldPassword, salt, memory, iterations, parallelism)
 
-        // Decrypt all values with old key, re-encrypt with new key
-        // This is handled by the use case layer
+        // Verify old password is correct by checking key hash
+        val oldKeyHash = hashKey(oldKey)
+        val storedHashStr = prefs.getString("vault_key_hash", null)
+            ?: throw IllegalStateException("Vault corrupted: no key hash")
+        val storedHash = Base64.getDecoder().decode(storedHashStr)
+        if (!oldKeyHash.contentEquals(storedHash)) {
+            oldKey.fill(0)  // Zero out before throwing
+            throw IllegalStateException("Invalid old password")
+        }
+
         val newKey = crypto.deriveKey(newPassword, salt, memory, iterations, parallelism)
-        masterKey = newKey
+
+        // Update stored key hash for future verification (synchronous write)
+        val newKeyHash = hashKey(newKey)
+        prefs.edit(commit = true) {
+            putString("vault_key_hash", Base64.getEncoder().encodeToString(newKeyHash))
+        }
+
+        // Update in-memory master key
+        masterKey?.fill(0)
+        masterKey = newKey.copyOf()
+
+        // Zero out sensitive keys
+        oldKey.fill(0)
+        newKey.fill(0)
     }
 
     /**
      * Update the in-memory master key (used after password change).
+     * Uses synchronous write to prevent data loss.
      */
     fun updateMasterKey(newKey: ByteArray) {
         masterKey?.fill(0)
         masterKey = newKey.copyOf()
-        // Update stored key hash for future verification
+        // Update stored key hash for future verification (synchronous write)
         val keyHash = hashKey(newKey)
-        prefs.edit {
+        prefs.edit(commit = true) {
             putString("vault_key_hash", Base64.getEncoder().encodeToString(keyHash))
         }
     }
