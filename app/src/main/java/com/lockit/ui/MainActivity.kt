@@ -22,6 +22,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -210,12 +211,12 @@ private fun MainFlow(app: LockitApp) {
         return
     }
 
-    var currentScreen by remember { mutableStateOf(AppScreen.Repos) }
-    var selectedCredentialId by remember { mutableStateOf<String?>(null) }
-    var editingCredentialId by remember { mutableStateOf<String?>(null) }
-    var reposSelectedService by remember { mutableStateOf<String?>(null) }
+    var currentScreen by rememberSaveable { mutableStateOf(AppScreen.Repos) }
+    var selectedCredentialId by rememberSaveable { mutableStateOf<String?>(null) }
+    var editingCredentialId by rememberSaveable { mutableStateOf<String?>(null) }
+    var reposSelectedService by rememberSaveable { mutableStateOf<String?>(null) }
     // Track previous screen for proper back navigation
-    var previousScreen by remember { mutableStateOf(AppScreen.VaultExplorer) }
+    var previousScreen by rememberSaveable { mutableStateOf(AppScreen.VaultExplorer) }
 
     LaunchedEffect(currentScreen) {
         if (currentScreen != AppScreen.SecretDetails) {
