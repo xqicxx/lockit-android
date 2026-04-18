@@ -259,10 +259,6 @@ fun ReposScreen(
     val serviceCount = servicesByGroup.size
     val credentialCount = credentialList.size
 
-    // Handle Android back button when viewing a service's credentials
-    BackHandler(enabled = selectedService != null) {
-        onServiceSelected(null)
-    }
     var searchQuery by remember { mutableStateOf("") }
     val clipboardManager = LocalClipboardManager.current
     val context = LocalContext.current
@@ -469,6 +465,14 @@ fun ReposScreen(
             }
 
             var selectedCredential by remember { mutableStateOf<Credential?>(null) }
+
+            // Handle Android back button: modal first, then service detail
+            BackHandler(enabled = selectedCredential != null) {
+                selectedCredential = null  // Close modal first
+            }
+            BackHandler(enabled = selectedCredential == null) {
+                onServiceSelected(null)  // Go back to service list (when modal is closed)
+            }
 
             if (selectedCredential != null) {
                 CredentialCardModal(
