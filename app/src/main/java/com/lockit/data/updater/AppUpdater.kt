@@ -158,8 +158,14 @@ class AppUpdater(context: Context) {
             "lockit-update.apk"
         }
 
+        val title = if (versionName != null) {
+            "Lockit Update $versionName"
+        } else {
+            "Lockit Update"
+        }
+
         val request = DownloadManager.Request(Uri.parse(apkUrl))
-            .setTitle("Lockit Update $versionName")
+            .setTitle(title)
             .setDescription("Downloading latest version...")
             .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
             .setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, fileName)
@@ -185,13 +191,17 @@ class AppUpdater(context: Context) {
         val downloadManager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
         val query = DownloadManager.Query().setFilterById(downloadId)
         val cursor = downloadManager.query(query)
-        if (!cursor.moveToFirst()) {
-            cursor.close()
+        // Handle null cursor - download might not exist
+        if (cursor == null) {
             return DownloadManager.STATUS_FAILED
         }
-        val status = cursor.getInt(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS))
-        cursor.close()
-        return status
+        // Use use{} to ensure cursor is closed properly
+        return cursor.use {
+            if (!it.moveToFirst()) {
+                return DownloadManager.STATUS_FAILED
+            }
+            it.getInt(it.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS))
+        }
     }
 
     /**
@@ -203,13 +213,17 @@ class AppUpdater(context: Context) {
         val downloadManager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
         val query = DownloadManager.Query().setFilterById(downloadId)
         val cursor = downloadManager.query(query)
-        if (!cursor.moveToFirst()) {
-            cursor.close()
+        // Handle null cursor
+        if (cursor == null) {
             return DownloadManager.ERROR_UNKNOWN
         }
-        val reason = cursor.getInt(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_REASON))
-        cursor.close()
-        return reason
+        // Use use{} to ensure cursor is closed properly
+        return cursor.use {
+            if (!it.moveToFirst()) {
+                return DownloadManager.ERROR_UNKNOWN
+            }
+            it.getInt(it.getColumnIndexOrThrow(DownloadManager.COLUMN_REASON))
+        }
     }
 
     /**
