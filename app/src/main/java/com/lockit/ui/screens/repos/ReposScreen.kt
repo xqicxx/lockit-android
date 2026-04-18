@@ -1076,14 +1076,27 @@ private fun QuotaGauge(label: String, used: Int, total: Int, modifier: Modifier 
             else -> Color.Gray
         }
 
-        Text(
-            text = label,
-            fontFamily = JetBrainsMonoFamily,
-            fontWeight = FontWeight.Bold,
-            fontSize = 8.sp,
-            letterSpacing = 1.sp,
-            color = Color.Gray,
-        )
+        // Label row with percentage on the right (above progress bar)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Text(
+                text = label,
+                fontFamily = JetBrainsMonoFamily,
+                fontWeight = FontWeight.Bold,
+                fontSize = 8.sp,
+                letterSpacing = 1.sp,
+                color = Color.Gray,
+            )
+            Text(
+                text = "$pct%",
+                fontFamily = JetBrainsMonoFamily,
+                fontWeight = FontWeight.Bold,
+                fontSize = 8.sp,
+                color = barColor,
+            )
+        }
         Spacer(modifier = Modifier.height(4.dp))
 
         // Progress bar background
@@ -1103,24 +1116,12 @@ private fun QuotaGauge(label: String, used: Int, total: Int, modifier: Modifier 
         }
 
         Spacer(modifier = Modifier.height(2.dp))
-        // Usage row - percentage right-aligned for consistency
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-        ) {
-            Text(
-                text = "$used / $total",
-                fontFamily = JetBrainsMonoFamily,
-                fontSize = 9.sp,
-                color = Primary,
-            )
-            Text(
-                text = "($pct%)",
-                fontFamily = JetBrainsMonoFamily,
-                fontSize = 9.sp,
-                fontWeight = FontWeight.Bold,
-                color = barColor,
-            )
-        }
+        // Usage row - just numbers, no percentage
+        Text(
+            text = "$used / $total",
+            fontFamily = JetBrainsMonoFamily,
+            fontSize = 9.sp,
+            color = Primary,
+        )
     }
 }
