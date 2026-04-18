@@ -249,7 +249,11 @@ private fun MainScaffold(
                         when (item) {
                             BottomNavItem.Keys -> onScreenChange(AppScreen.VaultExplorer)
                             BottomNavItem.Config -> onScreenChange(AppScreen.Config)
-                            BottomNavItem.Repos -> onScreenChange(AppScreen.Repos)
+                            BottomNavItem.Repos -> {
+                                // Clear selected service when user explicitly navigates to Repos home
+                                onReposServiceSelected(null)
+                                onScreenChange(AppScreen.Repos)
+                            }
                             BottomNavItem.Logs -> onScreenChange(AppScreen.Logs)
                         }
                     },
