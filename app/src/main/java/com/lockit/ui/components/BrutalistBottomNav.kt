@@ -3,6 +3,7 @@ package com.lockit.ui.components
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -29,6 +30,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lockit.R
+import com.lockit.ui.theme.DarkSurface
 import com.lockit.ui.theme.JetBrainsMonoFamily
 import com.lockit.ui.theme.Primary
 import com.lockit.ui.theme.White
@@ -47,12 +49,15 @@ fun BrutalistBottomNav(
     modifier: Modifier = Modifier,
 ) {
     val colorScheme = MaterialTheme.colorScheme
-    // Use theme-aware colors
-    val backgroundColor = colorScheme.surface
-    val borderColor = colorScheme.primary
-    val selectedBgColor = colorScheme.primary
-    val selectedContentColor = colorScheme.onPrimary
-    val unselectedContentColor = colorScheme.onSurfaceVariant
+    // Explicitly use theme-aware background colors
+    // Light mode: White background with black border
+    // Dark mode: DarkSurface background with white border
+    val isDarkTheme = isSystemInDarkTheme()
+    val backgroundColor = if (isDarkTheme) DarkSurface else White
+    val borderColor = if (isDarkTheme) Color.White else Primary
+    val selectedBgColor = if (isDarkTheme) Color.White else Primary
+    val selectedContentColor = if (isDarkTheme) Color(0xFF410000) else White  // Dark red on white / White on black
+    val unselectedContentColor = if (isDarkTheme) Color.White.copy(alpha = 0.7f) else Color(0xFF666666)
 
     Row(
         modifier = modifier
