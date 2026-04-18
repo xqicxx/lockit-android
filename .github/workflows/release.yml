@@ -27,12 +27,14 @@ jobs:
     - name: Grant execute permission for gradlew
       run: chmod +x gradlew
 
-    - name: Build Debug APK
-      run: ./gradlew assembleDebug
+    - name: Build Release APK
+      run: ./gradlew assembleRelease
 
     - name: Upload APK to Release
       uses: softprops/action-gh-release@v2
       if: success()
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        files: app/build/outputs/apk/debug/app-debug.apk
+        files: app/build/outputs/apk/release/app-release.apk
         fail_on_unmatched_files: true
