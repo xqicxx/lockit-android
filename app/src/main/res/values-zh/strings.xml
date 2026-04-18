@@ -181,8 +181,8 @@
 
     <!-- Footer -->
     <string name="footer_system_info">> 系统信息:</string>
-    <string name="footer_version">LOCKIT_ANDROID v0.2.0</string>
-    <string name="footer_compatible">兼容CLI v0.2.0</string>
+    <string name="footer_version">LOCKIT_ANDROID v0.2.1</string>
+    <string name="footer_compatible">兼容CLI v0.2.1</string>
     <string name="footer_design">设计: 技术野性主义V1</string>
 
     <!-- Common Buttons -->

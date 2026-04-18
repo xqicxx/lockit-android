@@ -492,7 +492,7 @@ fun ConfigScreen(
                                     color = IndustrialOrange,
                                 )
                                 Icon(
-                                    imageVector = Icons.Default.ArrowDropDown,
+                                    imageVector = Icons.Filled.ArrowDropDown,
                                     contentDescription = "Dropdown",
                                     tint = IndustrialOrange,
                                 )
@@ -572,7 +572,7 @@ fun ConfigScreen(
                                     color = IndustrialOrange,
                                 )
                                 Icon(
-                                    imageVector = Icons.Default.ArrowDropDown,
+                                    imageVector = Icons.Filled.ArrowDropDown,
                                     contentDescription = "Dropdown",
                                     tint = IndustrialOrange,
                                 )

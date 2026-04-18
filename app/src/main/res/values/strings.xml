@@ -181,8 +181,8 @@
 
     <!-- Footer -->
     <string name="footer_system_info">> SYSTEM_INFO:</string>
-    <string name="footer_version">LOCKIT_ANDROID v0.2.0</string>
-    <string name="footer_compatible">COMPATIBLE_WITH_CLI v0.2.0</string>
+    <string name="footer_version">LOCKIT_ANDROID v0.2.1</string>
+    <string name="footer_compatible">COMPATIBLE_WITH_CLI v0.2.1</string>
     <string name="footer_design">DESIGN: TECHNICAL_BRUTALISM_V1</string>
 
     <!-- Common Buttons -->

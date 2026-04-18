@@ -57,6 +57,21 @@ class AuditLogger(context: Context) {
     }
 
     /**
+     * Get first N entries for paginated display (most recent first).
+     * This is more efficient than loading all entries then slicing.
+     */
+    fun getRecentEntriesByCount(count: Int): List<AuditEntry> {
+        return getAllEntries().take(count)
+    }
+
+    /**
+     * Get total count of all audit entries.
+     */
+    fun getTotalCount(): Int {
+        return getAllEntries().size
+    }
+
+    /**
      * Get all entries within 1 year for export.
      */
     fun getExportableEntries(maxDays: Int = 365): List<AuditEntry> {
