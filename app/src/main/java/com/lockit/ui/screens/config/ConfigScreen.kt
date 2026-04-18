@@ -93,6 +93,8 @@ fun ConfigScreen(
     var availableUpdate by remember { mutableStateOf<GitHubRelease?>(null) }
     var showUpdateDialog by remember { mutableStateOf(false) }
     var isDownloading by remember { mutableStateOf(false) }
+    var downloadId by remember { mutableStateOf<Long?>(null) }
+    var downloadError by remember { mutableStateOf<String?>(null) }
     var githubTokenCredentialName by remember { mutableStateOf("GITHUB_TOKEN") }
     var showTokenConfigDialog by remember { mutableStateOf(false) }
     var lastCheckedToken by remember { mutableStateOf<String?>(null) } // Store token for download
@@ -151,21 +153,57 @@ fun ConfigScreen(
         )
     }
 
-    // Update dialog
+    // Update dialog - Pre-fetch string resources to avoid context usage in coroutine after UI disposal
     if (showUpdateDialog && availableUpdate != null) {
+        val apkUrl = availableUpdate?.apkUrl
+        val versionName = availableUpdate?.versionName
+        val strDownloadComplete = context.getString(R.string.toast_download_complete)
+        val strDownloadFailed = context.getString(R.string.toast_download_failed)
+        val strDownloadStarted = context.getString(R.string.toast_download_started)
+        val strDownloadLocation = context.getString(R.string.toast_download_location)
+        val strNoApkUrl = context.getString(R.string.toast_no_apk_url)
         UpdateDialog(
             release = availableUpdate!!,
             onDismiss = { showUpdateDialog = false },
             onDownload = {
-                showUpdateDialog = false
-                isDownloading = true
-                val apkUrl = availableUpdate?.apkUrl
-                val versionName = availableUpdate?.versionName
-                if (apkUrl != null) {
-                    appUpdater.downloadApk(apkUrl, versionName, lastCheckedToken)
+                if (apkUrl == null) {
+                    toastMessage = strNoApkUrl
+                    showUpdateDialog = false
+                } else {
+                    showUpdateDialog = false
+                    isDownloading = true
+                    downloadError = null
+                    val newDownloadId = appUpdater.downloadApk(apkUrl, versionName, lastCheckedToken)
+                    downloadId = newDownloadId
                     val downloadDir = appUpdater.getDownloadDirectory()
-                    toastMessage = "${context.getString(R.string.toast_download_started)}\n${context.getString(R.string.toast_download_location)} $downloadDir"
-                    isDownloading = false
+                    toastMessage = "$strDownloadStarted\n$strDownloadLocation $downloadDir"
+                    scope.launch {
+                        var status = DownloadManager.STATUS_PENDING
+                        while (status == DownloadManager.STATUS_PENDING || status == DownloadManager.STATUS_RUNNING) {
+                            kotlinx.coroutines.delay(2000)
+                            status = appUpdater.getDownloadStatus(newDownloadId)
+                        }
+                        isDownloading = false
+                        when (status) {
+                            DownloadManager.STATUS_SUCCESSFUL -> {
+                                toastMessage = strDownloadComplete
+                            }
+                            DownloadManager.STATUS_FAILED -> {
+                                val errorReason = appUpdater.getDownloadErrorReason(newDownloadId)
+                                val errorMsg = when (errorReason) {
+                                    DownloadManager.ERROR_INSUFFICIENT_SPACE -> "Insufficient storage space"
+                                    DownloadManager.ERROR_HTTP_DATA_ERROR -> "HTTP data error"
+                                    else -> "Download failed (error $errorReason)"
+                                }
+                                downloadError = errorMsg
+                                toastMessage = "$strDownloadFailed: $errorMsg"
+                            }
+                            DownloadManager.STATUS_PAUSED -> {
+                                downloadError = "Download paused (network issue)"
+                                toastMessage = "$strDownloadFailed: Network connection lost"
+                            }
+                        }
+                    }
                 }
             },
         )
