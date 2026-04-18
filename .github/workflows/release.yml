@@ -1,0 +1,47 @@
+name: Release Build
+
+on:
+  release:
+    types: [created]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Gradle
+      uses: gradle/actions/setup-gradle@v4
+
+    - name: Set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+
+    - name: Grant execute permission for gradlew
+      run: chmod +x gradlew
+
+    # NOTE: Using debug APK for now. For production releases,
+    # set up proper signing with GitHub secrets:
+    # - KEYSTORE_BASE64 (base64 encoded keystore file)
+    # - KEYSTORE_PASSWORD
+    # - KEY_ALIAS
+    # - KEY_PASSWORD
+    # Then decode keystore and configure signing in build.gradle.kts
+    - name: Build Debug APK
+      run: ./gradlew assembleDebug
+
+    - name: Upload APK to Release
+      uses: softprops/action-gh-release@v2
+      if: success()
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        files: app/build/outputs/apk/debug/app-debug.apk
+        fail_on_unmatched_files: true
