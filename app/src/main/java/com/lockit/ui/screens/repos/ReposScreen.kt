@@ -1030,27 +1030,6 @@ private fun CodingPlanBoard(
                 QuotaGauge(stringResource(R.string.quota_week), quota.weekUsed, quota.weekTotal, Modifier.weight(1f))
                 QuotaGauge(stringResource(R.string.quota_month), quota.monthUsed, quota.monthTotal, Modifier.weight(1f))
             }
-
-            // Raw JSON data display (原文呈上)
-            if (quota.rawData.isNotBlank()) {
-                Spacer(modifier = Modifier.height(8.dp))
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(60.dp)
-                        .border(1.dp, Color.Gray.copy(0.5f))
-                        .padding(4.dp),
-                ) {
-                    Text(
-                        text = quota.rawData,
-                        fontFamily = JetBrainsMonoFamily,
-                        fontSize = 7.sp,
-                        color = Color.Gray,
-                        maxLines = 6,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
-            }
         } else {
             // Error or empty state
             Box(

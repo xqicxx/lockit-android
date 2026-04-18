@@ -20,8 +20,6 @@ data class CodingPlanQuota(
     val chargeAmount: Double = 0.0,
     val chargeType: String = "",
     val autoRenewFlag: Boolean = false,
-    // Raw JSON data for display (原文呈上)
-    val rawData: String = "",
 )
 
 /**
