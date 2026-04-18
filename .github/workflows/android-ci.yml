@@ -3,7 +3,7 @@ name: Android CI
 on:
   pull_request:
     branches: [ master ]
-    types: [ready_for_review]  # Only trigger when PR marked ready for review
+    types: [ready_for_review, opened]  # Trigger when PR opened or marked ready
   workflow_dispatch:  # Allow manual trigger
 
 permissions:
@@ -55,38 +55,61 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request'
     needs: build
+    timeout-minutes: 7
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
 
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Code Review Summary
-      uses: actions/github-script@v7
+    - name: Run Gemini PR Review
+      uses: google-github-actions/run-gemini-cli@v0
+      id: gemini_pr_review
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
       with:
-        script: |
-          const { data: files } = await github.rest.pulls.listFiles({
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            pull_number: context.issue.number
-          });
-
-          const kotlinFiles = files.filter(f => f.filename.endsWith('.kt'));
-
-          const body = `## Code Review Summary
-
-          **Files changed:** ${files.length}
-          **Kotlin files:** ${kotlinFiles.length}
-          **Lines changed:** +${files.reduce((s,f) => s+f.additions, 0)} / -${files.reduce((s,f) => s+f.deletions, 0)}
-
-          ### Kotlin Files
-          ${kotlinFiles.map(f => `- ${f.filename}`).join('\n')}
-
-          ---
-          Automated by GitHub Actions`;
-
-          await github.rest.issues.createComment({
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            issue_number: context.issue.number,
-            body: body
-          });
+        gemini_api_key: ${{ secrets.GEMINI_API_KEY }}
+        github_pr_number: ${{ github.event.pull_request.number }}
+        settings: |-
+          {
+            "model": {
+              "maxSessionTurns": 15
+            },
+            "mcpServers": {
+              "github": {
+                "command": "docker",
+                "args": [
+                  "run",
+                  "-i",
+                  "--rm",
+                  "-e",
+                  "GITHUB_PERSONAL_ACCESS_TOKEN",
+                  "ghcr.io/github/github-mcp-server:v0.27.0"
+                ],
+                "includeTools": [
+                  "add_comment_to_pending_review",
+                  "pull_request_read",
+                  "pull_request_review_write"
+                ],
+                "env": {
+                  "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_TOKEN}"
+                }
+              }
+            },
+            "tools": {
+              "core": [
+                "run_shell_command(cat)",
+                "run_shell_command(echo)",
+                "run_shell_command(grep)",
+                "run_shell_command(head)",
+                "run_shell_command(tail)"
+              ]
+            }
+          }
+        extensions: |
+          ["https://github.com/gemini-cli-extensions/code-review"]
+        prompt: '/pr-code-review'
