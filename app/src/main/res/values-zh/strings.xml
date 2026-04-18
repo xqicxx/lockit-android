@@ -270,6 +270,9 @@
     <string name="logs_storage_local">存储: 仅本地设备</string>
     <string name="logs_retention">保留: 30天</string>
     <string name="logs_encryption">加密: AES-256-GCM</string>
+    <string name="logs_load_more">加载更多</string>
+    <string name="logs_remaining">剩余 %1$d 条</string>
+    <string name="logs_export_reminder">提示: 可在设置 > 导出日志中导出完整日志</string>
 
     <!-- Audit Action Names -->
     <string name="action_vault_initialized">密码库初始化</string>
