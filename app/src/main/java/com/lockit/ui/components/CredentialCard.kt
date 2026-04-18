@@ -615,14 +615,11 @@ private fun OptionalFieldRow(
 
 @Composable
 private fun CardFooter(credential: Credential) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        // Tags row with weight to constrain width and prevent overlap
+    Column(modifier = Modifier.fillMaxWidth()) {
+        // Tags row - can wrap if needed
         Row(
-            modifier = Modifier.weight(1f, fill = false),
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             val tagText = when (credential.type) {
@@ -632,10 +629,11 @@ private fun CardFooter(credential: Credential) {
             }
             if (tagText.isNotBlank()) {
                 InfoTag(text = tagText)
-                Spacer(modifier = Modifier.width(6.dp))
             }
             InfoTag(text = credential.type.displayName)
         }
+        Spacer(modifier = Modifier.height(4.dp))
+        // Timestamp row - separate line to prevent overlap
         Text(
             text = "Secure // ${credential.formatUpdatedAt()}",
             fontFamily = JetBrainsMonoFamily,
