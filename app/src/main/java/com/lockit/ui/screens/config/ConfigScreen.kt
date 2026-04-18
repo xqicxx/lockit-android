@@ -1005,7 +1005,7 @@ private fun ConfigSection(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(bottom = 8.dp),
-            verticalAlignment = Alignment.Bottom,
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
                 text = title,
@@ -1019,7 +1019,7 @@ private fun ConfigSection(
             Box(
                 modifier = Modifier
                     .height(1.dp)
-                    .fillMaxWidth()
+                    .weight(1f)
                     .background(Primary),
             )
         }
