@@ -503,12 +503,16 @@ private fun CredentialContent(
         }
 
         CredentialType.GitHub -> {
-            // GitHub: show TOKEN_VALUE with reveal toggle, plus NAME, ACCOUNT, TYPE, SCOPE
+            // GitHub: show ACCOUNT first, then TOKEN with reveal toggle, plus NAME, TYPE, SCOPE
             val name = fields.getNotBlank(0)
             val tokenType = fields.getNotBlank(1)
             val account = fields.getNotBlank(2)
             val tokenValue = fields.getNotBlank(3) ?: CredentialDefaults.FIELD_NOT_SET
             val scope = fields.getNotBlank(4)
+
+            // ACCOUNT - shown first at top
+            OptionalFieldRow("ACCOUNT", account)
+            if (account != null) Spacer(modifier = Modifier.height(8.dp))
 
             // TOKEN_VALUE - revealable
             RevealableValueBox(
@@ -523,9 +527,8 @@ private fun CredentialContent(
                 clipboardManager = clipboardManager,
             )
 
-            // Show optional fields with consistent spacing
+            // Show other optional fields with consistent spacing
             OptionalFieldRow("NAME", name, showIf = { it != credential.name })
-            OptionalFieldRow("ACCOUNT", account)
             OptionalFieldRow("TYPE", tokenType)
             OptionalFieldRow("SCOPE", scope)
         }
