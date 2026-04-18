@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -69,7 +70,7 @@ fun EditCredentialScreen(
 
     if (isLoading) {
         Box(
-            modifier = Modifier.fillMaxSize().background(White),
+            modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface),
             contentAlignment = Alignment.Center,
         ) {
             Text(
@@ -84,7 +85,7 @@ fun EditCredentialScreen(
 
     val cred = credential ?: run {
         Box(
-            modifier = Modifier.fillMaxSize().background(White),
+            modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface),
             contentAlignment = Alignment.Center,
         ) {
             Text(
@@ -239,7 +240,7 @@ private fun EditCredentialForm(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(White),
+            .background(MaterialTheme.colorScheme.surface),
     ) {
         BrutalistTopBar(showBackButton = false)
 

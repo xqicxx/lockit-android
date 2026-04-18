@@ -520,8 +520,8 @@ fun VaultUnlockScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth(0.85f)
-                        .background(White)
-                        .border(2.dp, Primary)
+                        .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                        .border(2.dp, MaterialTheme.colorScheme.primary)
                         .padding(20.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
