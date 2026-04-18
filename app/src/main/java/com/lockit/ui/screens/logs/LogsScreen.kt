@@ -2,6 +2,7 @@ package com.lockit.ui.screens.logs
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,8 +17,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AddCircle
-import androidx.compose.material.icons.filled.AutoDelete
-import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.AddCircleOutline
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
@@ -33,6 +33,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -55,16 +56,41 @@ import com.lockit.ui.theme.IndustrialOrange
 import com.lockit.ui.theme.JetBrainsMonoFamily
 import com.lockit.ui.theme.Primary
 import com.lockit.ui.theme.TacticalRed
-import com.lockit.ui.theme.White
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.time.Instant
+
+private const val INITIAL_LOAD_COUNT = 100
+private const val LOAD_MORE_COUNT = 20
+private const val EXPORT_REMINDER_THRESHOLD = 200
 
 @Composable
 fun LogsScreen(
     modifier: Modifier = Modifier,
 ) {
     val app = LocalContext.current.applicationContext as LockitApp
-    // Show last 30 days
-    val logs by remember { mutableStateOf(app.auditLogger.getRecentEntries(days = 30)) }
+    var displayedCount by remember { mutableStateOf(INITIAL_LOAD_COUNT) }
+    var showExportReminder by remember { mutableStateOf(false) }
+
+    // Load logs on background thread using produceState
+    val logs by produceState<List<AuditEntry>>(
+        initialValue = emptyList(),
+        key1 = displayedCount,
+    ) {
+        // Run I/O operation on Dispatchers.IO to prevent ANR
+        value = withContext(Dispatchers.IO) {
+            app.auditLogger.getRecentEntriesByCount(displayedCount)
+        }
+    }
+
+    // Get total count on background thread
+    val totalCount by produceState<Int>(
+        initialValue = 0,
+    ) {
+        value = withContext(Dispatchers.IO) {
+            app.auditLogger.getTotalCount()
+        }
+    }
 
     Column(
         modifier = modifier
@@ -124,6 +150,68 @@ fun LogsScreen(
                 logs.forEach { entry ->
                     LogRow(entry)
                     Spacer(modifier = Modifier.height(4.dp))
+                }
+
+                // Load more button
+                if (displayedCount < totalCount) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .border(1.dp, IndustrialOrange)
+                            .clickable {
+                                val newCount = displayedCount + LOAD_MORE_COUNT
+                                displayedCount = minOf(newCount, totalCount)
+                                if (displayedCount >= EXPORT_REMINDER_THRESHOLD && !showExportReminder) {
+                                    showExportReminder = true
+                                }
+                            }
+                            .padding(12.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.AddCircleOutline,
+                                contentDescription = null,
+                                tint = IndustrialOrange,
+                                modifier = Modifier.height(16.dp),
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = stringResource(R.string.logs_load_more),
+                                fontFamily = JetBrainsMonoFamily,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 12.sp,
+                                color = IndustrialOrange,
+                            )
+                        }
+                    }
+                    Text(
+                        text = stringResource(R.string.logs_remaining, totalCount - displayedCount),
+                        fontFamily = JetBrainsMonoFamily,
+                        fontSize = 10.sp,
+                        color = Color.Gray,
+                        modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                    )
+                }
+
+                // Export reminder
+                if (showExportReminder) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(IndustrialOrange.copy(0.1f))
+                            .border(1.dp, IndustrialOrange.copy(0.5f))
+                            .padding(12.dp),
+                    ) {
+                        Text(
+                            text = stringResource(R.string.logs_export_reminder),
+                            fontFamily = JetBrainsMonoFamily,
+                            fontSize = 10.sp,
+                            color = IndustrialOrange,
+                        )
+                    }
                 }
             }
 
@@ -224,4 +312,3 @@ private fun LogRow(entry: AuditEntry) {
         )
     }
 }
-

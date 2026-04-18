@@ -270,6 +270,9 @@
     <string name="logs_storage_local">STORAGE: LOCAL_DEVICE_ONLY</string>
     <string name="logs_retention">RETENTION: 30_DAYS</string>
     <string name="logs_encryption">ENCRYPTION: AES-256-GCM</string>
+    <string name="logs_load_more">LOAD_MORE</string>
+    <string name="logs_remaining">%1$d remaining</string>
+    <string name="logs_export_reminder">TIP: You can export full logs in Settings > Export Logs</string>
 
     <!-- Audit Action Names -->
     <string name="action_vault_initialized">VAULT_INITIALIZED</string>
