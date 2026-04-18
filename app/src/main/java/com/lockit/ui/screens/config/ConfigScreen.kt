@@ -384,7 +384,13 @@ fun ConfigScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // Security Section
+            // Security Section - Dynamic Argon2 params
+            val argon2Params = app.vaultManager.getArgon2ParamsInfo()
+            val (argon2Memory, argon2Iterations, argon2Parallelism) = argon2Params
+            val memoryStr = if (argon2Memory >= 65536) stringResource(R.string.config_64_mb) else stringResource(R.string.config_16_mb)
+            val iterStr = if (argon2Iterations >= 3) stringResource(R.string.config_3_iter) else stringResource(R.string.config_2_iter)
+            val parallelStr = if (argon2Parallelism >= 4) stringResource(R.string.config_4_parallel) else stringResource(R.string.config_1_parallel)
+
             ConfigSection(
                 title = stringResource(R.string.config_security),
                 items = listOf(
@@ -392,9 +398,9 @@ fun ConfigScreen(
                     stringResource(R.string.config_nonce_length) to stringResource(R.string.config_12_bytes),
                     stringResource(R.string.config_gcm_tag) to stringResource(R.string.config_128_bits),
                     stringResource(R.string.config_master_key) to stringResource(R.string.config_256_bits),
-                    stringResource(R.string.config_argon2_memory) to stringResource(R.string.config_16_mb),
-                    stringResource(R.string.config_argon2_iterations) to stringResource(R.string.config_2_iter),
-                    stringResource(R.string.config_argon2_parallelism) to stringResource(R.string.config_1_parallel),
+                    stringResource(R.string.config_argon2_memory) to memoryStr,
+                    stringResource(R.string.config_argon2_iterations) to iterStr,
+                    stringResource(R.string.config_argon2_parallelism) to parallelStr,
                 ),
             )
 

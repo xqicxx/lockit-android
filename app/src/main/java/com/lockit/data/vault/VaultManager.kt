@@ -1,12 +1,15 @@
 package com.lockit.data.vault
 
 import android.content.Context
+import androidx.room.withTransaction
 import com.lockit.data.audit.AuditLogger
 import com.lockit.data.audit.AuditSeverity
+import com.lockit.data.crypto.Argon2Params
 import com.lockit.data.crypto.KeyManager
 import com.lockit.data.crypto.LockitCrypto
 import com.lockit.data.database.CredentialDao
 import com.lockit.data.database.CredentialEntity
+import com.lockit.data.database.LockitDatabase
 import com.lockit.domain.model.Credential
 import com.lockit.domain.model.CredentialType
 import kotlinx.coroutines.flow.Flow
@@ -24,15 +27,17 @@ class VaultManager(
 
     /**
      * Initialize a new vault with a master password.
+     * Uses OWASP-recommended Argon2 parameters (64MB, 3 iterations, 4 parallelism).
      */
     fun initVault(masterPassword: String) {
         if (keyManager.isVaultInitialized()) {
             throw IllegalStateException("Vault already initialized")
         }
         val salt = crypto.generateSalt()
-        val masterKey = crypto.deriveKey(masterPassword, salt)
+        val (memory, iterations, parallelism) = Argon2Params.DEFAULT
+        val masterKey = crypto.deriveKey(masterPassword, salt, memory, iterations, parallelism)
         keyManager.initVault(salt, masterKey)
-        auditLogger.log("VAULT_INITIALIZED", "New vault created with Argon2id", AuditSeverity.Warning)
+        auditLogger.log("VAULT_INITIALIZED", "New vault created with Argon2id OWASP params", AuditSeverity.Warning)
     }
 
     /**
@@ -72,21 +77,47 @@ class VaultManager(
     /**
      * Change the master password.
      * Decrypts all credentials with the old key, re-encrypts with the new key.
+     * Uses stored Argon2 params for derivation.
+     * Uses transaction to ensure atomicity - all updates succeed or none.
      */
     suspend fun changePassword(oldPassword: String, newPassword: String): Result<Unit> = runCatching {
         val salt = keyManager.getSalt()
             ?: throw IllegalStateException("Vault not initialized")
-        val oldKey = crypto.deriveKey(oldPassword, salt)
-        val newKey = crypto.deriveKey(newPassword, salt)
+        val (memory, iterations, parallelism) = keyManager.getArgon2Params()
 
-        val allEntities = dao.getAllEntities()
-        for (entity in allEntities) {
-            val decrypted = crypto.decrypt(entity.value, oldKey)
-            val reEncrypted = crypto.encrypt(decrypted, newKey)
-            dao.update(entity.copy(value = reEncrypted, updatedAt = Instant.now().toEpochMilli()))
+        // Derive keys for re-encryption
+        val oldKey = crypto.deriveKey(oldPassword, salt, memory, iterations, parallelism)
+        val newKey = crypto.deriveKey(newPassword, salt, memory, iterations, parallelism)
+
+        // Verify old password by checking key hash
+        val oldKeyHash = java.security.MessageDigest.getInstance("SHA-256").digest(oldKey)
+        val storedHashStr = context.getSharedPreferences("lockit_vault", Context.MODE_PRIVATE)
+            .getString("vault_key_hash", null)
+            ?: throw IllegalStateException("Vault corrupted: no key hash")
+        val storedHash = java.util.Base64.getDecoder().decode(storedHashStr)
+        if (!oldKeyHash.contentEquals(storedHash)) {
+            oldKey.fill(0)
+            newKey.fill(0)
+            throw IllegalStateException("Invalid old password")
         }
 
+        // Use transaction to ensure atomicity - re-encrypt all credentials
+        LockitDatabase.getInstance(context).withTransaction {
+            val allEntities = dao.getAllEntities()
+            for (entity in allEntities) {
+                val decrypted = crypto.decrypt(entity.value, oldKey)
+                val reEncrypted = crypto.encrypt(decrypted, newKey)
+                dao.update(entity.copy(value = reEncrypted, updatedAt = Instant.now().toEpochMilli()))
+            }
+        }
+
+        // Update stored key hash AFTER successful re-encryption
         keyManager.updateMasterKey(newKey)
+
+        // Zero out sensitive keys after use
+        oldKey.fill(0)
+        newKey.fill(0)
+
         auditLogger.log("PASSWORD_CHANGED", "Master password updated", AuditSeverity.Danger)
     }
 
@@ -210,6 +241,12 @@ class VaultManager(
 
     fun getCredentialCount(): Flow<Int> = dao.getCount()
     fun getServiceCount(): Flow<Int> = dao.getServiceCount()
+
+    /**
+     * Get the Argon2 parameters used for this vault.
+     * Returns OWASP params for new vaults, legacy params for old vaults.
+     */
+    fun getArgon2ParamsInfo(): Triple<Int, Int, Int> = keyManager.getArgon2Params()
 
     private fun decryptCredential(entity: CredentialEntity, masterKey: ByteArray): Credential {
         val decryptedValue = crypto.decrypt(entity.value, masterKey)
