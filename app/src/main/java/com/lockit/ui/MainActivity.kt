@@ -24,6 +24,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import com.lockit.LockitApp
 import com.lockit.ui.components.BottomNavItem
 import com.lockit.ui.components.BrutalistBottomNav
@@ -49,6 +50,11 @@ class MainActivity : FragmentActivity() {
     companion object {
         // Flag to ensure lifecycle callbacks are registered only once
         private var lifecycleCallbacksRegistered = false
+        // SharedPreferences key for background timestamp
+        const val PREFS_NAME = "lockit_background_prefs"
+        const val KEY_BACKGROUND_TIMESTAMP = "background_timestamp"
+        // 5 minutes in milliseconds
+        const val BACKGROUND_LOCK_DELAY_MS = 5 * 60 * 1000L
     }
 
     override fun attachBaseContext(newBase: Context) {
@@ -61,10 +67,23 @@ class MainActivity : FragmentActivity() {
 
         val app = application as LockitApp
 
-        // Invalidate biometric session and lock vault when app goes to background.
+        // On cold start: if there's a background timestamp, lock immediately
+        // (Process was killed while in background → require immediate authentication)
+        val bgPrefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val bgTimestamp = bgPrefs.getLong(KEY_BACKGROUND_TIMESTAMP, 0)
+        if (bgTimestamp > 0) {
+            // Clear timestamp immediately to prevent repeated locks
+            bgPrefs.edit().remove(KEY_BACKGROUND_TIMESTAMP).apply()
+            // Lock vault and invalidate session - process was killed while in background
+            app.vaultManager.lockVault()
+            BiometricUtils.invalidateSession()
+        }
+
+        // Record background timestamp when app goes to background.
+        // On resume: if > 5 minutes passed, lock vault and invalidate session.
+        // On cold start: if timestamp exists, lock immediately (process was killed).
         // Note: isChangingConfigurations is true during recreate (e.g., language change),
-        // we should NOT lock vault in that case.
-        // Only register callbacks ONCE to avoid duplicate registrations on recreate.
+        // we should NOT record timestamp in that case.
         if (!lifecycleCallbacksRegistered) {
             lifecycleCallbacksRegistered = true
             (application as Application).registerActivityLifecycleCallbacks(
@@ -75,11 +94,13 @@ class MainActivity : FragmentActivity() {
                     }
                     override fun onActivityStopped(activity: android.app.Activity) {
                         startedActivities--
-                        // Skip locking if activity is recreating (language/theme change)
+                        // Skip if activity is recreating (language/theme change)
                         if (startedActivities <= 0 && !activity.isChangingConfigurations) {
-                            BiometricUtils.invalidateSession()
-                            // Lock vault immediately when app goes to background
-                            app.vaultManager.lockVault()
+                            // Record background timestamp instead of immediate lock
+                            // On cold start after process kill, will lock immediately
+                            val prefs = activity.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                            // Use commit() for synchronous write - security-critical
+                            prefs.edit().putLong(KEY_BACKGROUND_TIMESTAMP, System.currentTimeMillis()).commit()
                         }
                     }
                     override fun onActivityCreated(activity: android.app.Activity, savedInstanceState: Bundle?) {}
@@ -115,11 +136,25 @@ private fun MainFlow(app: LockitApp) {
     var isVaultUnlocked by remember { mutableStateOf(app.vaultManager.isUnlocked()) }
     val scope = rememberCoroutineScope()
     val lifecycleOwner = LocalLifecycleOwner.current
+    val context = LocalContext.current
 
     // Observe lifecycle to update vault state when app returns from background
     androidx.compose.runtime.DisposableEffect(lifecycleOwner) {
         val observer = object : DefaultLifecycleObserver {
             override fun onResume(owner: LifecycleOwner) {
+                // Check background timestamp: lock if > 5 minutes passed
+                val bgPrefs = context.getSharedPreferences(MainActivity.PREFS_NAME, Context.MODE_PRIVATE)
+                val bgTimestamp = bgPrefs.getLong(MainActivity.KEY_BACKGROUND_TIMESTAMP, 0)
+                if (bgTimestamp > 0) {
+                    val elapsed = System.currentTimeMillis() - bgTimestamp
+                    if (elapsed > MainActivity.BACKGROUND_LOCK_DELAY_MS) {
+                        // More than 5 minutes: lock vault and invalidate session
+                        app.vaultManager.lockVault()
+                        BiometricUtils.invalidateSession()
+                    }
+                    // Clear timestamp (app is now in foreground)
+                    bgPrefs.edit().remove(MainActivity.KEY_BACKGROUND_TIMESTAMP).apply()
+                }
                 // Check if vault was locked while app was in background
                 isVaultUnlocked = app.vaultManager.isUnlocked()
             }
