@@ -46,7 +46,8 @@ class AppUpdater(context: Context) {
      * Get the download directory path for user information.
      */
     fun getDownloadDirectory(): String {
-        return Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS).absolutePath
+        // App-specific external files directory - no permission needed, works on all Android versions
+        return context.getExternalFilesDir("updates")?.absolutePath ?: "App updates folder"
     }
 
     /**
@@ -168,7 +169,8 @@ class AppUpdater(context: Context) {
             .setTitle(title)
             .setDescription("Downloading latest version...")
             .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-            .setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, fileName)
+            // Use app-specific external files directory - no permission needed, compatible with Scoped Storage
+            .setDestinationInExternalFilesDir(context, "updates", fileName)
             .setAllowedOverMetered(true)
             .setAllowedOverRoaming(true)
             .setRequiresCharging(false)
@@ -228,12 +230,17 @@ class AppUpdater(context: Context) {
 
     /**
      * Get APK file URI for installation.
+     * Returns null if the file or directory doesn't exist.
      */
-    fun getApkUri(fileName: String = "lockit-update.apk"): Uri {
-        val file = java.io.File(
-            Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
-            fileName
-        )
+    fun getApkUri(fileName: String = "lockit-update.apk"): Uri? {
+        val updatesDir = context.getExternalFilesDir("updates")
+        if (updatesDir == null) {
+            return null // External storage not available
+        }
+        val file = java.io.File(updatesDir, fileName)
+        if (!file.exists()) {
+            return null
+        }
         return FileProvider.getUriForFile(
             context,
             "${context.packageName}.fileprovider",
