@@ -168,6 +168,8 @@ private fun MainFlow(app: LockitApp) {
     var selectedCredentialId by remember { mutableStateOf<String?>(null) }
     var editingCredentialId by remember { mutableStateOf<String?>(null) }
     var reposSelectedService by remember { mutableStateOf<String?>(null) }
+    // Track previous screen for proper back navigation
+    var previousScreen by remember { mutableStateOf(AppScreen.VaultExplorer) }
 
     LaunchedEffect(currentScreen) {
         if (currentScreen != AppScreen.SecretDetails) {
@@ -181,12 +183,25 @@ private fun MainFlow(app: LockitApp) {
     MainScaffold(
         app = app,
         currentScreen = currentScreen,
+        previousScreen = previousScreen,
         selectedCredentialId = selectedCredentialId,
         editingCredentialId = editingCredentialId,
         reposSelectedService = reposSelectedService,
-        onScreenChange = { currentScreen = it },
+        onScreenChange = {
+            // Track previous screen when navigating to secondary screens
+            if (currentScreen == AppScreen.SecretDetails || currentScreen == AppScreen.EditCredential || currentScreen == AppScreen.AddCredential) {
+                // Keep previousScreen unchanged when navigating between secondary screens
+            } else {
+                previousScreen = currentScreen
+            }
+            currentScreen = it
+        },
         onCredentialSelected = { id -> selectedCredentialId = id },
-        onCredentialEdit = { id -> editingCredentialId = id; currentScreen = AppScreen.EditCredential },
+        onCredentialEdit = { id ->
+            previousScreen = currentScreen  // Remember where we came from
+            editingCredentialId = id
+            currentScreen = AppScreen.EditCredential
+        },
         onReposServiceSelected = { reposSelectedService = it },
         onLockVault = {
             app.vaultManager.lockVault()
@@ -200,6 +215,7 @@ private fun MainFlow(app: LockitApp) {
 private fun MainScaffold(
     app: LockitApp,
     currentScreen: AppScreen,
+    previousScreen: AppScreen,
     selectedCredentialId: String?,
     editingCredentialId: String?,
     reposSelectedService: String?,
@@ -209,11 +225,11 @@ private fun MainScaffold(
     onReposServiceSelected: (String?) -> Unit,
     onLockVault: () -> Unit,
 ) {
-    // Handle Android back button for secondary screens
+    // Handle Android back button for secondary screens - return to previous screen
     BackHandler(enabled = currentScreen == AppScreen.SecretDetails
         || currentScreen == AppScreen.AddCredential
         || currentScreen == AppScreen.EditCredential) {
-        onScreenChange(AppScreen.VaultExplorer)
+        onScreenChange(previousScreen)
     }
 
     Scaffold(
