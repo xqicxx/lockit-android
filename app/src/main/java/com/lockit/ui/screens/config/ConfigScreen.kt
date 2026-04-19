@@ -690,30 +690,20 @@ fun ConfigScreen(
                                         isCheckingUpdate = false
                                         return@launch
                                     }
-                                    // Read GitHub Token from vault
+                                    // Read GitHub Token from vault (optional - public repos don't need it)
                                     val tokenCredential = credentialsResult.getOrNull()
                                         ?.find { it.name == githubTokenCredentialName }
 
-                                    // Diagnostic: Check if credential exists
-                                    if (tokenCredential == null) {
-                                        toastMessage = "${context.getString(R.string.toast_token_not_found)}: $githubTokenCredentialName"
-                                        isCheckingUpdate = false
-                                        return@launch
+                                    // Token is optional - public repos work without it
+                                    // Private repos or rate limit bypass require token
+                                    val token: String? = if (tokenCredential != null) {
+                                        val fields = tokenCredential.value?.let { parseCredentialFields(it) }
+                                        fields?.getOrNull(3)?.takeIf { it.isNotBlank() }
+                                    } else {
+                                        null // No token stored - proceed without it for public repo
                                     }
 
-                                    // Parse combined value to extract TOKEN_VALUE (index 3)
-                                    // For GitHub/Token/ApiKey types, the secret is always at field index 3
-                                    val fields = tokenCredential.value?.let { parseCredentialFields(it) }
-                                    val token = fields?.getOrNull(3)?.takeIf { it.isNotBlank() }
-
-                                    // Diagnostic: Check if token is empty
-                                    if (token == null || token.isBlank()) {
-                                        toastMessage = context.getString(R.string.toast_token_empty)
-                                        isCheckingUpdate = false
-                                        return@launch
-                                    }
-
-                                    lastCheckedToken = token // Store for download
+                                    lastCheckedToken = token // Store for download (null if public repo)
                                     val result = appUpdater.checkForUpdate(currentVersionCode, token)
                                     isCheckingUpdate = false
                                     if (result.isFailure) {
@@ -725,7 +715,14 @@ fun ConfigScreen(
                                         // Since we only reach here with a valid token, 404 likely means permission issue
                                         val detailedMessage = when {
                                             errorMsg.contains("rate limit", ignoreCase = true) -> context.getString(R.string.toast_rate_limit)
-                                            errorMsg.contains("Release not found", ignoreCase = true) -> "${context.getString(R.string.toast_private_repo_denied)} (Token needs 'repo' scope)"
+                                            errorMsg.contains("Release not found", ignoreCase = true) -> {
+                                                // If token was used, likely permission issue; otherwise just no release
+                                                if (token != null) {
+                                                    "${context.getString(R.string.toast_private_repo_denied)} (Token needs 'repo' scope)"
+                                                } else {
+                                                    context.getString(R.string.toast_release_not_found)
+                                                }
+                                            }
                                             else -> "${context.getString(R.string.toast_check_failed)} $errorMsg"
                                         }
                                         toastMessage = detailedMessage
