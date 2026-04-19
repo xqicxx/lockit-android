@@ -1069,7 +1069,9 @@ private fun LinkBiometricDialog(
                                 return@launch
                             }
 
-                            if (!BiometricUtils.canAuthenticate(activity)) {
+                            // Use stricter check matching BiometricPinStorage requirement (BIOMETRIC_STRONG only)
+                            // BiometricUtils allows DEVICE_CREDENTIAL fallback which won't work with hardware-backed keys
+                            if (!biometricStorage.canAuthenticate(activity)) {
                                 isLinking = false
                                 error = context.getString(R.string.error_biometric_not_available)
                                 return@launch
