@@ -25,8 +25,11 @@ enum class AuditSeverity { Info, Warning, Danger }
  */
 class AuditLogger(context: Context) {
 
+    // Use application context to prevent memory leak if Activity context is passed
+    private val appContext = context.applicationContext
+
     private val prefs by lazy {
-        context.getSharedPreferences("lockit_audit", Context.MODE_PRIVATE)
+        appContext.getSharedPreferences("lockit_audit", Context.MODE_PRIVATE)
     }
 
     private val keyEntries = "audit_entries"
