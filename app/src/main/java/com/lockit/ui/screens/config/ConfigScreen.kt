@@ -1047,12 +1047,16 @@ private fun LinkBiometricDialog(
                             return@BrutalistButton
                         }
 
+                        // Set linking state immediately to prevent race condition (multiple clicks)
+                        isLinking = true
+
                         // First verify PIN is correct
                         scope.launch {
                             val verifyResult = withContext(Dispatchers.IO) {
                                 app.vaultManager.unlockVault(pin)
                             }
                             if (verifyResult.isFailure) {
+                                isLinking = false
                                 error = context.getString(R.string.error_wrong_pin)
                                 return@launch
                             }
@@ -1060,16 +1064,17 @@ private fun LinkBiometricDialog(
                             // PIN verified, now link biometric
                             val activity = getActivity()
                             if (activity == null) {
+                                isLinking = false
                                 error = "ACTIVITY_NOT_AVAILABLE"
                                 return@launch
                             }
 
                             if (!BiometricUtils.canAuthenticate(activity)) {
+                                isLinking = false
                                 error = context.getString(R.string.error_biometric_not_available)
                                 return@launch
                             }
 
-                            isLinking = true
                             biometricStorage.storePin(
                                 activity = activity,
                                 pin = pin,
