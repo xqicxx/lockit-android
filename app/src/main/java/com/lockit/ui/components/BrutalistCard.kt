@@ -23,7 +23,7 @@ fun BrutalistCard(
     Box(
         modifier = modifier
             .background(backgroundColor)
-            .border(1.dp, Color.Black)
+            .border(1.dp, MaterialTheme.colorScheme.primary)
             .padding(0.dp),
     ) {
         content()

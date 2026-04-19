@@ -344,7 +344,7 @@ fun ConfigScreen(
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .border(1.dp, Color.Gray)
+                                    .border(1.dp, MaterialTheme.colorScheme.outline)
                                     .padding(8.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
@@ -352,7 +352,7 @@ fun ConfigScreen(
                                     text = stringResource(R.string.config_signed_in),
                                     fontFamily = JetBrainsMonoFamily,
                                     fontSize = 9.sp,
-                                    color = Color.Gray,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                                 Spacer(modifier = Modifier.width(4.dp))
                                 Text(
@@ -368,7 +368,7 @@ fun ConfigScreen(
                                         text = "${stringResource(R.string.config_last_sync)} ${lastBackupTime?.take(19) ?: "N/A"}",
                                         fontFamily = JetBrainsMonoFamily,
                                         fontSize = 8.sp,
-                                        color = Color.Gray,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
                                 }
                             }
@@ -640,7 +640,7 @@ fun ConfigScreen(
                                 text = stringResource(R.string.config_current_version),
                                 fontFamily = JetBrainsMonoFamily,
                                 fontSize = 10.sp,
-                                color = Color.Gray,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                             Text(
                                 text = "$currentVersion ($currentVersionCode)",
@@ -661,7 +661,7 @@ fun ConfigScreen(
                                 text = stringResource(R.string.config_token_source),
                                 fontFamily = JetBrainsMonoFamily,
                                 fontSize = 10.sp,
-                                color = Color.Gray,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(
@@ -745,9 +745,9 @@ fun ConfigScreen(
             TerminalFooter(
                 lines = listOf(
                     stringResource(R.string.footer_system_info) to IndustrialOrange,
-                    versionString to Color.Gray,
-                    stringResource(R.string.footer_compatible) to Color.Gray,
-                    stringResource(R.string.footer_design) to Color.Gray,
+                    versionString to MaterialTheme.colorScheme.onSurfaceVariant,
+                    stringResource(R.string.footer_compatible) to MaterialTheme.colorScheme.onSurfaceVariant,
+                    stringResource(R.string.footer_design) to MaterialTheme.colorScheme.onSurfaceVariant,
                 ),
             )
         }
@@ -1086,7 +1086,7 @@ private fun ConfigSection(
                     text = label,
                     fontFamily = JetBrainsMonoFamily,
                     fontSize = 10.sp,
-                    color = Color.Gray,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Text(
                     text = value,
@@ -1145,7 +1145,7 @@ private fun UpdateDialog(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(150.dp)
-                        .border(1.dp, Color.Gray)
+                        .border(1.dp, MaterialTheme.colorScheme.outline)
                         .verticalScroll(rememberScrollState())
                         .padding(8.dp),
                 ) {
@@ -1153,7 +1153,7 @@ private fun UpdateDialog(
                         text = release.changelog,
                         fontFamily = JetBrainsMonoFamily,
                         fontSize = 9.sp,
-                        color = Color.Gray,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
             }
@@ -1165,7 +1165,7 @@ private fun UpdateDialog(
                     text = "${context.getString(R.string.update_size)} ${release.downloadSize / 1024 / 1024} MB",
                     fontFamily = JetBrainsMonoFamily,
                     fontSize = 9.sp,
-                    color = Color.Gray,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
 
@@ -1228,7 +1228,7 @@ private fun GitHubTokenConfigDialog(
                 text = context.getString(R.string.github_token_desc),
                 fontFamily = JetBrainsMonoFamily,
                 fontSize = 10.sp,
-                color = Color.Gray,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 lineHeight = 14.sp,
             )
             Spacer(modifier = Modifier.height(16.dp))

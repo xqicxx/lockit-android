@@ -315,7 +315,7 @@ fun VaultUnlockScreen(
                         text = stringResource(R.string.vault_subtitle),
                         fontFamily = JetBrainsMonoFamily,
                         fontSize = 8.sp,
-                        color = Color.Black.copy(0.6f),
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                         letterSpacing = 2.sp,
                     )
                 }
@@ -354,7 +354,7 @@ fun VaultUnlockScreen(
                                 fontSize = 8.sp,
                                 color = if (viewModel.isProcessing) IndustrialOrange
                                     else if (viewModel.isConfirmStep) IndustrialOrange
-                                    else Color.Black.copy(0.5f),
+                                    else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
                                 letterSpacing = 1.sp,
                             )
                             Spacer(modifier = Modifier.height(8.dp))
@@ -513,7 +513,7 @@ fun VaultUnlockScreen(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(Color.Black.copy(0.7f))
+                    .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f))
                     .clickable(enabled = false) {},
                 contentAlignment = Alignment.Center,
             ) {
@@ -544,7 +544,7 @@ fun VaultUnlockScreen(
                         text = stringResource(R.string.vault_link_biometric_desc),
                         fontFamily = JetBrainsMonoFamily,
                         fontSize = 10.sp,
-                        color = Color.Gray,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     Spacer(modifier = Modifier.height(16.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -615,14 +615,14 @@ fun VaultUnlockScreen(
                     text = stringResource(R.string.vault_os_ver),
                     fontFamily = JetBrainsMonoFamily,
                     fontSize = 9.sp,
-                    color = Color.White.copy(0.6f),
+                    color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.6f),
                 )
             }
             Text(
                 text = stringResource(R.string.vault_node_id),
                 fontFamily = JetBrainsMonoFamily,
                 fontSize = 9.sp,
-                color = Color.White.copy(0.4f),
+                color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.4f),
             )
         }
     }
@@ -732,6 +732,7 @@ private fun KeypadKey(
 
 @Composable
 private fun BrutalistGridBackground() {
+    val dotColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.03f)
     Canvas(modifier = Modifier.fillMaxSize()) {
         val dotRadius = 0.5.dp.toPx()
         val gridSize = 20.dp.toPx()
@@ -742,7 +743,7 @@ private fun BrutalistGridBackground() {
             var y = gridSize / 2
             while (y < h) {
                 drawCircle(
-                    color = Color.Black.copy(alpha = 0.03f),
+                    color = dotColor,
                     radius = dotRadius,
                     center = Offset(x, y),
                 )

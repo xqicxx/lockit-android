@@ -446,9 +446,9 @@ fun ReposScreen(
                 TerminalFooter(
                     lines = listOf(
                         stringResource(R.string.repos_status) to IndustrialOrange,
-                        stringResource(R.string.repos_local_vault_active) to Color.Gray,
-                        stringResource(R.string.repos_remote_sync_not_configured) to Color.Gray,
-                        stringResource(R.string.repos_last_sync_never) to Color.Gray,
+                        stringResource(R.string.repos_local_vault_active) to MaterialTheme.colorScheme.onSurfaceVariant,
+                        stringResource(R.string.repos_remote_sync_not_configured) to MaterialTheme.colorScheme.onSurfaceVariant,
+                        stringResource(R.string.repos_last_sync_never) to MaterialTheme.colorScheme.onSurfaceVariant,
                     ),
                 )
             }
@@ -591,7 +591,7 @@ fun ReposScreen(
                         text = stringResource(R.string.repos_entries, list.size),
                         fontFamily = JetBrainsMonoFamily,
                         fontSize = 10.sp,
-                        color = Color.Gray,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
                 Spacer(modifier = Modifier.height(8.dp))
@@ -643,7 +643,7 @@ fun ReposScreen(
                                     text = if (searchQuery.isNotBlank()) stringResource(R.string.repos_no_matching_credentials) else stringResource(R.string.explorer_no_credentials),
                                     fontFamily = JetBrainsMonoFamily,
                                     fontSize = 14.sp,
-                                    color = Color.Gray,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                             }
                         }
@@ -654,9 +654,9 @@ fun ReposScreen(
                         TerminalFooter(
                             lines = listOf(
                                 stringResource(R.string.repos_status) to IndustrialOrange,
-                                stringResource(R.string.repos_local_vault_active) to Color.Gray,
-                                stringResource(R.string.repos_remote_sync_not_configured) to Color.Gray,
-                                stringResource(R.string.repos_last_sync_never) to Color.Gray,
+                                stringResource(R.string.repos_local_vault_active) to MaterialTheme.colorScheme.onSurfaceVariant,
+                                stringResource(R.string.repos_remote_sync_not_configured) to MaterialTheme.colorScheme.onSurfaceVariant,
+                                stringResource(R.string.repos_last_sync_never) to MaterialTheme.colorScheme.onSurfaceVariant,
                             ),
                         )
                         Spacer(modifier = Modifier.height(16.dp))
@@ -701,7 +701,7 @@ private fun StatCard(label: String, value: String, modifier: Modifier = Modifier
                 text = label,
                 fontFamily = JetBrainsMonoFamily,
                 fontSize = 10.sp,
-                color = Color.Gray,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
     }
@@ -727,7 +727,7 @@ private fun ServiceRow(
             Icon(
                 imageVector = if (isLocal) Icons.Default.Lock else Icons.Default.CloudUpload,
                 contentDescription = null,
-                tint = if (isLocal) IndustrialOrange else Color.Gray,
+                tint = if (isLocal) IndustrialOrange else MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.height(16.dp),
             )
             Spacer(modifier = Modifier.width(8.dp))
@@ -744,13 +744,13 @@ private fun ServiceRow(
                 text = stringResource(R.string.repos_keys, count),
                 fontFamily = JetBrainsMonoFamily,
                 fontSize = 10.sp,
-                color = Color.Gray,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Spacer(modifier = Modifier.width(8.dp))
             Box(
                 modifier = Modifier
-                    .background(if (isLocal) SurfaceHighest else Color.Gray.copy(0.2f))
-                    .border(1.dp, if (isLocal) Primary else Color.Gray)
+                    .background(if (isLocal) MaterialTheme.colorScheme.surfaceContainerHighest else MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.2f))
+                    .border(1.dp, if (isLocal) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline)
                     .padding(horizontal = 6.dp, vertical = 2.dp),
             ) {
                 Text(
@@ -758,7 +758,7 @@ private fun ServiceRow(
                     fontFamily = JetBrainsMonoFamily,
                     fontSize = 8.sp,
                     fontWeight = FontWeight.Bold,
-                    color = if (isLocal) Primary else Color.Gray,
+                    color = if (isLocal) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         }
@@ -778,7 +778,7 @@ internal fun CompactCredentialRow(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .border(1.dp, Color.Black)
+            .border(1.dp, MaterialTheme.colorScheme.primary)
             .clickable(onClick = onClick)
             .padding(12.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -829,7 +829,7 @@ internal fun CompactCredentialRow(
                     text = subtitle,
                     fontFamily = JetBrainsMonoFamily,
                     fontSize = 11.sp,
-                    color = Color.Gray,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -839,7 +839,7 @@ internal fun CompactCredentialRow(
             text = ">",
             fontFamily = JetBrainsMonoFamily,
             fontSize = 14.sp,
-            color = Color.Gray,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
 }
@@ -861,7 +861,7 @@ internal fun CredentialCardModal(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.Black.copy(0.5f))
+            .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
             .clickable(onClick = onDismiss),
         contentAlignment = Alignment.Center,
     ) {
@@ -887,7 +887,7 @@ internal fun CredentialCardModal(
                 text = stringResource(R.string.repos_modal_close_hint),
                 fontFamily = JetBrainsMonoFamily,
                 fontSize = 9.sp,
-                color = Color.Gray,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.align(Alignment.CenterHorizontally),
             )
             Spacer(modifier = Modifier.height(16.dp))
@@ -932,7 +932,7 @@ private fun CodingPlanBoard(
                     text = stringResource(R.string.repos_fetching),
                     fontFamily = JetBrainsMonoFamily,
                     fontSize = 9.sp,
-                    color = Color.Gray,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             } else {
                 Box(
@@ -965,7 +965,7 @@ private fun CodingPlanBoard(
                         text = stringResource(R.string.repos_quota_remaining, quota.remainingDays),
                         fontFamily = JetBrainsMonoFamily,
                         fontSize = 10.sp,
-                        color = Color.Gray,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f, fill = false),
@@ -974,7 +974,7 @@ private fun CodingPlanBoard(
                         text = stringResource(R.string.repos_quota_cost, quota.chargeAmount),
                         fontFamily = JetBrainsMonoFamily,
                         fontSize = 10.sp,
-                        color = Color.Gray,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
                     )
                 }
@@ -1057,7 +1057,7 @@ private fun CodingPlanBoard(
                         text = stringResource(R.string.repos_quota_retry_hint),
                         fontFamily = JetBrainsMonoFamily,
                         fontSize = 9.sp,
-                        color = Color.Gray,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
             }
@@ -1073,7 +1073,7 @@ private fun QuotaGauge(label: String, used: Int, total: Int, modifier: Modifier 
         val barColor = when {
             pct >= 90 -> TacticalRed
             pct >= 70 -> IndustrialOrange
-            else -> Color.Gray
+            else -> MaterialTheme.colorScheme.onSurfaceVariant
         }
 
         // Label row with percentage on the right (above progress bar)
@@ -1087,7 +1087,7 @@ private fun QuotaGauge(label: String, used: Int, total: Int, modifier: Modifier 
                 fontWeight = FontWeight.Bold,
                 fontSize = 8.sp,
                 letterSpacing = 1.sp,
-                color = Color.Gray,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Text(
                 text = "$pct%",

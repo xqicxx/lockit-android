@@ -54,10 +54,10 @@ fun BrutalistBottomNav(
     // Dark mode: DarkSurface background with white border
     val isDarkTheme = isSystemInDarkTheme()
     val backgroundColor = if (isDarkTheme) DarkSurface else White
-    val borderColor = if (isDarkTheme) Color.White else Primary
-    val selectedBgColor = if (isDarkTheme) Color.White else Primary
-    val selectedContentColor = if (isDarkTheme) Color(0xFF410000) else White  // Dark red on white / White on black
-    val unselectedContentColor = if (isDarkTheme) Color.White.copy(alpha = 0.7f) else Color(0xFF666666)
+    val borderColor = colorScheme.primary
+    val selectedBgColor = colorScheme.primary
+    val selectedContentColor = colorScheme.onPrimary
+    val unselectedContentColor = colorScheme.onSurfaceVariant
 
     Row(
         modifier = modifier
