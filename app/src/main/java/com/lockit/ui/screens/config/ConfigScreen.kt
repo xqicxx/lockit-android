@@ -720,11 +720,12 @@ fun ConfigScreen(
                                         val errorMsg = result.exceptionOrNull()?.message ?: "Unknown error"
                                         // AppUpdater returns descriptive messages for common errors:
                                         // - 403: "GitHub API rate limit exceeded..."
-                                        // - 404: "Release not found"
+                                        // - 404: "Release not found" (could mean private repo permission issue if token used)
                                         // - Other HTTP codes: "HTTP X"
+                                        // Since we only reach here with a valid token, 404 likely means permission issue
                                         val detailedMessage = when {
                                             errorMsg.contains("rate limit", ignoreCase = true) -> context.getString(R.string.toast_rate_limit)
-                                            errorMsg.contains("Release not found", ignoreCase = true) -> context.getString(R.string.toast_release_not_found)
+                                            errorMsg.contains("Release not found", ignoreCase = true) -> "${context.getString(R.string.toast_private_repo_denied)} (Token needs 'repo' scope)"
                                             else -> "${context.getString(R.string.toast_check_failed)} $errorMsg"
                                         }
                                         toastMessage = detailedMessage
