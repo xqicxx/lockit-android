@@ -40,6 +40,7 @@
     <string name="error_enter_pin_first">请先输入PIN</string>
     <string name="error_biometric_failed">生物识别失败:</string>
     <string name="error_biometric_link_failed">绑定失败:</string>
+    <string name="error_biometric_not_available">生物识别不可用</string>
 
     <!-- Vault Explorer Screen -->
     <string name="explorer_title">密码库浏览器</string>
@@ -72,6 +73,18 @@
     <string name="config_argon2id">ARGON2ID</string>
     <string name="config_storage">存储</string>
     <string name="config_sqlite">本地SQLite</string>
+
+    <!-- Biometric Status -->
+    <string name="config_biometric_status">生物识别状态</string>
+    <string name="config_biometric_linked">已绑定生物识别</string>
+    <string name="config_yes">是</string>
+    <string name="config_no">否</string>
+    <string name="config_link_biometric">绑定生物识别</string>
+    <string name="config_unlink_biometric">解绑生物识别</string>
+    <string name="config_link_biometric_desc">使用指纹快速解锁密码库。</string>
+    <string name="config_unlink_biometric_desc">移除指纹解锁，仅使用PIN。</string>
+    <string name="toast_biometric_linked">生物识别已绑定</string>
+    <string name="toast_biometric_unlinked">生物识别已解绑</string>
 
     <string name="config_actions">操作</string>
     <string name="config_lock_vault">锁定密码库</string>
