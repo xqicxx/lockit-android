@@ -159,7 +159,13 @@ class VaultUnlockViewModel(private val app: LockitApp) : ViewModel() {
                             app.vaultManager.initVault(pin)
                         }
                         isProcessing = false
-                        showBiometricSetup = true
+                        // Only show biometric setup if user hasn't been prompted before
+                        if (!biometricStorage.hasBeenPromptedForBiometric()) {
+                            showBiometricSetup = true
+                        } else {
+                            // Already prompted, navigate directly
+                            _uiState.value = VaultUnlockUiState(navigated = true)
+                        }
                     } catch (e: Exception) {
                         isProcessing = false
                         errorMessage = e.message?.uppercase() ?: "INIT_FAILED"
@@ -196,6 +202,14 @@ class VaultUnlockViewModel(private val app: LockitApp) : ViewModel() {
     fun setAppState(initialized: Boolean) {
         this.isInitialized = initialized
         this.isBiometricLinked = initialized && biometricStorage.isBiometricLinked()
+    }
+
+    fun markBiometricPrompted() {
+        biometricStorage.setBiometricPrompted(true)
+    }
+
+    fun hasBeenPromptedForBiometric(): Boolean {
+        return biometricStorage.hasBeenPromptedForBiometric()
     }
 
     fun linkBiometric(
@@ -530,6 +544,7 @@ fun VaultUnlockScreen(
                         BrutalistSmallButton(
                             text = stringResource(R.string.vault_skip),
                             onClick = {
+                                viewModel.markBiometricPrompted()
                                 viewModel.showBiometricSetup = false
                                 viewModel.navigateToMain()
                             },
@@ -545,10 +560,12 @@ fun VaultUnlockScreen(
                                         title = linkTitle,
                                         subtitle = linkSubtitle,
                                         onSuccess = {
+                                            viewModel.markBiometricPrompted()
                                             viewModel.showBiometricSetup = false
                                             viewModel.navigateToMain()
                                         },
                                         onError = { err ->
+                                            viewModel.markBiometricPrompted()
                                             viewModel.errorMessage = "BIOMETRIC_LINK_FAILED: $err"
                                             viewModel.showBiometricSetup = false
                                             viewModel.navigateToMain()
