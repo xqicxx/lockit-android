@@ -119,7 +119,7 @@ private val PROVIDER_BASE_URLS = mapOf(
     "moonshot" to listOf("https://api.moonshot.cn/v1"),
     "minimax" to listOf("https://api.minimax.chat/v1"),
     "glm" to listOf("https://open.bigmodel.cn/api/paas/v4"),
-    "qwen" to listOf("https://dashscope.aliyuncs.com/api/v1"),
+    "qwen" to listOf("https://coding.dashscope.aliyuncs.com/v1"),
     "qwen_bailian" to listOf("https://bailian.console.aliyun.com"),
 )
 
