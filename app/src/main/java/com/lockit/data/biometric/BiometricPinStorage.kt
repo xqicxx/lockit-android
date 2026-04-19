@@ -28,10 +28,19 @@ class BiometricPinStorage(private val sharedPreferences: SharedPreferences) {
         private const val ENCRYPTED_PIN_KEY = "encrypted_pin"
         private const val IV_KEY = "pin_iv"
         private const val TRANSFORMATION = "AES/GCM/NoPadding"
+        private const val BIOMETRIC_PROMPTED_KEY = "biometric_prompted"
     }
 
     fun isBiometricLinked(): Boolean {
         return sharedPreferences.getString(ENCRYPTED_PIN_KEY, null) != null
+    }
+
+    fun hasBeenPromptedForBiometric(): Boolean {
+        return sharedPreferences.getBoolean(BIOMETRIC_PROMPTED_KEY, false)
+    }
+
+    fun setBiometricPrompted(prompted: Boolean) {
+        sharedPreferences.edit().putBoolean(BIOMETRIC_PROMPTED_KEY, prompted).apply()
     }
 
     fun canAuthenticate(activity: FragmentActivity): Boolean {
