@@ -680,16 +680,19 @@ fun ConfigScreen(
                             onClick = {
                                 isCheckingUpdate = true
                                 scope.launch {
-                                    // Check vault is unlocked before reading credentials
-                                    if (!app.vaultManager.isUnlocked()) {
+                                    // Wrap vault access in runCatching to handle race condition
+                                    // Vault could be locked between isUnlocked() check and Flow.first()
+                                    val credentialsResult = runCatching {
+                                        app.vaultManager.getAllCredentials().first()
+                                    }
+                                    if (credentialsResult.isFailure) {
                                         toastMessage = context.getString(R.string.toast_vault_locked)
                                         isCheckingUpdate = false
                                         return@launch
                                     }
                                     // Read GitHub Token from vault
-                                    val tokenCredential = app.vaultManager.getAllCredentials()
-                                        .first()
-                                        .find { it.name == githubTokenCredentialName }
+                                    val tokenCredential = credentialsResult.getOrNull()
+                                        ?.find { it.name == githubTokenCredentialName }
 
                                     // Diagnostic: Check if credential exists
                                     if (tokenCredential == null) {
@@ -903,9 +906,15 @@ private fun exportKeys(
 
     scope.launch(Dispatchers.IO) {
         try {
-            // Get all credentials synchronously (need to collect from Flow)
-            val credentials = app.vaultManager.getAllCredentials()
-                .first()
+            // Wrap in runCatching to handle race condition where vault gets locked
+            val credentialsResult = runCatching {
+                app.vaultManager.getAllCredentials().first()
+            }
+            if (credentialsResult.isFailure) {
+                callback(null, "Vault locked or inaccessible")
+                return@launch
+            }
+            val credentials = credentialsResult.getOrNull() ?: emptyList()
 
             val content = buildString {
                 appendLine("# Lockit Credentials Export")
