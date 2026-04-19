@@ -716,10 +716,12 @@ fun ConfigScreen(
                                     if (result.isFailure) {
                                         val errorMsg = result.exceptionOrNull()?.message ?: "Unknown error"
                                         // Provide specific guidance for common errors
+                                        // Note: AppUpdater returns descriptive messages, not numeric codes
                                         val detailedMessage = when {
-                                            errorMsg.contains("404") -> "${context.getString(R.string.toast_private_repo_denied)} (Token needs 'repo' scope)"
-                                            errorMsg.contains("403") -> "${context.getString(R.string.toast_rate_limit)}"
-                                            errorMsg.contains("Release not found") -> context.getString(R.string.toast_release_not_found)
+                                            errorMsg.contains("rate limit", ignoreCase = true) -> context.getString(R.string.toast_rate_limit)
+                                            errorMsg.contains("Release not found", ignoreCase = true) -> context.getString(R.string.toast_release_not_found)
+                                            errorMsg.contains("HTTP 404") -> "${context.getString(R.string.toast_private_repo_denied)} (Token needs 'repo' scope)"
+                                            errorMsg.contains("HTTP 403") -> context.getString(R.string.toast_rate_limit)
                                             else -> "${context.getString(R.string.toast_check_failed)} $errorMsg"
                                         }
                                         toastMessage = detailedMessage
