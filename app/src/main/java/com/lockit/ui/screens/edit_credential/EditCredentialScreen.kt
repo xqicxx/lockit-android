@@ -77,7 +77,7 @@ fun EditCredentialScreen(
                 text = "LOADING...",
                 fontFamily = JetBrainsMonoFamily,
                 fontSize = 14.sp,
-                color = Color.Gray,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
         return

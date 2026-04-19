@@ -74,7 +74,7 @@ fun BrutalistTextField(
                 .fillMaxWidth()
                 .border(
                     width = 1.dp,
-                    color = if (isFocused) IndustrialOrange else Color.Gray,
+                    color = if (isFocused) IndustrialOrange else MaterialTheme.colorScheme.outline,
                 )
                 .padding(12.dp),
             decorationBox = { innerTextField ->
@@ -83,7 +83,7 @@ fun BrutalistTextField(
                         text = placeholder,
                         fontFamily = JetBrainsMonoFamily,
                         fontSize = 14.sp,
-                        color = Color.Gray,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
                 innerTextField()

@@ -28,6 +28,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.AnnotatedString
@@ -225,7 +226,7 @@ fun CredentialCard(
 
     Column(
         modifier = modifier
-            .border(1.dp, Color.Black)
+            .border(1.dp, MaterialTheme.colorScheme.primary)
             .clickable(onClick = onClick)
             .pointerInput(localRevealed) {
                 detectTapGestures(
@@ -350,7 +351,7 @@ private fun CardHeader(
                     if (credential.service.isNotBlank()) " // ${credential.service.uppercase()}" else "",
                 fontFamily = JetBrainsMonoFamily,
                 fontSize = 10.sp,
-                color = Color.Gray,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -761,7 +762,7 @@ private fun RevealableValueBox(
             text = if (isRevealed) value else maskPlaceholder,
             fontFamily = JetBrainsMonoFamily,
             fontSize = 13.sp,
-            color = if (isRevealed) Primary else Color.Gray,
+            color = if (isRevealed) Primary else MaterialTheme.colorScheme.onSurfaceVariant,
             maxLines = if (isRevealed) maxLinesRevealed else 1,
             overflow = TextOverflow.Ellipsis,
         )

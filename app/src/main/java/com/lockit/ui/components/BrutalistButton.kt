@@ -14,6 +14,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
@@ -47,15 +48,20 @@ fun BrutalistButton(
     iconPosition: IconPosition = IconPosition.Start,
     customBorderColor: Color? = null,
 ) {
+    val colorScheme = MaterialTheme.colorScheme
     val colors = when (variant) {
-        ButtonVariant.Primary -> Triple(Primary, White, Color.Black)
-        ButtonVariant.Secondary -> Triple(Color.White, Primary, Color.Black)
+        ButtonVariant.Primary -> Triple(colorScheme.primary, colorScheme.onPrimary, colorScheme.primary)
+        ButtonVariant.Secondary -> Triple(colorScheme.background, colorScheme.primary, colorScheme.primary)
         ButtonVariant.Danger -> Triple(TacticalRed, White, TacticalRed)
         ButtonVariant.Warning -> Triple(IndustrialOrange, White, IndustrialOrange)
-        ButtonVariant.Revoke -> Triple(Color.White, TacticalRed, TacticalRed)
+        ButtonVariant.Revoke -> Triple(colorScheme.background, TacticalRed, TacticalRed)
     }
     val (bgColor, textColor, defaultBorderColor) = colors
     val borderColor = customBorderColor ?: defaultBorderColor
+
+    // Disabled state: use distinct colors for background vs text
+    val disabledBgColor = colorScheme.surfaceContainerHighest
+    val disabledContentColor = colorScheme.onSurfaceVariant
 
     val font = if (useMonoFont) JetBrainsMonoFamily else InterFontFamily
     val weight = if (useMonoFont) FontWeight.Medium else FontWeight.Bold
@@ -63,7 +69,7 @@ fun BrutalistButton(
     Box(
         modifier = modifier
             .border(1.dp, borderColor)
-            .background(if (enabled) bgColor else Color.Gray.copy(0.3f))
+            .background(if (enabled) bgColor else disabledBgColor)
             .clickable(enabled = enabled, onClick = onClick)
             .padding(horizontal = 12.dp, vertical = 6.dp),
         contentAlignment = Alignment.Center,
@@ -76,7 +82,7 @@ fun BrutalistButton(
                     Icon(
                         imageVector = icon,
                         contentDescription = null,
-                        tint = if (enabled) textColor else Color.Gray,
+                        tint = if (enabled) textColor else disabledContentColor,
                         modifier = Modifier.size(16.dp),
                     )
                     Spacer(modifier = Modifier.width(6.dp))
@@ -85,7 +91,7 @@ fun BrutalistButton(
                     text = text.uppercase(),
                     fontFamily = font,
                     fontWeight = weight,
-                    color = if (enabled) textColor else Color.Gray,
+                    color = if (enabled) textColor else disabledContentColor,
                     fontSize = if (useMonoFont) 10.sp else 12.sp,
                     letterSpacing = 1.sp,
                     textAlign = TextAlign.Center,
@@ -95,7 +101,7 @@ fun BrutalistButton(
                     Icon(
                         imageVector = icon,
                         contentDescription = null,
-                        tint = if (enabled) textColor else Color.Gray,
+                        tint = if (enabled) textColor else disabledContentColor,
                         modifier = Modifier.size(16.dp),
                     )
                 }
@@ -105,7 +111,7 @@ fun BrutalistButton(
                 text = text.uppercase(),
                 fontFamily = font,
                 fontWeight = weight,
-                color = if (enabled) textColor else Color.Gray,
+                color = if (enabled) textColor else disabledContentColor,
                 fontSize = if (useMonoFont) 10.sp else 12.sp,
                 letterSpacing = 1.sp,
                 textAlign = TextAlign.Center,

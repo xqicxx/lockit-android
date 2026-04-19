@@ -24,6 +24,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Fingerprint
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -103,7 +104,7 @@ fun BrutalistPinVerifyDialog(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.Black.copy(0.5f))
+            .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
             .clickable(onClick = onDismiss),
         contentAlignment = Alignment.Center,
     ) {
@@ -112,7 +113,7 @@ fun BrutalistPinVerifyDialog(
             Column(
                 modifier = Modifier
                     .fillMaxWidth(0.85f)
-                    .background(White)
+                    .background(MaterialTheme.colorScheme.surfaceContainerHigh)
                     .border(2.dp, Primary),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
@@ -159,7 +160,7 @@ fun BrutalistPinVerifyDialog(
                         Box(
                             modifier = Modifier
                                 .size(6.dp)
-                                .background(White),
+                                .background(MaterialTheme.colorScheme.surfaceContainerHigh),
                         )
                     }
                 }
@@ -172,6 +173,7 @@ fun BrutalistPinVerifyDialog(
                     contentAlignment = Alignment.Center,
                 ) {
                     // Grid background
+                    val gridDotColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)
                     Canvas(
                         modifier = Modifier
                             .fillMaxSize()
@@ -184,7 +186,7 @@ fun BrutalistPinVerifyDialog(
                             var y = 0f
                             while (y < size.height) {
                                 drawCircle(
-                                    color = Color.Black.copy(0.05f),
+                                    color = gridDotColor,
                                     radius = dotRadius,
                                     center = Offset(x, y),
                                 )
@@ -202,7 +204,7 @@ fun BrutalistPinVerifyDialog(
                             modifier = Modifier
                                 .size(96.dp)
                                 .border(1.dp, Primary)
-                                .background(White),
+                                .background(MaterialTheme.colorScheme.surfaceContainerHigh),
                             contentAlignment = Alignment.Center,
                         ) {
                             Icon(
@@ -384,7 +386,7 @@ private fun PinKey(
     Box(
         modifier = modifier
             .aspectRatio(4f / 3f)
-            .background(White)
+            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
             .drawBehind {
                 val sw = 1.dp.toPx()
                 if (hasRightBorder) {

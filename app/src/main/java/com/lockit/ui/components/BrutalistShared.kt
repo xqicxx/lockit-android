@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -55,7 +56,7 @@ fun ScreenHero(
             fontFamily = JetBrainsMonoFamily,
             fontWeight = FontWeight.ExtraBold,
             fontSize = 24.sp,  // Consistent size for all pages
-            color = Primary,
+            color = MaterialTheme.colorScheme.primary,
             letterSpacing = (-0.5).sp,
             maxLines = 1,
         )
@@ -64,7 +65,7 @@ fun ScreenHero(
             text = subtitle,
             fontFamily = JetBrainsMonoFamily,
             fontSize = 11.sp,
-            color = Color.Gray,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             maxLines = 1,
         )
     }
@@ -77,15 +78,15 @@ fun InfoTag(
 ) {
     Box(
         modifier = modifier
-            .background(SurfaceHighest)
-            .border(1.dp, Primary)
+            .background(MaterialTheme.colorScheme.surfaceContainerHighest)
+            .border(1.dp, MaterialTheme.colorScheme.primary)
             .padding(horizontal = 6.dp, vertical = 3.dp),
     ) {
         Text(
             text = text,
             fontFamily = JetBrainsMonoFamily,
             fontSize = 9.sp,
-            color = Primary,
+            color = MaterialTheme.colorScheme.primary,
             maxLines = 1,
             overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
         )
@@ -100,8 +101,8 @@ fun TerminalFooter(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .background(SurfaceHighest)
-            .border(1.dp, Primary)
+            .background(MaterialTheme.colorScheme.surfaceContainerHighest)
+            .border(1.dp, MaterialTheme.colorScheme.primary)
             .padding(12.dp),
     ) {
         Column {
@@ -221,7 +222,7 @@ fun BrutalistEmptyState(
                 text = message,
                 fontFamily = JetBrainsMonoFamily,
                 fontSize = 12.sp,
-                color = Color.Gray,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
     }

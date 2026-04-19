@@ -129,7 +129,7 @@ fun SecretDetailsScreen(
                 text = "LOADING...",
                 fontFamily = JetBrainsMonoFamily,
                 fontSize = 14.sp,
-                color = Color.Gray,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
         return
@@ -160,7 +160,7 @@ fun SecretDetailsScreen(
         return
     }
 
-    Column(modifier = modifier.fillMaxSize().background(White)) {
+    Column(modifier = modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)) {
         BrutalistTopBar(showBackButton = true, onBackClick = onBack)
 
         LazyColumn(modifier = Modifier.fillMaxSize().padding(16.dp)) {
@@ -193,7 +193,7 @@ fun SecretDetailsScreen(
                     text = "ID: ${cred.refId()} // Created: ${cred.formatCreatedAt()}",
                     fontFamily = JetBrainsMonoFamily,
                     fontSize = 10.sp,
-                    color = Color.Gray,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Spacer(modifier = Modifier.height(24.dp))
             }
@@ -493,7 +493,7 @@ private fun SecretValueSection(
                                 text = if (passwordRevealed) displayPassword else "\u2022".repeat(20),
                                 fontFamily = JetBrainsMonoFamily,
                                 fontSize = 13.sp,
-                                color = if (passwordRevealed) Primary else Color.Gray,
+                                color = if (passwordRevealed) Primary else MaterialTheme.colorScheme.onSurfaceVariant,
                                 maxLines = if (passwordRevealed) 5 else 1,
                                 overflow = TextOverflow.Ellipsis,
                             )
@@ -553,7 +553,7 @@ private fun SecretValueSection(
                             text = displayValue,
                             fontFamily = JetBrainsMonoFamily,
                             fontSize = 14.sp,
-                            color = if (isRevealed) Primary else Color.Gray,
+                            color = if (isRevealed) Primary else MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
                 }
@@ -612,7 +612,7 @@ private fun MetaCard(label: String, value: String, modifier: Modifier = Modifier
                 text = label,
                 fontFamily = JetBrainsMonoFamily,
                 fontSize = 10.sp,
-                color = Color.Gray,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Spacer(modifier = Modifier.height(4.dp))
             Text(
@@ -669,7 +669,7 @@ private fun AuditLogSection(app: LockitApp, credential: Credential) {
                     text = "NO_AUDIT_EVENTS",
                     fontFamily = JetBrainsMonoFamily,
                     fontSize = 10.sp,
-                    color = Color.Gray,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 12.dp),
                 )
             } else {
@@ -724,7 +724,7 @@ private fun AuditLogSection(app: LockitApp, credential: Credential) {
                                     text = entry.detail,
                                     fontFamily = JetBrainsMonoFamily,
                                     fontSize = 9.sp,
-                                    color = Color.Gray,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                             }
                         }
@@ -732,11 +732,11 @@ private fun AuditLogSection(app: LockitApp, credential: Credential) {
                             text = formatTime(Instant.ofEpochMilli(entry.timestamp)),
                             fontFamily = JetBrainsMonoFamily,
                             fontSize = 9.sp,
-                            color = Color.Gray.copy(0.6f),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                         )
                     }
                     if (index < logs.size - 1) {
-                        HorizontalDivider(color = Color.Black.copy(0.15f), thickness = 1.dp)
+                        HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.15f), thickness = 1.dp)
                     }
                 }
             }

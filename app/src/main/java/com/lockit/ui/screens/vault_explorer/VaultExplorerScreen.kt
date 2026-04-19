@@ -265,7 +265,7 @@ fun VaultExplorerScreen(
                             text = stringResource(R.string.explorer_quick_start_desc),
                             fontFamily = JetBrainsMonoFamily,
                             fontSize = 10.sp,
-                            color = Color.Gray,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             lineHeight = 14.sp,
                         )
                     }
@@ -313,7 +313,7 @@ fun VaultExplorerScreen(
                         text = "${credentials.size} " + stringResource(R.string.explorer_entries),
                         fontFamily = JetBrainsMonoFamily,
                         fontSize = 10.sp,
-                        color = Color.Gray,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
                 Spacer(modifier = Modifier.height(8.dp))
@@ -366,7 +366,7 @@ fun VaultExplorerScreen(
                             text = stringResource(R.string.explorer_no_credentials),
                             fontFamily = JetBrainsMonoFamily,
                             fontSize = 14.sp,
-                            color = Color.Gray,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
                 }
@@ -376,10 +376,10 @@ fun VaultExplorerScreen(
                 Spacer(modifier = Modifier.height(16.dp))
                 TerminalFooter(
                     lines = listOf(
-                        stringResource(R.string.explorer_daemon) to Color.Gray,
-                        stringResource(R.string.explorer_total_credentials) + " ${credentials.size}" to Color.Gray,
-                        if (services.isNotEmpty()) stringResource(R.string.explorer_services) + " ${services.take(3).joinToString(", ")}${if (services.size > 3) "..." else ""}" to Color.Gray
-                        else stringResource(R.string.explorer_no_services) to Color.Gray,
+                        stringResource(R.string.explorer_daemon) to MaterialTheme.colorScheme.onSurfaceVariant,
+                        stringResource(R.string.explorer_total_credentials) + " ${credentials.size}" to MaterialTheme.colorScheme.onSurfaceVariant,
+                        if (services.isNotEmpty()) stringResource(R.string.explorer_services) + " ${services.take(3).joinToString(", ")}${if (services.size > 3) "..." else ""}" to MaterialTheme.colorScheme.onSurfaceVariant
+                        else stringResource(R.string.explorer_no_services) to MaterialTheme.colorScheme.onSurfaceVariant,
                     ),
                 )
                 Spacer(modifier = Modifier.height(16.dp))

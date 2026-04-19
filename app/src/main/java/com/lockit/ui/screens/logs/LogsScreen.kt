@@ -128,7 +128,7 @@ fun LogsScreen(
                     text = stringResource(R.string.logs_entries, logs.size),
                     fontFamily = JetBrainsMonoFamily,
                     fontSize = 10.sp,
-                    color = Color.Gray,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
 
@@ -143,7 +143,7 @@ fun LogsScreen(
                         text = stringResource(R.string.logs_no_events),
                         fontFamily = JetBrainsMonoFamily,
                         fontSize = 14.sp,
-                        color = Color.Gray,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
             } else {
@@ -190,7 +190,7 @@ fun LogsScreen(
                         text = stringResource(R.string.logs_remaining, totalCount - displayedCount),
                         fontFamily = JetBrainsMonoFamily,
                         fontSize = 10.sp,
-                        color = Color.Gray,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
                     )
                 }
@@ -220,9 +220,9 @@ fun LogsScreen(
             TerminalFooter(
                 lines = listOf(
                     "> AUDIT_LOG_STATUS:" to IndustrialOrange,
-                    stringResource(R.string.logs_storage_local) to Color.Gray,
-                    stringResource(R.string.logs_retention) to Color.Gray,
-                    stringResource(R.string.logs_encryption) to Color.Gray,
+                    stringResource(R.string.logs_storage_local) to MaterialTheme.colorScheme.onSurfaceVariant,
+                    stringResource(R.string.logs_retention) to MaterialTheme.colorScheme.onSurfaceVariant,
+                    stringResource(R.string.logs_encryption) to MaterialTheme.colorScheme.onSurfaceVariant,
                 ),
             )
         }
@@ -268,7 +268,7 @@ private fun LogRow(entry: AuditEntry) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .border(1.dp, Color.Black.copy(0.15f))
+            .border(1.dp, MaterialTheme.colorScheme.primary.copy(0.15f))
             .background(
                 when (entry.severity) {
                     AuditSeverity.Info -> Color.Transparent
@@ -300,7 +300,7 @@ private fun LogRow(entry: AuditEntry) {
                     text = entry.detail,
                     fontFamily = JetBrainsMonoFamily,
                     fontSize = 10.sp,
-                    color = Color.Gray,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         }
@@ -308,7 +308,7 @@ private fun LogRow(entry: AuditEntry) {
             text = formatTime(Instant.ofEpochMilli(entry.timestamp)),
             fontFamily = JetBrainsMonoFamily,
             fontSize = 9.sp,
-            color = Color.Gray.copy(0.6f),
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(0.6f),
         )
     }
 }
