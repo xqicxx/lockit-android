@@ -718,13 +718,13 @@ fun ConfigScreen(
                                     isCheckingUpdate = false
                                     if (result.isFailure) {
                                         val errorMsg = result.exceptionOrNull()?.message ?: "Unknown error"
-                                        // Provide specific guidance for common errors
-                                        // Note: AppUpdater returns descriptive messages, not numeric codes
+                                        // AppUpdater returns descriptive messages for common errors:
+                                        // - 403: "GitHub API rate limit exceeded..."
+                                        // - 404: "Release not found"
+                                        // - Other HTTP codes: "HTTP X"
                                         val detailedMessage = when {
                                             errorMsg.contains("rate limit", ignoreCase = true) -> context.getString(R.string.toast_rate_limit)
                                             errorMsg.contains("Release not found", ignoreCase = true) -> context.getString(R.string.toast_release_not_found)
-                                            errorMsg.contains("HTTP 404") -> "${context.getString(R.string.toast_private_repo_denied)} (Token needs 'repo' scope)"
-                                            errorMsg.contains("HTTP 403") -> context.getString(R.string.toast_rate_limit)
                                             else -> "${context.getString(R.string.toast_check_failed)} $errorMsg"
                                         }
                                         toastMessage = detailedMessage
@@ -911,7 +911,9 @@ private fun exportKeys(
                 app.vaultManager.getAllCredentials().first()
             }
             if (credentialsResult.isFailure) {
-                callback(null, "Vault locked or inaccessible")
+                withContext(Dispatchers.Main) {
+                    callback(null, "Vault locked or inaccessible")
+                }
                 return@launch
             }
             val credentials = credentialsResult.getOrNull() ?: emptyList()
