@@ -2,8 +2,9 @@ package com.lockit.data.audit
 
 import android.content.Context
 import androidx.core.content.edit
+import org.json.JSONArray
+import org.json.JSONObject
 import java.time.Instant
-import java.time.format.DateTimeFormatter
 
 /**
  * Audit log entry representing a security event.
@@ -20,6 +21,7 @@ enum class AuditSeverity { Info, Warning, Danger }
 /**
  * Simple audit log stored in SharedPreferences.
  * Logs are kept for display up to 30 days, export up to 1 year.
+ * Uses JSON format for reliable parsing (no delimiter collision issues).
  */
 class AuditLogger(context: Context) {
 
@@ -100,31 +102,68 @@ class AuditLogger(context: Context) {
     }
 
     private fun toJson(entries: List<AuditEntry>): String {
-        return entries.joinToString("|||") { entry ->
-            listOf(
-                entry.action,
-                entry.detail.replace("|||", " "),
-                entry.timestamp.toString(),
-                entry.severity.name,
-            ).joinToString("|")
+        val array = JSONArray()
+        entries.forEach { entry ->
+            val obj = JSONObject()
+            obj.put("action", entry.action)
+            obj.put("detail", entry.detail)
+            obj.put("timestamp", entry.timestamp)
+            obj.put("severity", entry.severity.name)
+            array.put(obj)
         }
+        return array.toString()
     }
 
     private fun parseJson(raw: String): List<AuditEntry> {
         if (raw.isBlank()) return emptyList()
+        // Handle legacy format migration
+        if (raw.contains("|||") && !raw.startsWith("[")) {
+            return parseLegacyFormat(raw)
+        }
+        return try {
+            val array = JSONArray(raw)
+            (0 until array.length()).mapNotNull { i ->
+                try {
+                    val obj = array.getJSONObject(i)
+                    AuditEntry(
+                        action = obj.getString("action"),
+                        detail = obj.optString("detail", ""),
+                        timestamp = obj.getLong("timestamp"),
+                        severity = try {
+                            AuditSeverity.valueOf(obj.getString("severity"))
+                        } catch (_: Exception) {
+                            AuditSeverity.Info
+                        },
+                    )
+                } catch (_: Exception) {
+                    null
+                }
+            }
+        } catch (_: Exception) {
+            emptyList()
+        }
+    }
+
+    // Legacy format parser for migration (delimiter: ||| for entries, | for fields)
+    private fun parseLegacyFormat(raw: String): List<AuditEntry> {
+        if (raw.isBlank()) return emptyList()
         return raw.split("|||").mapNotNull { line ->
             val parts = line.split("|")
             if (parts.size < 4) return@mapNotNull null
-            AuditEntry(
-                action = parts[0],
-                detail = parts[1],
-                timestamp = parts[2].toLong(),
-                severity = try {
-                    AuditSeverity.valueOf(parts[3])
-                } catch (_: Exception) {
-                    AuditSeverity.Info
-                },
-            )
+            try {
+                AuditEntry(
+                    action = parts[0],
+                    detail = parts[1],
+                    timestamp = parts[2].toLong(),
+                    severity = try {
+                        AuditSeverity.valueOf(parts[3])
+                    } catch (_: Exception) {
+                        AuditSeverity.Info
+                    },
+                )
+            } catch (_: Exception) {
+                null
+            }
         }
     }
 }
