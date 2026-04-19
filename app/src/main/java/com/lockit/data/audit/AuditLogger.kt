@@ -116,12 +116,8 @@ class AuditLogger(context: Context) {
 
     private fun parseJson(raw: String): List<AuditEntry> {
         if (raw.isBlank()) return emptyList()
-        // Handle legacy format migration - if it doesn't start with '[' it's legacy format
-        // (JSON arrays always start with '['; legacy format uses pipe delimiters)
-        val trimmed = raw.trimStart()
-        if (!trimmed.startsWith("[")) {
-            return parseLegacyFormat(raw)
-        }
+        // Try JSON parsing first, fallback to legacy format if it fails
+        // This is more robust than checking leading character
         return try {
             val array = JSONArray(raw)
             (0 until array.length()).mapNotNull { i ->
@@ -142,7 +138,8 @@ class AuditLogger(context: Context) {
                 }
             }
         } catch (_: Exception) {
-            emptyList()
+            // JSON parsing failed, try legacy format
+            parseLegacyFormat(raw)
         }
     }
 
