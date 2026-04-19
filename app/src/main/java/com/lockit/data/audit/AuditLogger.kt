@@ -116,8 +116,10 @@ class AuditLogger(context: Context) {
 
     private fun parseJson(raw: String): List<AuditEntry> {
         if (raw.isBlank()) return emptyList()
-        // Handle legacy format migration
-        if (raw.contains("|||") && !raw.startsWith("[")) {
+        // Handle legacy format migration - if it doesn't start with '[' it's legacy format
+        // (JSON arrays always start with '['; legacy format uses pipe delimiters)
+        val trimmed = raw.trimStart()
+        if (!trimmed.startsWith("[")) {
             return parseLegacyFormat(raw)
         }
         return try {
