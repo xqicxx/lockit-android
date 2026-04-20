@@ -14,17 +14,16 @@ object CodingPlanPrefs {
     private const val KEY_ACTIVE_PROVIDER = "active_provider"
 
     // Provider-specific keys stored as: "{provider}_{field}"
-    private val PROVIDER_FIELDS = listOf("cookie", "sec_token", "api_key", "accessToken", "accountId", "sessionKey", "orgId")
+    private val PROVIDER_FIELDS = listOf("cookie", "api_key", "accessToken", "accountId", "sessionKey", "orgId")
 
     private fun getPrefs(context: Context): SharedPreferences =
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
     // Legacy single-provider methods (backward compatible)
-    fun save(context: Context, provider: String, cookie: String, secToken: String, apiKey: String) {
+    fun save(context: Context, provider: String, cookie: String, apiKey: String) {
         getPrefs(context).edit()
             .putString(KEY_ACTIVE_PROVIDER, provider)
             .putString("${provider}_cookie", cookie)
-            .putString("${provider}_sec_token", secToken)
             .putString("${provider}_api_key", apiKey)
             .apply()
     }
@@ -58,7 +57,6 @@ object CodingPlanPrefs {
     // Legacy getters (backward compatible with qwen_bailian)
     fun getProvider(context: Context): String? = getActiveProvider(context)
     fun getCookie(context: Context): String? = getProviderData(context, "qwen_bailian")["cookie"]
-    fun getSecToken(context: Context): String? = getProviderData(context, "qwen_bailian")["sec_token"]
     fun getApiKey(context: Context): String? = getProviderData(context, "qwen_bailian")["api_key"]
 
     fun hasData(context: Context): Boolean =

@@ -84,14 +84,6 @@ private fun extractCookieFromCurl(curl: String): String {
 }
 
 /**
- * Extract sec_token from curl command.
- */
-private fun extractSecTokenFromCurl(curl: String): String {
-    val secTokenRegex = Regex("""sec_token=([^&'\s]+)""")
-    return secTokenRegex.find(curl)?.groupValues?.getOrNull(1)?.trim() ?: ""
-}
-
-/**
  * Extract API key from curl command (Authorization header).
  */
 private fun extractApiKeyFromCurl(curl: String): String {
@@ -235,17 +227,24 @@ fun AddCredentialScreen(
 
                 // Fill in credentials based on provider
                 when (provider) {
-                    "qwen_bailian" -> {
+                    "qwen", "qwen_bailian" -> {
+                        // Fill RAW_CURL if available
+                        val rawCurl = dataMap["rawCurl"] ?: ""
+                        if (rawCurl.isNotBlank()) fieldValues[1] = rawCurl
+                        // Fill API_KEY if available
+                        dataMap["apiKey"]?.let { fieldValues[2] = it }
+                        // Fill COOKIE
                         dataMap["cookie"]?.let { fieldValues[3] = it }
-                        dataMap["sec_token"]?.let { fieldValues[4] = it }
+                        // Fill BASE_URL (index 4)
+                        dataMap["baseUrl"]?.let { fieldValues[4] = it }
                     }
-                    "chatgpt" -> {
+                    "openai", "chatgpt" -> {
                         dataMap["accessToken"]?.let { fieldValues[3] = it }
-                        dataMap["accountId"]?.let { fieldValues[4] = it }
+                        dataMap["baseUrl"]?.let { fieldValues[4] = it }
                     }
-                    "claude" -> {
+                    "anthropic", "claude" -> {
                         dataMap["sessionKey"]?.let { fieldValues[3] = it }
-                        dataMap["orgId"]?.let { fieldValues[4] = it }
+                        dataMap["baseUrl"]?.let { fieldValues[4] = it }
                     }
                 }
                 userEditedCookie = true
@@ -341,20 +340,15 @@ fun AddCredentialScreen(
             if (!userEditedCookie && extractedCookie.isNotBlank()) {
                 fieldValues[3] = extractedCookie
             }
-            // Extract sec_token (index 4)
-            val extractedSecToken = extractSecTokenFromCurl(value)
-            if (extractedSecToken.isNotBlank()) {
-                fieldValues[4] = extractedSecToken
-            }
             // Extract API key (index 2)
             val extractedApiKey = extractApiKeyFromCurl(value)
             if (extractedApiKey.isNotBlank()) {
                 fieldValues[2] = extractedApiKey
             }
-            // Extract base URL (index 5)
+            // Extract base URL (index 4)
             val extractedBaseUrl = extractBaseUrlFromCurl(value)
             if (extractedBaseUrl.isNotBlank()) {
-                fieldValues[5] = extractedBaseUrl
+                fieldValues[4] = extractedBaseUrl
             }
         }
     }
@@ -412,87 +406,9 @@ fun AddCredentialScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // WebView auth section for CodingPlan type
-            if (selectedType == CredentialType.CodingPlan) {
-                // Provider selector
-                Text(
-                    text = stringResource(R.string.auth_provider_label),
-                    fontFamily = JetBrainsMonoFamily,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 10.sp,
-                    color = Primary,
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    listOf("qwen_bailian", "chatgpt", "claude").forEach { provider ->
-                        val isSelected = selectedAuthProvider == provider
-                        val label = when (provider) {
-                            "qwen_bailian" -> stringResource(R.string.provider_qwen)
-                            "chatgpt" -> stringResource(R.string.provider_chatgpt)
-                            "claude" -> stringResource(R.string.provider_claude)
-                            else -> provider
-                        }
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .background(if (isSelected) IndustrialOrange.copy(alpha = 0.15f) else MaterialTheme.colorScheme.surfaceContainerHighest)
-                                .border(1.dp, if (isSelected) IndustrialOrange else Primary)
-                                .clickable { selectedAuthProvider = provider }
-                                .padding(vertical = 8.dp, horizontal = 4.dp),
-                        ) {
-                            Text(
-                                text = label,
-                                fontFamily = JetBrainsMonoFamily,
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                fontSize = 10.sp,
-                                color = if (isSelected) IndustrialOrange else MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.align(Alignment.Center),
-                            )
-                        }
-                    }
-                }
-                Spacer(modifier = Modifier.height(12.dp))
-
-                // WebView login button
-                BrutalistButton(
-                    text = stringResource(R.string.auth_webview_button),
-                    onClick = {
-                        val intent = WebViewAuthActivity.createIntent(context, selectedAuthProvider)
-                        webViewAuthLauncher.launch(intent)
-                    },
-                    variant = ButtonVariant.Secondary,
-                    modifier = Modifier.fillMaxWidth(),
-                    useMonoFont = true,
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-
-                // Credential status
-                authCredentialStatus?.let { status ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(
-                            text = when (status) {
-                                "success" -> stringResource(R.string.auth_credential_success)
-                                "failed" -> stringResource(R.string.auth_credential_failed)
-                                else -> ""
-                            },
-                            fontFamily = JetBrainsMonoFamily,
-                            fontSize = 10.sp,
-                            color = when (status) {
-                                "success" -> IndustrialOrange
-                                "failed" -> TacticalRed
-                                else -> Primary
-                            },
-                        )
-                    }
-                }
-                Spacer(modifier = Modifier.height(16.dp))
-            }
+            // WebView auth section for CodingPlan type - hidden (no providers to show yet)
+            // Only show when there are 2+ existing CodingPlan credentials from different providers
+            // Provider selector removed - user can manually fill the form
 
             // Fields for selected type
             fields.forEachIndexed { index, field ->
@@ -604,10 +520,7 @@ fun AddCredentialScreen(
                                     val rawCookie = getField(3).takeIf { it.isNotBlank() }
                                         ?: extractCookieFromCurl(rawCurl)
                                     val cookie = rawCookie.replace("\n", "").replace("\r", "").trim()
-                                    // secToken: manual input or extract from curl
-                                    val rawSecToken = getField(4).takeIf { it.isNotBlank() }
-                                        ?: extractSecTokenFromCurl(rawCurl)
-                                    val baseUrl = getField(5).takeIf { it.isNotBlank() }
+                                    val baseUrl = getField(4).takeIf { it.isNotBlank() }
                                         ?: extractBaseUrlFromCurl(rawCurl)
 
                                     // Save to SharedPreferences for immediate prefetch on app startup
@@ -615,7 +528,6 @@ fun AddCredentialScreen(
                                         context = app,
                                         provider = provider,
                                         cookie = cookie,
-                                        secToken = rawSecToken,
                                         apiKey = apiKey ?: "",
                                     )
 
@@ -624,7 +536,6 @@ fun AddCredentialScreen(
                                         put("rawCurl", rawCurl)
                                         put("apiKey", apiKey)
                                         put("cookie", cookie)
-                                        put("secToken", rawSecToken)
                                         put("baseUrl", baseUrl)
                                     }.toString()
                                 } else {

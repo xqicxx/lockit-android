@@ -1,5 +1,8 @@
 package com.lockit.ui.screens.edit_credential
 
+import android.app.Activity
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
@@ -25,9 +28,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lockit.LockitApp
+import com.lockit.R
 import com.lockit.domain.model.Credential
 import com.lockit.domain.model.CredentialType
 import com.lockit.domain.model.requiredFieldIndices
@@ -42,7 +49,10 @@ import com.lockit.ui.components.DropdownWithCustomInput
 import com.lockit.ui.components.ScreenHero
 import com.lockit.ui.components.ChipGroup
 import com.lockit.ui.components.parseCredentialFields
+import com.lockit.ui.screens.auth.WebViewAuthActivity
+import com.lockit.ui.theme.IndustrialOrange
 import com.lockit.ui.theme.JetBrainsMonoFamily
+import com.lockit.ui.theme.Primary
 import com.lockit.ui.theme.TacticalRed
 import com.lockit.ui.theme.White
 import kotlinx.coroutines.flow.first
@@ -126,7 +136,6 @@ private fun EditCredentialForm(
             val meta = runCatching { JSONObject(credential.metadata) }.getOrNull()
             val cookie = meta?.optString("cookie")
             val rawCurl = meta?.optString("rawCurl")
-            val secToken = meta?.optString("secToken")
             val baseUrl = meta?.optString("baseUrl")
 
             mutableStateListOf(
@@ -134,8 +143,7 @@ private fun EditCredentialForm(
                 if (rawCurl?.isNotBlank() == true) rawCurl else fields.getOrElse(1) { "" },  // 1: RAW_CURL
                 fields.getOrElse(2) { "" },                               // 2: API_KEY
                 if (cookie?.isNotBlank() == true) cookie else fields.getOrElse(3) { "" },    // 3: COOKIE
-                if (secToken?.isNotBlank() == true) secToken else fields.getOrElse(4) { "" }, // 4: SEC_TOKEN
-                if (baseUrl?.isNotBlank() == true) baseUrl else fields.getOrElse(5) { "" },  // 5: BASE_URL
+                if (baseUrl?.isNotBlank() == true) baseUrl else fields.getOrElse(4) { "" },  // 4: BASE_URL
             )
         } else {
             // For non-CodingPlan types: parse combined value into individual fields
@@ -163,7 +171,41 @@ private fun EditCredentialForm(
     var saveError: String? by remember { mutableStateOf(null) }
     var nameWarning by remember { mutableStateOf<String?>(null) }
 
+    var authCredentialStatus by remember { mutableStateOf<String?>(null) }
+
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+
+    // WebView auth launcher
+    val webViewAuthLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == WebViewAuthActivity.RESULT_SUCCESS) {
+            val credentialData = result.data?.getStringExtra(WebViewAuthActivity.EXTRA_CREDENTIAL_DATA)
+            if (credentialData != null) {
+                val json = JSONObject(credentialData)
+                val dataMap = mutableMapOf<String, String>()
+                json.keys().forEach { key ->
+                    dataMap[key] = json.optString(key, "")
+                }
+
+                // Fill in credentials for qwen_bailian
+                when (dataMap["provider"]) {
+                    "qwen", "qwen_bailian" -> {
+                        val rawCurl = dataMap["rawCurl"] ?: ""
+                        if (rawCurl.isNotBlank()) fieldValues[1] = rawCurl
+                        dataMap["apiKey"]?.let { fieldValues[2] = it }
+                        dataMap["cookie"]?.let { fieldValues[3] = it }
+                        dataMap["baseUrl"]?.let { fieldValues[4] = it }
+                    }
+                }
+                userEditedCookie = true
+                authCredentialStatus = "success"
+            }
+        } else if (result.resultCode == WebViewAuthActivity.RESULT_FAILED) {
+            authCredentialStatus = "failed"
+        }
+    }
 
     val fields by remember(selectedType) {
         derivedStateOf { selectedType.fields }
@@ -215,12 +257,6 @@ private fun EditCredentialForm(
         return cookieRegex.find(curl)?.groupValues?.getOrNull(2)?.trim() ?: ""
     }
 
-    /** Extract sec_token from curl command */
-    fun extractSecTokenFromCurl(curl: String): String {
-        val secTokenRegex = Regex("""sec_token[=]+([^&\s'"]+)""")
-        return secTokenRegex.find(curl)?.groupValues?.getOrNull(1)?.trim() ?: ""
-    }
-
     /** Auto-extract cookie from RAW_CURL and fill COOKIE field for CodingPlan */
     fun handleRawCurlChange(value: String) {
         fieldValues[1] = value
@@ -228,11 +264,6 @@ private fun EditCredentialForm(
             val extractedCookie = extractCookieFromCurl(value)
             if (!userEditedCookie && extractedCookie.isNotBlank()) {
                 fieldValues[3] = extractedCookie
-            }
-            // Extract sec_token (index 4)
-            val extractedSecToken = extractSecTokenFromCurl(value)
-            if (extractedSecToken.isNotBlank()) {
-                fieldValues[4] = extractedSecToken
             }
         }
     }
@@ -272,6 +303,40 @@ private fun EditCredentialForm(
             )
 
             Spacer(modifier = Modifier.height(16.dp))
+
+            // WebView auth button for CodingPlan type
+            if (selectedType == CredentialType.CodingPlan && app.vaultManager.isUnlocked()) {
+                BrutalistButton(
+                    text = stringResource(R.string.auth_webview_update),
+                    onClick = {
+                        val intent = WebViewAuthActivity.createIntent(context, "qwen_bailian")
+                        webViewAuthLauncher.launch(intent)
+                    },
+                    variant = ButtonVariant.Secondary,
+                    modifier = Modifier.fillMaxWidth(),
+                    useMonoFont = true,
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+
+                authCredentialStatus?.let { status ->
+                    Text(
+                        text = when (status) {
+                            "success" -> stringResource(R.string.auth_credential_success)
+                            "failed" -> stringResource(R.string.auth_credential_failed)
+                            else -> ""
+                        },
+                        fontFamily = JetBrainsMonoFamily,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = when (status) {
+                            "success" -> IndustrialOrange
+                            "failed" -> TacticalRed
+                            else -> Primary
+                        },
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+            }
 
             // Dynamic fields
             fields.forEachIndexed { index, field ->
@@ -387,8 +452,7 @@ private fun EditCredentialForm(
                                             put("rawCurl", getField(1))
                                             put("apiKey", getField(2))
                                             put("cookie", cookie)
-                                            put("secToken", getField(4))
-                                            put("baseUrl", getField(5))
+                                            put("baseUrl", getField(4))
                                         }.toString()
                                     } else {
                                         null

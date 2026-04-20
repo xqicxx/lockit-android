@@ -197,7 +197,7 @@ fun VaultExplorerScreen(
             CopyAction.VALUE -> extractSecretValue(credential.type, credential.value)
             CopyAction.STRUCTURED -> buildJsonStructured(credential, fields)
             CopyAction.API_KEY -> fields.getOrNull(2)?.takeIf { it.isNotBlank() } ?: return
-            CopyAction.BASE_URL -> fields.getOrNull(5)?.takeIf { it.isNotBlank() } ?: return
+            CopyAction.BASE_URL -> fields.getOrNull(4)?.takeIf { it.isNotBlank() } ?: return
             CopyAction.EMAIL -> buildEmailAddress(fields)
             CopyAction.PHONE -> fields.getOrNull(1)?.takeIf { it.isNotBlank() } ?: credential.service
         }

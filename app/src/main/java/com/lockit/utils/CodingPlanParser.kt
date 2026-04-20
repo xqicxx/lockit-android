@@ -29,7 +29,6 @@ object CodingPlanParser {
     private val DATA_RAW_SINGLE_REGEX = Regex("--data-raw\\s+'([^']*)'", RegexOption.DOT_MATCHES_ALL)
     private val DATA_RAW_DOUBLE_REGEX = Regex("--data-raw\\s+\"([^\"]*)\"", RegexOption.DOT_MATCHES_ALL)
     private val REGION_REGEX = Regex("region=([^&\\s]+)")
-    private val SEC_TOKEN_REGEX = Regex("sec_token=([^&\\s]+)")
 
     private fun extractField(json: String, fieldName: String): String {
         return Regex("\"${Regex.escape(fieldName)}\"\\s*:\\s*\"([^\"]+)\"")
@@ -51,7 +50,6 @@ object CodingPlanParser {
         dataMatch?.let { rawParams = it.groupValues[1] }
 
         REGION_REGEX.find(raw)?.let { extraFields["region"] = it.groupValues[1] }
-        SEC_TOKEN_REGEX.find(raw)?.let { extraFields["sec_token"] = it.groupValues[1] }
 
         val decodedParams = try {
             URLDecoder.decode(rawParams, "UTF-8")

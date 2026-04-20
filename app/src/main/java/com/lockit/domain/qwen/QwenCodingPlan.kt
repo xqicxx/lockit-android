@@ -13,13 +13,12 @@ import java.net.URL
  *
  * 使用方法：
  * 1. 在阿里云百炼控制台获取 curl 命令
- * 2. 从 curl 中提取 cookie 和 sec_token
+ * 2. 从 curl 中提取 cookie
  * 3. 存入 credential metadata
  *
  * Metadata 需要的字段：
  * - provider: "qwen_bailian"
  * - cookie: 完整的 cookie 字符串
- * - secToken: sec_token 参数值
  */
 object QwenCodingPlan : CodingPlanFetcher {
     override val providerKey: String = "qwen_bailian"
@@ -34,13 +33,13 @@ object QwenCodingPlan : CodingPlanFetcher {
             val sanitizedCookie = cookie.sanitize()
 
             try {
-                fetchFromApi(sanitizedCookie, metadata["secToken"] ?: "")
+                fetchFromApi(sanitizedCookie)
             } catch (e: Exception) {
                 null
             }
         }
 
-    private fun fetchFromApi(cookie: String, secToken: String): CodingPlanQuota? {
+    private fun fetchFromApi(cookie: String): CodingPlanQuota? {
         val url = URL(API_URL)
         val conn = url.openConnection() as HttpURLConnection
 
@@ -51,7 +50,7 @@ object QwenCodingPlan : CodingPlanFetcher {
         conn.useCaches = false
 
         conn.setupHeaders(cookie)
-        conn.writeBody(secToken)
+        conn.writeBody()
 
         val response = conn.readResponse()
         conn.disconnect()
@@ -71,10 +70,9 @@ object QwenCodingPlan : CodingPlanFetcher {
         doOutput = true
     }
 
-    private fun HttpURLConnection.writeBody(secToken: String) {
+    private fun HttpURLConnection.writeBody() {
         val paramsJson = buildParamsJson()
-        val body = "params=${java.net.URLEncoder.encode(paramsJson, "UTF-8")}&region=cn-beijing" +
-            if (secToken.isNotBlank()) "&sec_token=${secToken}" else ""
+        val body = "params=${java.net.URLEncoder.encode(paramsJson, "UTF-8")}&region=cn-beijing"
 
         outputStream.use { it.write(body.toByteArray()) }
     }

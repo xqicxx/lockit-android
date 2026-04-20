@@ -201,7 +201,7 @@
 
     <!-- Footer -->
     <string name="footer_system_info">> 系统信息:</string>
-    <string name="footer_version">LOCKIT_ANDROID v0.2.3</string>
+    <string name="footer_version">LOCKIT_ANDROID v0.2.4</string>
     <string name="footer_compatible">兼容CLI v0.2.3</string>
     <string name="footer_design">设计: 技术野性主义V1</string>
 
@@ -330,6 +330,7 @@
     <!-- WebView Auth -->
     <string name="auth_provider_label">认证服务</string>
     <string name="auth_webview_button">WebView 一键登录</string>
+    <string name="auth_webview_update">一键更新</string>
     <string name="auth_credential_success">凭证已获取</string>
     <string name="auth_credential_failed">获取失败，请重试</string>
 </resources>

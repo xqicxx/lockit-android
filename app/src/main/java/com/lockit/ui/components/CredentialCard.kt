@@ -455,7 +455,7 @@ private fun CredentialContent(
         CredentialType.CodingPlan -> {
             // CodingPlan: BASE_URL first, then API_KEY below
             val apiKey = fields.getNotBlank(2) ?: CredentialDefaults.FIELD_NOT_SET
-            val baseUrl = fields.getNotBlank(5) ?: CredentialDefaults.FIELD_NOT_SET
+            val baseUrl = fields.getNotBlank(4) ?: CredentialDefaults.FIELD_NOT_SET
 
             // BASE_URL - always visible, shown first at top
             FieldLabel("BASE_URL")

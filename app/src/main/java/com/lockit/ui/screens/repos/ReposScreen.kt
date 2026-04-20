@@ -421,12 +421,21 @@ fun ReposScreen(
                         selectedProvider = selectedProvider,
                         onRefresh = { viewModel.fetchCodingPlanQuota(force = true) },
                     )
-                    // Provider switcher cards
+                    // Provider switcher cards - only show if 2+ providers exist
                     Spacer(modifier = Modifier.height(8.dp))
-                    ProviderCardsRow(
-                        selectedProvider = selectedProvider,
-                        onSelect = { viewModel.selectProvider(it) },
-                    )
+                    // Get unique providers from existing CodingPlan credentials
+                    val existingProviders = codingPlanCredentials.mapNotNull { cred ->
+                        runCatching {
+                            JSONObject(cred.metadata).optString("provider")
+                        }.getOrNull()?.takeIf { it.isNotBlank() }
+                    }.distinct()
+                    if (existingProviders.size >= 2) {
+                        ProviderCardsRow(
+                            selectedProvider = selectedProvider,
+                            existingProviders = existingProviders,
+                            onSelect = { viewModel.selectProvider(it) },
+                        )
+                    }
                     Spacer(modifier = Modifier.height(16.dp))
                 }
 
@@ -530,7 +539,7 @@ fun ReposScreen(
                             CopyAction.EMAIL -> buildEmailAddress(fields)
                             CopyAction.PHONE -> fields.getOrNull(1)?.takeIf { it.isNotBlank() } ?: cred.service
                             CopyAction.API_KEY -> fields.getOrNull(2)?.takeIf { it.isNotBlank() } ?: extractSecretValue(cred.type, cred.value)
-                            CopyAction.BASE_URL -> fields.getOrNull(5)?.takeIf { it.isNotBlank() } ?: extractSecretValue(cred.type, cred.value)
+                            CopyAction.BASE_URL -> fields.getOrNull(4)?.takeIf { it.isNotBlank() } ?: extractSecretValue(cred.type, cred.value)
                         }
                         clipboardManager.setText(AnnotatedString(valueToCopy))
                         viewModel.logCredentialCopied(cred.name)
@@ -1158,9 +1167,11 @@ private fun QuotaGauge(label: String, used: Int, total: Int, modifier: Modifier 
 @Composable
 private fun ProviderCardsRow(
     selectedProvider: String,
+    existingProviders: List<String>,
     onSelect: (String) -> Unit,
 ) {
-    val providers = listOf(
+    // Provider label mapping
+    val providerLabels = mapOf(
         "qwen_bailian" to stringResource(R.string.provider_qwen),
         "chatgpt" to stringResource(R.string.provider_chatgpt),
         "claude" to stringResource(R.string.provider_claude),
@@ -1170,14 +1181,15 @@ private fun ProviderCardsRow(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        providers.forEach { (key, label) ->
-            val isSelected = selectedProvider == key
+        existingProviders.forEach { provider ->
+            val label = providerLabels[provider] ?: provider
+            val isSelected = selectedProvider == provider
             Box(
                 modifier = Modifier
                     .weight(1f)
                     .background(if (isSelected) IndustrialOrange.copy(alpha = 0.15f) else SurfaceHighest)
                     .border(1.dp, if (isSelected) IndustrialOrange else Primary)
-                    .clickable { onSelect(key) }
+                    .clickable { onSelect(provider) }
                     .padding(vertical = 8.dp, horizontal = 4.dp),
             ) {
                 Text(

@@ -235,7 +235,6 @@ enum class CredentialType(
             CredentialField("RAW_CURL", "Paste curl command (auto-extracts all fields)..."),
             CredentialField("API_KEY", "API key (required)...", required = true),
             CredentialField("COOKIE", "Bailian console cookie..."),
-            CredentialField("SEC_TOKEN", "sec_token for quota fetch..."),
             CredentialField("BASE_URL", "Select base URL (required)", presets = listOf(
                 "https://coding.dashscope.aliyuncs.com/v1",
                 "https://coding.dashscope.aliyuncs.com/apps/anthropic",
@@ -284,8 +283,8 @@ val CredentialType.requiredFieldIndices: Set<Int>
         CredentialType.Email -> setOf(0, 1, 2)  // service + prefix + password
         CredentialType.IdCard -> setOf(0)
         CredentialType.Note -> setOf(0)
-        // CodingPlan: API_KEY (index 2) and BASE_URL (index 5) are required
-        CredentialType.CodingPlan -> setOf(2, 5)
+        // CodingPlan: API_KEY (index 2) and BASE_URL (index 4) are required
+        CredentialType.CodingPlan -> setOf(2, 4)
         // Default: first + last field required
         else -> setOf(0, fields.lastIndex)
     }
