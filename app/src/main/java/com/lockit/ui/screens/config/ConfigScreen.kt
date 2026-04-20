@@ -43,6 +43,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -50,6 +51,7 @@ import androidx.compose.ui.unit.sp
 import com.lockit.LockitApp
 import com.lockit.R
 import com.lockit.data.database.LockitDatabase
+import com.lockit.data.biometric.BiometricPinStorage
 import com.lockit.data.sync.GoogleDriveSyncManager
 import com.lockit.data.updater.AppUpdater
 import com.lockit.data.updater.GitHubRelease
@@ -71,6 +73,8 @@ import com.lockit.ui.theme.ThemeMode
 import com.lockit.ui.theme.ThemePreference
 import com.lockit.ui.theme.White
 import com.lockit.utils.LocaleHelper
+import com.lockit.utils.BiometricUtils
+import androidx.fragment.app.FragmentActivity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -87,9 +91,24 @@ fun ConfigScreen(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val view = LocalView.current
+
+    fun getActivity(): FragmentActivity? {
+        var ctx = view.context
+        while (ctx is android.content.ContextWrapper) {
+            if (ctx is FragmentActivity) return ctx
+            ctx = ctx.baseContext
+        }
+        return null
+    }
 
     var showChangePinDialog by remember { mutableStateOf(false) }
+    var showLinkBiometricDialog by remember { mutableStateOf(false) }
     var toastMessage by remember { mutableStateOf<String?>(null) }
+
+    // Biometric status
+    val biometricStorage = remember { BiometricPinStorage(context.getSharedPreferences("lockit_biometric_prefs", android.content.Context.MODE_PRIVATE)) }
+    var isBiometricLinked by remember { mutableStateOf(biometricStorage.isBiometricLinked()) }
 
     // App update
     val appUpdater = remember { AppUpdater(context) }
@@ -153,6 +172,23 @@ fun ConfigScreen(
             onSuccess = {
                 showChangePinDialog = false
                 toastMessage = context.getString(R.string.toast_password_changed)
+            },
+        )
+    }
+
+    if (showLinkBiometricDialog) {
+        LinkBiometricDialog(
+            app = app,
+            biometricStorage = biometricStorage,
+            onDismiss = { showLinkBiometricDialog = false },
+            onSuccess = {
+                showLinkBiometricDialog = false
+                isBiometricLinked = true
+                toastMessage = context.getString(R.string.toast_biometric_linked)
+            },
+            onError = { err ->
+                showLinkBiometricDialog = false
+                toastMessage = err
             },
         )
     }
@@ -258,6 +294,16 @@ fun ConfigScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
+            // Biometric Status Section
+            ConfigSection(
+                title = stringResource(R.string.config_biometric_status),
+                items = listOf(
+                    stringResource(R.string.config_biometric_linked) to if (isBiometricLinked) stringResource(R.string.config_yes) else stringResource(R.string.config_no),
+                ),
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
+
             // Actions Section
             ConfigSection(
                 title = stringResource(R.string.config_actions),
@@ -281,6 +327,31 @@ fun ConfigScreen(
                             modifier = Modifier.fillMaxWidth(),
                             useMonoFont = true,
                         )
+                        // Biometric button - show link or unlink based on state
+                        if (isBiometricLinked) {
+                            BrutalistButton(
+                                text = stringResource(R.string.config_unlink_biometric),
+                                onClick = {
+                                    // Use unlink() to only remove encrypted PIN, preserve prompt tracker
+                                    biometricStorage.unlink()
+                                    isBiometricLinked = false
+                                    toastMessage = context.getString(R.string.toast_biometric_unlinked)
+                                },
+                                variant = ButtonVariant.Danger,
+                                modifier = Modifier.fillMaxWidth(),
+                                useMonoFont = true,
+                            )
+                        } else {
+                            BrutalistButton(
+                                text = stringResource(R.string.config_link_biometric),
+                                onClick = {
+                                    showLinkBiometricDialog = true
+                                },
+                                variant = ButtonVariant.Primary,
+                                modifier = Modifier.fillMaxWidth(),
+                                useMonoFont = true,
+                            )
+                        }
                         BrutalistButton(
                             text = stringResource(R.string.config_export_keys),
                             onClick = {
@@ -899,6 +970,155 @@ private fun ChangePasswordDialog(
                     modifier = Modifier.weight(1f),
                     useMonoFont = true,
                     enabled = !isUpdating,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun LinkBiometricDialog(
+    app: LockitApp,
+    biometricStorage: BiometricPinStorage,
+    onDismiss: () -> Unit,
+    onSuccess: () -> Unit,
+    onError: (String) -> Unit,
+) {
+    var pin by remember { mutableStateOf("") }
+    var error by remember { mutableStateOf<String?>(null) }
+    var isLinking by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    val view = LocalView.current
+
+    fun getActivity(): FragmentActivity? {
+        var ctx = view.context
+        while (ctx is android.content.ContextWrapper) {
+            if (ctx is FragmentActivity) return ctx
+            ctx = ctx.baseContext
+        }
+        return null
+    }
+
+    androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                .border(2.dp, MaterialTheme.colorScheme.primary)
+                .padding(24.dp),
+        ) {
+            Text(
+                text = stringResource(R.string.config_link_biometric),
+                fontFamily = JetBrainsMonoFamily,
+                fontWeight = FontWeight.Bold,
+                fontSize = 14.sp,
+                color = Primary,
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = stringResource(R.string.config_link_biometric_desc),
+                fontFamily = JetBrainsMonoFamily,
+                fontSize = 10.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+
+            error?.let {
+                Text(
+                    text = it,
+                    fontFamily = JetBrainsMonoFamily,
+                    fontSize = 10.sp,
+                    color = TacticalRed,
+                    modifier = Modifier.border(1.dp, TacticalRed).padding(8.dp),
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+
+            BrutalistTextField(
+                value = pin,
+                onValueChange = { if (it.length <= 4) { pin = it; error = null } },
+                label = stringResource(R.string.change_pin_current),
+                placeholder = stringResource(R.string.change_pin_placeholder),
+                isPassword = true,
+            )
+            Spacer(modifier = Modifier.height(24.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                BrutalistButton(
+                    text = stringResource(R.string.btn_cancel),
+                    onClick = onDismiss,
+                    variant = ButtonVariant.Secondary,
+                    modifier = Modifier.weight(1f),
+                    useMonoFont = true,
+                )
+                BrutalistButton(
+                    text = if (isLinking) "LINKING..." else "LINK",
+                    onClick = {
+                        if (isLinking) return@BrutalistButton
+                        if (pin.length < 4) {
+                            error = context.getString(R.string.error_pin_too_short)
+                            return@BrutalistButton
+                        }
+
+                        // Capture PIN value BEFORE async verification to prevent race condition
+                        // If user modifies input during async operation, we verify/store the original value
+                        val pinToVerify = pin
+
+                        // Set linking state immediately to prevent race condition (multiple clicks)
+                        isLinking = true
+
+                        // First verify PIN is correct
+                        scope.launch {
+                            val verifyResult = withContext(Dispatchers.IO) {
+                                app.vaultManager.unlockVault(pinToVerify)
+                            }
+                            if (verifyResult.isFailure) {
+                                isLinking = false
+                                error = context.getString(R.string.error_wrong_pin)
+                                return@launch
+                            }
+
+                            // PIN verified, now link biometric
+                            val activity = getActivity()
+                            if (activity == null) {
+                                isLinking = false
+                                error = "ACTIVITY_NOT_AVAILABLE"
+                                return@launch
+                            }
+
+                            // Use stricter check matching BiometricPinStorage requirement (BIOMETRIC_STRONG only)
+                            // BiometricUtils allows DEVICE_CREDENTIAL fallback which won't work with hardware-backed keys
+                            if (!biometricStorage.canAuthenticate(activity)) {
+                                isLinking = false
+                                error = context.getString(R.string.error_biometric_not_available)
+                                return@launch
+                            }
+
+                            // Use the captured PIN value, NOT the mutable pin state
+                            biometricStorage.storePin(
+                                activity = activity,
+                                pin = pinToVerify,
+                                title = context.getString(R.string.biometric_link_pin_title),
+                                subtitle = context.getString(R.string.biometric_link_pin_subtitle),
+                                onSuccess = {
+                                    isLinking = false
+                                    onSuccess()
+                                },
+                                onError = { err ->
+                                    isLinking = false
+                                    error = err
+                                },
+                            )
+                        }
+                    },
+                    variant = ButtonVariant.Primary,
+                    modifier = Modifier.weight(1f),
+                    useMonoFont = true,
+                    enabled = !isLinking,
                 )
             }
         }

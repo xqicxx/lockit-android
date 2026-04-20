@@ -40,6 +40,7 @@
     <string name="error_enter_pin_first">ENTER_PIN_FIRST_TO_LINK</string>
     <string name="error_biometric_failed">BIOMETRIC_FAILED</string>
     <string name="error_biometric_link_failed">BIOMETRIC_LINK_FAILED</string>
+    <string name="error_biometric_not_available">BIOMETRIC_NOT_AVAILABLE</string>
 
     <!-- Vault Explorer Screen -->
     <string name="explorer_title">Vault Explorer</string>
@@ -72,6 +73,17 @@
     <string name="config_argon2id">ARGON2ID</string>
     <string name="config_storage">STORAGE</string>
     <string name="config_sqlite">LOCAL_SQLITE</string>
+
+    <string name="config_biometric_status">BIOMETRIC_STATUS</string>
+    <string name="config_biometric_linked">BIOMETRIC_LINKED</string>
+    <string name="config_yes">YES</string>
+    <string name="config_no">NO</string>
+    <string name="config_link_biometric">LINK_BIOMETRIC</string>
+    <string name="config_unlink_biometric">UNLINK_BIOMETRIC</string>
+    <string name="config_link_biometric_desc">Use fingerprint to unlock vault quickly.</string>
+    <string name="config_unlink_biometric_desc">Remove fingerprint unlock, use PIN only.</string>
+    <string name="toast_biometric_linked">BIOMETRIC_LINKED</string>
+    <string name="toast_biometric_unlinked">BIOMETRIC_UNLINKED</string>
 
     <string name="config_actions">ACTIONS</string>
     <string name="config_lock_vault">LOCK_VAULT</string>
