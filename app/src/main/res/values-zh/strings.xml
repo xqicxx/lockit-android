@@ -191,6 +191,13 @@
     <string name="toast_token_source_set">Token来源设置:</string>
     <string name="toast_credential_deleted">凭据已删除:</string>
     <string name="toast_copied">已复制</string>
+    <string name="toast_argon2_upgraded">Argon2已升级到OWASP标准</string>
+
+    <!-- Argon2 Upgrade -->
+    <string name="config_argon2_upgrade_title">Argon2参数可升级</string>
+    <string name="config_argon2_upgrade_desc">升级到OWASP推荐参数 (64MB/3/4) 以增强安全性</string>
+    <string name="config_argon2_upgrade_btn">升级Argon2</string>
+    <string name="config_argon2_upgrade_dialog_desc">输入PIN以升级Argon2参数。将使用OWASP推荐设置(64MB内存/3迭代/4并行)重新派生主密钥。解锁时间可能略有增加。</string>
 
     <!-- Footer -->
     <string name="footer_system_info">> 系统信息:</string>

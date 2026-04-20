@@ -254,6 +254,16 @@ class VaultManager(
      */
     fun getCryptoConstants(): com.lockit.data.crypto.CryptoConstants = com.lockit.data.crypto.CryptoConstants
 
+    /**
+     * Check if vault needs Argon2 upgrade.
+     */
+    fun needsArgon2Upgrade(): Boolean = keyManager.needsArgon2Upgrade()
+
+    /**
+     * Upgrade Argon2 parameters to OWASP recommended values.
+     */
+    fun upgradeArgon2Params(password: String): Result<Unit> = keyManager.upgradeArgon2Params(password)
+
     private fun decryptCredential(entity: CredentialEntity, masterKey: ByteArray): Credential {
         val decryptedValue = crypto.decrypt(entity.value, masterKey)
             .decodeToString()

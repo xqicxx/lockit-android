@@ -113,6 +113,7 @@ fun ConfigScreen(
 
     var showChangePinDialog by remember { mutableStateOf(false) }
     var showLinkBiometricDialog by remember { mutableStateOf(false) }
+    var showArgon2UpgradeDialog by remember { mutableStateOf(false) }
     var toastMessage by remember { mutableStateOf<String?>(null) }
 
     // Biometric status
@@ -197,6 +198,21 @@ fun ConfigScreen(
             },
             onError = { err ->
                 showLinkBiometricDialog = false
+                toastMessage = err
+            },
+        )
+    }
+
+    if (showArgon2UpgradeDialog) {
+        Argon2UpgradeDialog(
+            app = app,
+            onDismiss = { showArgon2UpgradeDialog = false },
+            onSuccess = {
+                showArgon2UpgradeDialog = false
+                toastMessage = context.getString(R.string.toast_argon2_upgraded)
+            },
+            onError = { err ->
+                showArgon2UpgradeDialog = false
                 toastMessage = err
             },
         )
@@ -528,6 +544,43 @@ fun ConfigScreen(
                 ),
             )
 
+            // Argon2 Upgrade Section - Show if legacy params detected
+            if (app.vaultManager.needsArgon2Upgrade()) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(IndustrialOrange.copy(alpha = 0.1f))
+                        .border(1.dp, IndustrialOrange)
+                        .padding(12.dp),
+                ) {
+                    Column {
+                        Text(
+                            text = stringResource(R.string.config_argon2_upgrade_title),
+                            fontFamily = JetBrainsMonoFamily,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 12.sp,
+                            color = IndustrialOrange,
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = stringResource(R.string.config_argon2_upgrade_desc),
+                            fontFamily = JetBrainsMonoFamily,
+                            fontSize = 10.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        BrutalistButton(
+                            text = stringResource(R.string.config_argon2_upgrade_btn),
+                            onClick = { showArgon2UpgradeDialog = true },
+                            variant = ButtonVariant.Secondary,
+                            modifier = Modifier.fillMaxWidth(),
+                            useMonoFont = true,
+                        )
+                    }
+                }
+            }
+
             Spacer(modifier = Modifier.height(24.dp))
 
             // Language Section
@@ -858,6 +911,112 @@ fun ConfigScreen(
                 message = message,
                 onDismiss = { toastMessage = null },
             )
+        }
+    }
+}
+
+/**
+ * Dialog to upgrade Argon2 parameters to OWASP recommended values.
+ */
+@Composable
+private fun Argon2UpgradeDialog(
+    app: LockitApp,
+    onDismiss: () -> Unit,
+    onSuccess: () -> Unit,
+    onError: (String) -> Unit,
+) {
+    var pin by remember { mutableStateOf("") }
+    var error by remember { mutableStateOf<String?>(null) }
+    var isUpgrading by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+
+    androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                .border(2.dp, IndustrialOrange)
+                .padding(24.dp),
+        ) {
+            Text(
+                text = stringResource(R.string.config_argon2_upgrade_title),
+                fontFamily = JetBrainsMonoFamily,
+                fontWeight = FontWeight.Bold,
+                fontSize = 14.sp,
+                color = IndustrialOrange,
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = stringResource(R.string.config_argon2_upgrade_dialog_desc),
+                fontFamily = JetBrainsMonoFamily,
+                fontSize = 10.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+
+            error?.let {
+                Text(
+                    text = it,
+                    fontFamily = JetBrainsMonoFamily,
+                    fontSize = 10.sp,
+                    color = TacticalRed,
+                    modifier = Modifier.border(1.dp, TacticalRed).padding(8.dp),
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+
+            BrutalistTextField(
+                value = pin,
+                onValueChange = { if (it.length <= 4) { pin = it; error = null } },
+                label = stringResource(R.string.change_pin_current),
+                placeholder = stringResource(R.string.change_pin_placeholder),
+                isPassword = true,
+            )
+            Spacer(modifier = Modifier.height(24.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                BrutalistButton(
+                    text = stringResource(R.string.btn_cancel),
+                    onClick = onDismiss,
+                    variant = ButtonVariant.Secondary,
+                    modifier = Modifier.weight(1f),
+                    useMonoFont = true,
+                )
+                BrutalistButton(
+                    text = if (isUpgrading) "UPGRADING..." else "UPGRADE",
+                    onClick = {
+                        if (isUpgrading) return@BrutalistButton
+                        if (pin.length < 4) {
+                            error = context.getString(R.string.error_pin_too_short)
+                            return@BrutalistButton
+                        }
+
+                        val pinToVerify = pin
+                        isUpgrading = true
+
+                        scope.launch {
+                            val result = withContext(Dispatchers.IO) {
+                                app.vaultManager.upgradeArgon2Params(pinToVerify)
+                            }
+                            if (result.isSuccess) {
+                                isUpgrading = false
+                                onSuccess()
+                            } else {
+                                isUpgrading = false
+                                error = result.exceptionOrNull()?.message ?: "UPGRADE_FAILED"
+                            }
+                        }
+                    },
+                    variant = ButtonVariant.Primary,
+                    modifier = Modifier.weight(1f),
+                    useMonoFont = true,
+                    enabled = !isUpgrading,
+                )
+            }
         }
     }
 }

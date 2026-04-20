@@ -67,6 +67,54 @@ class KeyManager(private val context: Context) {
     }
 
     /**
+     * Check if vault needs Argon2 upgrade (legacy params -> OWASP params).
+     */
+    fun needsArgon2Upgrade(): Boolean {
+        val (memory, iterations, parallelism) = getArgon2Params()
+        return memory != Argon2Params.MEMORY_OWASP ||
+               iterations != Argon2Params.ITERATIONS_OWASP ||
+               parallelism != Argon2Params.PARALLELISM_OWASP
+    }
+
+    /**
+     * Upgrade Argon2 parameters to OWASP recommended values.
+     * Requires vault to be unlocked and user password to re-derive key.
+     */
+    fun upgradeArgon2Params(password: String): Result<Unit> = runCatching {
+        if (!isUnlocked()) {
+            throw IllegalStateException("Vault must be unlocked before upgrade")
+        }
+
+        val salt = getSalt() ?: throw IllegalStateException("Vault not initialized")
+
+        // Re-derive master key with OWASP params
+        val newKey = crypto.deriveKey(
+            password,
+            salt,
+            Argon2Params.MEMORY_OWASP,
+            Argon2Params.ITERATIONS_OWASP,
+            Argon2Params.PARALLELISM_OWASP
+        )
+
+        // Verify the new key matches current master key (sanity check)
+        if (!newKey.contentEquals(masterKey!!)) {
+            newKey.fill(0)
+            throw IllegalStateException("Key derivation mismatch - wrong password")
+        }
+
+        // Update stored params and hash
+        val keyHash = hashKey(newKey)
+        prefs.edit(commit = true) {
+            putString("vault_key_hash", Base64.getEncoder().encodeToString(keyHash))
+            putInt("argon2_memory", Argon2Params.MEMORY_OWASP)
+            putInt("argon2_iterations", Argon2Params.ITERATIONS_OWASP)
+            putInt("argon2_parallelism", Argon2Params.PARALLELISM_OWASP)
+        }
+
+        newKey.fill(0) // Clean up temp copy
+    }
+
+    /**
      * Unlock the vault: derive master key from password and salt using stored Argon2 params,
      * then verify against the stored key hash.
      */

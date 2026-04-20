@@ -190,6 +190,13 @@
     <string name="toast_token_source_set">TOKEN_SOURCE_SET:</string>
     <string name="toast_credential_deleted">CREDENTIAL_DELETED:</string>
     <string name="toast_copied">_COPIED</string>
+    <string name="toast_argon2_upgraded">ARGON2_UPGRADED_TO_OWASP</string>
+
+    <!-- Argon2 Upgrade -->
+    <string name="config_argon2_upgrade_title">ARGON2_UPGRADE_AVAILABLE</string>
+    <string name="config_argon2_upgrade_desc">Upgrade to OWASP recommended params (64MB/3/4) for stronger security</string>
+    <string name="config_argon2_upgrade_btn">UPGRADE_ARGON2</string>
+    <string name="config_argon2_upgrade_dialog_desc">Enter your PIN to upgrade Argon2 parameters. This will re-derive your master key with OWASP recommended settings (64MB memory, 3 iterations, 4 parallelism). Unlock time may increase slightly.</string>
 
     <!-- Footer -->
     <string name="footer_system_info">> SYSTEM_INFO:</string>
