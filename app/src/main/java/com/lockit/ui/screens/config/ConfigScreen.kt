@@ -404,30 +404,6 @@ fun ConfigScreen(
                             )
                         }
                         BrutalistButton(
-                            text = stringResource(R.string.config_export_keys),
-                            onClick = {
-                                exportKeys(app, context, scope) { uri, error ->
-                                    if (error != null) {
-                                        toastMessage = error
-                                    } else if (uri != null) {
-                                        val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                                            type = "text/markdown"
-                                            putExtra(Intent.EXTRA_STREAM, uri)
-                                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                                        }
-                                        shareLauncher.launch(
-                                            Intent.createChooser(shareIntent, "Share Keys"),
-                                        )
-                                    } else {
-                                        toastMessage = context.getString(R.string.toast_keys_exported)
-                                    }
-                                }
-                            },
-                            variant = ButtonVariant.Primary,
-                            modifier = Modifier.fillMaxWidth(),
-                            useMonoFont = true,
-                        )
-                        BrutalistButton(
                             text = stringResource(R.string.config_export_logs),
                             onClick = {
                                 exportLogs(app, context, scope) { uri, error ->
@@ -1446,75 +1422,6 @@ private fun LinkBiometricDialog(
                     useMonoFont = true,
                     enabled = !isLinking,
                 )
-            }
-        }
-    }
-}
-
-private fun exportKeys(
-    app: LockitApp,
-    context: Context,
-    scope: kotlinx.coroutines.CoroutineScope,
-    callback: (android.net.Uri?, String?) -> Unit,
-) {
-    val timestamp = DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss").format(
-        java.time.LocalDateTime.now(),
-    )
-    val fileName = "lockit_keys_$timestamp.md"
-
-    scope.launch(Dispatchers.IO) {
-        try {
-            // Wrap in runCatching to handle race condition where vault gets locked
-            val credentialsResult = runCatching {
-                app.vaultManager.getAllCredentials().first()
-            }
-            if (credentialsResult.isFailure) {
-                withContext(Dispatchers.Main) {
-                    callback(null, "Vault locked or inaccessible")
-                }
-                return@launch
-            }
-            val credentials = credentialsResult.getOrNull() ?: emptyList()
-
-            val content = buildString {
-                appendLine("# Lockit Credentials Export")
-                appendLine()
-                appendLine("**Generated:** ${Instant.now()}")
-                appendLine("**Device:** ${android.os.Build.MODEL}")
-                appendLine("**Count:** ${credentials.size}")
-                appendLine()
-
-                if (credentials.isEmpty()) {
-                    appendLine("No credentials found.")
-                } else {
-                    credentials.forEachIndexed { index, credential ->
-                        appendLine("## ${credential.name.uppercase()}")
-                        appendLine("- **Service:** ${credential.service}")
-                        appendLine("- **Type:** ${credential.type.displayName}")
-                        appendLine("- **Key:** ${credential.key}")
-                        appendLine("- **Value:** ${credential.value}")
-                        appendLine("- **Created:** ${credential.formatUpdatedAt()}")
-                        appendLine()
-                    }
-                }
-
-                appendLine("---")
-                appendLine("*Warning: This file contains sensitive credentials. Store securely.*")
-            }
-
-            val file = File(context.cacheDir, fileName)
-            file.writeText(content)
-            val uri = androidx.core.content.FileProvider.getUriForFile(
-                context,
-                "${context.packageName}.fileprovider",
-                file,
-            )
-            withContext(Dispatchers.Main) {
-                callback(uri, null)
-            }
-        } catch (e: Exception) {
-            withContext(Dispatchers.Main) {
-                callback(null, "EXPORT_FAILED: ${e.message}")
             }
         }
     }

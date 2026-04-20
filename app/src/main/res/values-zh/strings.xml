@@ -90,7 +90,6 @@
     <string name="config_lock_vault">锁定密码库</string>
     <string name="config_lock_vault_desc">需要重新输入主密码才能继续。</string>
     <string name="config_change_pin">更改主PIN</string>
-    <string name="config_export_keys">导出密钥</string>
     <string name="config_export_logs">导出日志</string>
 
     <string name="config_cloud_sync">云同步</string>
@@ -178,7 +177,6 @@
     <string name="toast_google_signed_in">Google已登录:</string>
     <string name="toast_google_failed">Google登录失败:</string>
     <string name="toast_password_changed">密码已更改</string>
-    <string name="toast_keys_exported">密钥已导出</string>
     <string name="toast_logs_exported">日志已导出</string>
     <string name="toast_sync_complete">同步完成</string>
     <string name="toast_signed_out">已退出</string>

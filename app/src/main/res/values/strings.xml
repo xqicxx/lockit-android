@@ -89,7 +89,6 @@
     <string name="config_lock_vault">LOCK_VAULT</string>
     <string name="config_lock_vault_desc">This will require re-entering the master password to continue.</string>
     <string name="config_change_pin">CHANGE_MASTER_PIN</string>
-    <string name="config_export_keys">EXPORT_KEYS</string>
     <string name="config_export_logs">EXPORT_LOGS</string>
 
     <string name="config_cloud_sync">CLOUD_SYNC</string>
@@ -177,7 +176,6 @@
     <string name="toast_google_signed_in">GOOGLE_SIGNED_IN:</string>
     <string name="toast_google_failed">GOOGLE_SIGN_IN_FAILED:</string>
     <string name="toast_password_changed">PASSWORD_CHANGED_SUCCESS</string>
-    <string name="toast_keys_exported">KEYS_EXPORTED</string>
     <string name="toast_logs_exported">LOGS_EXPORTED</string>
     <string name="toast_sync_complete">SYNC_COMPLETE</string>
     <string name="toast_signed_out">SIGNED_OUT</string>
