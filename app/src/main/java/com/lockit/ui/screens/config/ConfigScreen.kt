@@ -5,6 +5,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import com.google.android.gms.auth.api.signin.GoogleSignIn
@@ -695,12 +696,25 @@ fun ConfigScreen(
                                         ?.find { it.name == githubTokenCredentialName }
 
                                     // Token is optional - public repos work without it
-                                    // Private repos or rate limit bypass require token
+                                    // Show diagnostic toast if configured token has issues (non-blocking)
+                                    var tokenDiagnostic: String? = null
                                     val token: String? = if (tokenCredential != null) {
                                         val fields = tokenCredential.value?.let { parseCredentialFields(it) }
-                                        fields?.getOrNull(3)?.takeIf { it.isNotBlank() }
+                                        val parsedToken = fields?.getOrNull(3)?.takeIf { it.isNotBlank() }
+                                        if (parsedToken == null) {
+                                            // Credential exists but token field is empty/blank
+                                            tokenDiagnostic = context.getString(R.string.toast_token_empty)
+                                        }
+                                        parsedToken
                                     } else {
-                                        null // No token stored - proceed without it for public repo
+                                        // Token credential not found in vault
+                                        tokenDiagnostic = context.getString(R.string.toast_token_not_found)
+                                        null
+                                    }
+
+                                    // Show diagnostic toast if token has issues (non-blocking, just info)
+                                    if (tokenDiagnostic != null) {
+                                        Toast.makeText(context, tokenDiagnostic, Toast.LENGTH_SHORT).show()
                                     }
 
                                     lastCheckedToken = token // Store for download (null if public repo)
