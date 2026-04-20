@@ -145,10 +145,14 @@ class AuthWebViewClient(
 ) : WebViewClient() {
 
     private var hasExtracted = false
+    private var hasVisitedLogin = false  // Track if user went through login flow
 
     override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
         super.onPageStarted(view, url, favicon)
-        hasExtracted = false
+        // Track login flow: user must visit account/login page first
+        if (url?.contains("account.aliyun.com") == true || url?.contains("login") == true) {
+            hasVisitedLogin = true
+        }
     }
 
     override fun onPageFinished(view: WebView?, url: String?) {
@@ -157,7 +161,8 @@ class AuthWebViewClient(
         if (hasExtracted) return
 
         val isLoggedIn = when (provider) {
-            "qwen_bailian" -> url?.contains("console.aliyun.com") == true
+            // Only consider logged in if user went through login flow and reached console
+            "qwen_bailian" -> hasVisitedLogin && url?.contains("console.aliyun.com") == true
             "chatgpt" -> url?.contains("chatgpt.com") == true && !url.contains("auth/login")
             "claude" -> url?.contains("claude.ai") == true && !url.contains("login")
             else -> false
@@ -185,6 +190,8 @@ class AuthWebViewClient(
     }
 
     private fun extractQwenCredentials(cookies: String) {
+        // Try to extract credentials, but don't close if failed
+        // User can continue navigating in WebView
         val secToken = cookies.split(";")
             .map { it.trim() }
             .find { it.startsWith("sec_token=") }
@@ -197,9 +204,9 @@ class AuthWebViewClient(
                 "cookie" to cookies,
                 "sec_token" to secToken
             ))
-        } else {
-            returnFailed("凭证获取失败")
         }
+        // Don't call returnFailed - let user continue in WebView
+        // They can click close button to manually exit
     }
 
     private fun extractChatGPTCredentials(cookies: String) {

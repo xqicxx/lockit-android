@@ -329,7 +329,7 @@
 
     <!-- WebView Auth -->
     <string name="auth_provider_label">认证服务</string>
-    <string name="auth_webview_button">🔐 WebView 一键登录</string>
-    <string name="auth_credential_success">✅ 凭证已获取</string>
-    <string name="auth_credential_failed">❌ 获取失败，请重试</string>
+    <string name="auth_webview_button">WebView 一键登录</string>
+    <string name="auth_credential_success">凭证已获取</string>
+    <string name="auth_credential_failed">获取失败，请重试</string>
 </resources>
