@@ -188,13 +188,18 @@ class ReposViewModel(app: LockitApp) : ViewModel() {
         _isQuotaLoading.value = true
         CodingPlanPrefetchState.isLoading = true
         _codingPlanQuotaError.value = null
+
+        val targetProvider = _selectedProvider.value
         viewModelScope.launch {
             val result = withContext(Dispatchers.IO) {
+                // Filter credentials by selected provider
+                val providerCreds = codingPlanCreds.filter {
+                    it.metadata["provider"] == targetProvider
+                }
                 var quota: CodingPlanQuota? = null
-                for (cred in codingPlanCreds) {
+                for (cred in providerCreds) {
                     val metadata = cred.metadata.takeIf { it.isNotEmpty() } ?: continue
-                    val provider = metadata["provider"] ?: continue
-                    val fetcher = CodingPlanFetchers.forProvider(provider) ?: continue
+                    val fetcher = CodingPlanFetchers.forProvider(targetProvider) ?: continue
                     quota = fetcher.fetchQuota(metadata)
                     if (quota != null) break
                 }

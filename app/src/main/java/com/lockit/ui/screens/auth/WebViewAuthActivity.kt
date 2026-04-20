@@ -12,42 +12,10 @@ import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.FrameLayout
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import androidx.compose.ui.viewinterop.AndroidView
-import androidx.lifecycle.viewmodel.compose.viewModel
-import com.lockit.R
-import com.lockit.ui.components.BrutalistButton
-import com.lockit.ui.theme.JetBrainsMonoFamily
-import com.lockit.ui.theme.Primary
-import com.lockit.ui.theme.SurfaceHighest
-import com.lockit.ui.theme.TacticalRed
-import com.lockit.ui.theme.White
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.net.HttpURLConnection
@@ -63,7 +31,7 @@ import java.net.URL
  * 2. Opens WebView to provider login page
  * 3. User logs in manually
  * 4. Activity detects login success and extracts tokens/cookies
- * 5. Returns extracted credentials via Intent result
+ * 5. Returns extracted credentials via Intent result (JSON serialized)
  */
 class WebViewAuthActivity : Activity() {
 
@@ -82,6 +50,7 @@ class WebViewAuthActivity : Activity() {
     }
 
     private var webView: WebView? = null
+    private val scope = CoroutineScope(Dispatchers.Main + Job())
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -94,18 +63,11 @@ class WebViewAuthActivity : Activity() {
         webView = WebView(this).apply {
             settings.javaScriptEnabled = true
             settings.domStorageEnabled = true
-            settings.databaseEnabled = true
             settings.loadsImagesAutomatically = true
-            settings.blockNetworkLoads = false
 
-            webViewClient = AuthWebViewClient(provider, this@WebViewAuthActivity)
-            webChromeClient = object : WebChromeClient() {
-                override fun onProgressChanged(view: WebView?, newProgress: Int) {
-                    // Could show progress indicator here
-                }
-            }
+            webViewClient = AuthWebViewClient(provider, this@WebViewAuthActivity, scope)
+            webChromeClient = object : WebChromeClient() {}
 
-            // Set initial URL based on provider
             val loginUrl = when (provider) {
                 "qwen_bailian" -> "https://account.aliyun.com/login.htm"
                 "chatgpt" -> "https://chatgpt.com/auth/login"
@@ -115,7 +77,6 @@ class WebViewAuthActivity : Activity() {
             loadUrl(loginUrl)
         }
 
-        // Add close button overlay
         val closeButton = android.widget.Button(this).apply {
             text = "关闭"
             setBackgroundColor(android.graphics.Color.parseColor("#A30000"))
@@ -144,6 +105,7 @@ class WebViewAuthActivity : Activity() {
     }
 
     override fun onDestroy() {
+        scope.coroutineContext[Job]?.cancel()
         webView?.destroy()
         webView = null
         super.onDestroy()
@@ -152,10 +114,12 @@ class WebViewAuthActivity : Activity() {
 
 /**
  * WebViewClient that monitors page loads and extracts auth tokens after login.
+ * Uses coroutines for async operations to avoid memory leaks.
  */
 class AuthWebViewClient(
     private val provider: String,
     private val activity: WebViewAuthActivity,
+    private val scope: CoroutineScope,
 ) : WebViewClient() {
 
     private var hasExtracted = false
@@ -170,7 +134,6 @@ class AuthWebViewClient(
 
         if (hasExtracted) return
 
-        // Check if user has logged in by URL pattern
         val isLoggedIn = when (provider) {
             "qwen_bailian" -> url?.contains("console.aliyun.com") == true
             "chatgpt" -> url?.contains("chatgpt.com") == true && !url.contains("auth/login")
@@ -194,13 +157,12 @@ class AuthWebViewClient(
 
         when (provider) {
             "qwen_bailian" -> extractQwenCredentials(cookies)
-            "chatgpt" -> extractChatGPTCredentials(cookies, view)
+            "chatgpt" -> extractChatGPTCredentials(cookies)
             "claude" -> extractClaudeCredentials(cookies, view)
         }
     }
 
     private fun extractQwenCredentials(cookies: String) {
-        // Extract sec_token from cookie
         val secToken = cookies.split(";")
             .map { it.trim() }
             .find { it.startsWith("sec_token=") }
@@ -208,104 +170,106 @@ class AuthWebViewClient(
             ?.trim()
 
         if (secToken != null && secToken.isNotBlank()) {
-            val resultData = mapOf(
+            returnResult(mapOf(
                 "provider" to "qwen_bailian",
                 "cookie" to cookies,
                 "sec_token" to secToken
-            )
-            returnResult(resultData)
+            ))
         } else {
             returnFailed("凭证获取失败")
         }
     }
 
-    private fun extractChatGPTCredentials(cookies: String, view: WebView?) {
-        // Need to call /api/auth/session to get access_token and account_id
-        view?.post {
-            Thread {
-                try {
+    private fun extractChatGPTCredentials(cookies: String) {
+        scope.launch {
+            try {
+                val result = withContext(Dispatchers.IO) {
                     val sessionUrl = URL("https://chatgpt.com/api/auth/session")
                     val conn = sessionUrl.openConnection() as HttpURLConnection
                     conn.connectTimeout = 5000
                     conn.readTimeout = 10000
                     conn.setRequestProperty("Cookie", cookies)
 
-                    if (conn.responseCode == 200) {
-                        val response = conn.inputStream.bufferedReader().use { it.readText() }
+                    if (conn.responseCode != 200) {
                         conn.disconnect()
-
-                        val json = JSONObject(response)
-                        val accessToken = json.optString("accessToken", "")
-                        val userObj = json.optJSONObject("user")
-                        val accountId = userObj?.optString("id", "") ?: ""
-
-                        if (accessToken.isNotBlank() && accountId.isNotBlank()) {
-                            val resultData = mapOf(
-                                "provider" to "chatgpt",
-                                "accessToken" to accessToken,
-                                "accountId" to accountId
-                            )
-                            activity.runOnUiThread { returnResult(resultData) }
-                        } else {
-                            activity.runOnUiThread { returnFailed("凭证获取失败") }
-                        }
-                    } else {
-                        conn.disconnect()
-                        activity.runOnUiThread { returnFailed("凭证获取失败") }
+                        return@withContext null
                     }
-                } catch (e: Exception) {
-                    activity.runOnUiThread { returnFailed("获取失败: ${e.message}") }
+
+                    val response = conn.inputStream.bufferedReader().use { it.readText() }
+                    conn.disconnect()
+
+                    val json = JSONObject(response)
+                    val accessToken = json.optString("accessToken", "")
+                    val userObj = json.optJSONObject("user")
+                    val accountId = userObj?.optString("id", "") ?: ""
+
+                    if (accessToken.isNotBlank() && accountId.isNotBlank()) {
+                        mapOf(
+                            "provider" to "chatgpt",
+                            "accessToken" to accessToken,
+                            "accountId" to accountId
+                        )
+                    } else null
                 }
-            }.start()
+                if (result != null) {
+                    returnResult(result)
+                } else {
+                    returnFailed("凭证获取失败")
+                }
+            } catch (e: Exception) {
+                returnFailed("获取失败: ${e.message}")
+            }
         }
     }
 
     private fun extractClaudeCredentials(cookies: String, view: WebView?) {
-        // Extract sessionKey from cookie and fetch orgId via JS injection
         val sessionKey = cookies.split(";")
             .map { it.trim() }
             .find { it.startsWith("sessionKey=") }
             ?.substringAfter("sessionKey=")
             ?.trim()
 
-        if (sessionKey != null && sessionKey.isNotBlank()) {
-            // Use JS to get orgId from localStorage or page context
-            view?.evaluateJavascript(
-                "(function() { " +
-                "try { " +
-                "  const orgData = JSON.parse(localStorage.getItem('claude-organization') || '{}');" +
-                "  return orgData.activeOrganization?.id || '';" +
-                "} catch(e) { return ''; }" +
-                "})();",
-                { orgId ->
-                    if (orgId.isNotBlank() && orgId != "null") {
-                        val resultData = mapOf(
-                            "provider" to "claude",
-                            "sessionKey" to sessionKey,
-                            "orgId" to orgId.trim('"')
-                        )
-                        returnResult(resultData)
-                    } else {
-                        // Fallback: try to get from /api/auth/me
-                        fetchClaudeOrgIdFromApi(cookies, sessionKey)
-                    }
-                }
-            )
-        } else {
+        if (sessionKey == null || sessionKey.isBlank()) {
             returnFailed("凭证获取失败")
+            return
         }
+
+        view?.evaluateJavascript(
+            "(function() { " +
+            "try { " +
+            "  const orgData = JSON.parse(localStorage.getItem('claude-organization') || '{}');" +
+            "  return orgData.activeOrganization?.id || '';" +
+            "} catch(e) { return ''; }" +
+            "})();",
+            { orgId ->
+                if (orgId.isNotBlank() && orgId != "null") {
+                    returnResult(mapOf(
+                        "provider" to "claude",
+                        "sessionKey" to sessionKey,
+                        "orgId" to orgId.trim('"')
+                    ))
+                } else {
+                    fetchClaudeOrgIdFromApi(sessionKey)
+                }
+            }
+        )
     }
 
-    private fun fetchClaudeOrgIdFromApi(cookies: String, sessionKey: String) {
-        Thread {
+    private fun fetchClaudeOrgIdFromApi(sessionKey: String) {
+        scope.launch {
             try {
-                val authUrl = URL("https://claude.ai/api/auth/me")
-                val conn = authUrl.openConnection() as HttpURLConnection
-                conn.connectTimeout = 5000
-                conn.readTimeout = 10000
-                conn.setRequestProperty("Cookie", "sessionKey=$sessionKey")
+                val result = withContext(Dispatchers.IO) {
+                    val authUrl = URL("https://claude.ai/api/auth/me")
+                    val conn = authUrl.openConnection() as HttpURLConnection
+                    conn.connectTimeout = 5000
+                    conn.readTimeout = 10000
+                    conn.setRequestProperty("Cookie", "sessionKey=$sessionKey")
 
-                if (conn.responseCode == 200) {
+                    if (conn.responseCode != 200) {
+                        conn.disconnect()
+                        return@withContext null
+                    }
+
                     val response = conn.inputStream.bufferedReader().use { it.readText() }
                     conn.disconnect()
 
@@ -314,28 +278,31 @@ class AuthWebViewClient(
                     val orgId = orgs?.optJSONObject(0)?.optString("id", "") ?: ""
 
                     if (orgId.isNotBlank()) {
-                        val resultData = mapOf(
+                        mapOf(
                             "provider" to "claude",
                             "sessionKey" to sessionKey,
                             "orgId" to orgId
                         )
-                        activity.runOnUiThread { returnResult(resultData) }
-                    } else {
-                        activity.runOnUiThread { returnFailed("凭证获取失败") }
-                    }
+                    } else null
+                }
+                if (result != null) {
+                    returnResult(result)
                 } else {
-                    conn.disconnect()
-                    activity.runOnUiThread { returnFailed("凭证获取失败") }
+                    returnFailed("凭证获取失败")
                 }
             } catch (e: Exception) {
-                activity.runOnUiThread { returnFailed("获取失败: ${e.message}") }
+                returnFailed("获取失败: ${e.message}")
             }
-        }.start()
+        }
     }
 
+    /**
+     * Return result as JSON string to avoid delimiter fragility.
+     */
     private fun returnResult(data: Map<String, String>) {
+        val json = JSONObject(data).toString()
         val intent = Intent().apply {
-            putExtra(WebViewAuthActivity.EXTRA_CREDENTIAL_DATA, data.map { "${it.key}=${it.value}" }.joinToString(";"))
+            putExtra(WebViewAuthActivity.EXTRA_CREDENTIAL_DATA, json)
         }
         activity.setResult(WebViewAuthActivity.RESULT_SUCCESS, intent)
         activity.finish()

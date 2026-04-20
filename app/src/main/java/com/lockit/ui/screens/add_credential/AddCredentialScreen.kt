@@ -221,13 +221,12 @@ fun AddCredentialScreen(
         if (result.resultCode == WebViewAuthActivity.RESULT_SUCCESS) {
             val credentialData = result.data?.getStringExtra(WebViewAuthActivity.EXTRA_CREDENTIAL_DATA)
             if (credentialData != null) {
-                // Parse credential data (format: "key=value;key2=value2")
-                val dataMap = credentialData.split(";")
-                    .associate {
-                        val parts = it.split("=")
-                        if (parts.size >= 2) parts[0] to parts.subList(1, parts.size).joinToString("=")
-                        else parts[0] to ""
-                    }
+                // Parse credential data as JSON
+                val json = JSONObject(credentialData)
+                val dataMap = mutableMapOf<String, String>()
+                json.keys().forEach { key ->
+                    dataMap[key] = json.optString(key, "")
+                }
 
                 // Fill in provider name (field 0)
                 val provider = dataMap["provider"] ?: selectedAuthProvider
