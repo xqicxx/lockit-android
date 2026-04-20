@@ -7,10 +7,20 @@ import javax.crypto.Cipher
 import javax.crypto.spec.GCMParameterSpec
 import javax.crypto.spec.SecretKeySpec
 
-private const val NONCE_LENGTH = 12
-private const val GCM_TAG_LENGTH = 128  // bits
-private const val KEY_LENGTH = 32       // 256 bits
-private const val SALT_LENGTH = 16
+/**
+ * Crypto constants - exposed for UI display
+ */
+object CryptoConstants {
+    const val NONCE_LENGTH = 12          // bytes
+    const val GCM_TAG_LENGTH = 128       // bits
+    const val KEY_LENGTH = 32            // bytes (256 bits)
+    const val SALT_LENGTH = 16           // bytes
+}
+
+private const val NONCE_LENGTH = CryptoConstants.NONCE_LENGTH
+private const val GCM_TAG_LENGTH = CryptoConstants.GCM_TAG_LENGTH
+private const val KEY_LENGTH = CryptoConstants.KEY_LENGTH
+private const val SALT_LENGTH = CryptoConstants.SALT_LENGTH
 
 /**
  * Argon2id parameters - OWASP recommended (2024)

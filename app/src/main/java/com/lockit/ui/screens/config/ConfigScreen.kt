@@ -510,25 +510,21 @@ fun ConfigScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // Security Section - Dynamic Argon2 params (calculated from actual values)
+            // Security Section - All values from code constants (dynamic)
+            val cryptoConstants = app.vaultManager.getCryptoConstants()
             val argon2Params = app.vaultManager.getArgon2ParamsInfo()
             val (argon2MemoryKB, argon2Iterations, argon2Parallelism) = argon2Params
-            // Convert KB to MB for display (argon2MemoryKB is in KB)
-            val memoryMB = argon2MemoryKB / 1024
-            val memoryStr = "${memoryMB}MB"
-            val iterStr = argon2Iterations.toString()
-            val parallelStr = argon2Parallelism.toString()
 
             ConfigSection(
                 title = stringResource(R.string.config_security),
                 items = listOf(
-                    stringResource(R.string.config_salt_length) to stringResource(R.string.config_16_bytes),
-                    stringResource(R.string.config_nonce_length) to stringResource(R.string.config_12_bytes),
-                    stringResource(R.string.config_gcm_tag) to stringResource(R.string.config_128_bits),
-                    stringResource(R.string.config_master_key) to stringResource(R.string.config_256_bits),
-                    stringResource(R.string.config_argon2_memory) to memoryStr,
-                    stringResource(R.string.config_argon2_iterations) to iterStr,
-                    stringResource(R.string.config_argon2_parallelism) to parallelStr,
+                    stringResource(R.string.config_salt_length) to "${cryptoConstants.SALT_LENGTH}_BYTES",
+                    stringResource(R.string.config_nonce_length) to "${cryptoConstants.NONCE_LENGTH}_BYTES",
+                    stringResource(R.string.config_gcm_tag) to "${cryptoConstants.GCM_TAG_LENGTH}_BITS",
+                    stringResource(R.string.config_master_key) to "${cryptoConstants.KEY_LENGTH * 8}_BITS",
+                    stringResource(R.string.config_argon2_memory) to "${argon2MemoryKB / 1024}MB",
+                    stringResource(R.string.config_argon2_iterations) to argon2Iterations.toString(),
+                    stringResource(R.string.config_argon2_parallelism) to argon2Parallelism.toString(),
                 ),
             )
 

@@ -249,6 +249,11 @@ class VaultManager(
      */
     fun getArgon2ParamsInfo(): Triple<Int, Int, Int> = keyManager.getArgon2Params()
 
+    /**
+     * Get crypto constants for UI display.
+     */
+    fun getCryptoConstants(): com.lockit.data.crypto.CryptoConstants = com.lockit.data.crypto.CryptoConstants
+
     private fun decryptCredential(entity: CredentialEntity, masterKey: ByteArray): Credential {
         val decryptedValue = crypto.decrypt(entity.value, masterKey)
             .decodeToString()
