@@ -267,9 +267,6 @@
     <string name="logs_event_stream">事件流</string>
     <string name="logs_entries">%1$d 条目</string>
     <string name="logs_no_events">无审计事件</string>
-    <string name="logs_load_more">加载更多</string>
-    <string name="logs_remaining">还有 %1$d 条可加载</string>
-    <string name="logs_export_reminder">查看完整日志请使用设置中的导出日志功能</string>
     <string name="logs_storage_local">存储: 仅本地设备</string>
     <string name="logs_retention">保留: 30天</string>
     <string name="logs_encryption">加密: AES-256-GCM</string>

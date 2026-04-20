@@ -267,9 +267,6 @@
     <string name="logs_event_stream">EVENT_STREAM</string>
     <string name="logs_entries">%1$d entries</string>
     <string name="logs_no_events">NO_AUDIT_EVENTS</string>
-    <string name="logs_load_more">LOAD_MORE</string>
-    <string name="logs_remaining">%1$d more available</string>
-    <string name="logs_export_reminder">For full history, use EXPORT_LOGS in Settings</string>
     <string name="logs_storage_local">STORAGE: LOCAL_DEVICE_ONLY</string>
     <string name="logs_retention">RETENTION: 30_DAYS</string>
     <string name="logs_encryption">ENCRYPTION: AES-256-GCM</string>
