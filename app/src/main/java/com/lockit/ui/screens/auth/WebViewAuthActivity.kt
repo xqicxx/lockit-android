@@ -148,6 +148,7 @@ class AuthWebViewClient(
 
     override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
         super.onPageStarted(view, url, favicon)
+        // Reset extraction state on any page navigation (allows retry for all providers)
         hasExtracted = false
     }
 
@@ -157,6 +158,7 @@ class AuthWebViewClient(
         if (hasExtracted) return
 
         val isLoggedIn = when (provider) {
+            // Consider logged in when user reaches console page
             "qwen_bailian" -> url?.contains("console.aliyun.com") == true
             "chatgpt" -> url?.contains("chatgpt.com") == true && !url.contains("auth/login")
             "claude" -> url?.contains("claude.ai") == true && !url.contains("login")
@@ -185,6 +187,8 @@ class AuthWebViewClient(
     }
 
     private fun extractQwenCredentials(cookies: String) {
+        // Try to extract credentials, but don't close if failed
+        // User can continue navigating in WebView
         val secToken = cookies.split(";")
             .map { it.trim() }
             .find { it.startsWith("sec_token=") }
@@ -198,8 +202,11 @@ class AuthWebViewClient(
                 "sec_token" to secToken
             ))
         } else {
-            returnFailed("凭证获取失败")
+            // Reset state to allow retry on next page load
+            hasExtracted = false
         }
+        // Don't call returnFailed - let user continue in WebView
+        // They can click close button to manually exit
     }
 
     private fun extractChatGPTCredentials(cookies: String) {

@@ -1,0 +1,39 @@
+---
+description: Prevent hallucinations and unsafe assumptions
+alwaysApply: true
+---
+
+# Anti-Hallucination Rules
+
+## No Guessing
+- DO NOT invent APIs, functions, or libraries
+- DO NOT assume undocumented behavior
+- DO NOT fabricate file paths
+
+## Uncertainty Handling
+- If unsure → explicitly say: "INSUFFICIENT CONTEXT"
+- If multiple interpretations → list options
+- If missing dependency → ask before proceeding
+
+## Code Safety
+- NEVER generate code that "might work"
+- ONLY generate code that is:
+  - verifiable
+  - consistent with project structure
+
+## Dependency Awareness
+- Only use dependencies already present in the project
+- If suggesting a new dependency:
+  - explain why
+  - mark as optional
+
+## Communication Rules
+- Be precise, not verbose
+- Do not hallucinate explanations
+- Do not justify incorrect assumptions
+
+## Forbidden Behavior
+- No fake implementations
+- No placeholder logic like:
+  - "TODO: implement"
+  - "mock data for now"

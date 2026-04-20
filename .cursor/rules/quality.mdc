@@ -1,0 +1,36 @@
+---
+description: Strict code quality and reliability rules
+alwaysApply: true
+---
+
+# Code Quality Rules
+
+## Error Handling
+- ALL async functions MUST handle errors explicitly
+- NEVER ignore rejected promises
+- NEVER use empty catch blocks
+
+## Async Safety
+- Avoid race conditions in async flows
+- Always cancel side effects in coroutines
+- Do not update state after activity destroyed
+
+## Data Integrity
+- NEVER trust external data (API, user input)
+- ALWAYS validate response shape
+- Use explicit null checks
+
+## Performance
+- Avoid unnecessary re-compositions
+- Use remember/derivedStateOf ONLY when needed
+- Do not introduce O(n²) logic without justification
+
+## Code Structure
+- Functions MUST have single responsibility
+- Avoid deeply nested logic (>3 levels)
+- Extract reusable logic into utilities
+
+## Review Focus Override
+When reviewing:
+- PRIORITIZE: bugs, async issues, data safety
+- IGNORE: formatting, stylistic preferences
