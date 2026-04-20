@@ -12,6 +12,8 @@ import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.FrameLayout
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -100,6 +102,17 @@ class WebViewAuthActivity : Activity() {
             FrameLayout.LayoutParams.MATCH_PARENT
         ))
         rootView.addView(closeButton, closeLayout)
+
+        // Apply window insets to position close button below status bar
+        ViewCompat.setOnApplyWindowInsetsListener(rootView) { view, insets ->
+            val statusBarHeight = insets.getInsets(WindowInsetsCompat.Type.statusBars()).top
+            val density = view.context.resources.displayMetrics.density
+            val marginPx = (16 * density).toInt()  // 16dp to pixels
+            val marginTopPx = marginPx + statusBarHeight  // Add status bar height
+            closeLayout.setMargins(marginPx, marginTopPx, marginPx, marginPx)
+            closeButton.layoutParams = closeLayout
+            insets
+        }
 
         setContentView(rootView)
     }
