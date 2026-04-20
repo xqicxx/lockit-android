@@ -195,14 +195,10 @@ fun CredentialCard(
     // Parse fields once at the top - used throughout the component
     val fields = remember(credential.value) { parseCredentialFields(credential.value) }
 
-    // Sync with external reveal state and auto-hide when biometric cache expires
+    // Sync with external reveal state
     val currentOnHide = rememberUpdatedState(onHide)
     LaunchedEffect(isRevealed) {
         localRevealed = isRevealed
-        if (isRevealed && !BiometricUtils.isBiometricCacheValid()) {
-            localRevealed = false
-            currentOnHide.value()
-        }
     }
 
     // Types that always show values (no reveal needed)
