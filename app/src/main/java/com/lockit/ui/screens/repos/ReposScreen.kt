@@ -134,6 +134,10 @@ class ReposViewModel(app: LockitApp) : ViewModel() {
     private val _isQuotaLoading = MutableStateFlow(false)
     val isQuotaLoading: StateFlow<Boolean> = _isQuotaLoading.asStateFlow()
 
+    // Selected provider for quota display (qwen_bailian, chatgpt, claude)
+    private val _selectedProvider = MutableStateFlow<String>("qwen_bailian")
+    val selectedProvider: StateFlow<String> = _selectedProvider.asStateFlow()
+
     private var hasAutoFetchedQuota = false
     private var currentApp: LockitApp? = null
 
@@ -151,6 +155,12 @@ class ReposViewModel(app: LockitApp) : ViewModel() {
 
     fun selectService(service: String?) {
         _selectedService.value = service
+    }
+
+    fun selectProvider(provider: String) {
+        _selectedProvider.value = provider
+        // Re-fetch quota for new provider
+        fetchCodingPlanQuota(force = true)
     }
 
     suspend fun getCredentialById(id: String): Credential? {
@@ -178,13 +188,18 @@ class ReposViewModel(app: LockitApp) : ViewModel() {
         _isQuotaLoading.value = true
         CodingPlanPrefetchState.isLoading = true
         _codingPlanQuotaError.value = null
+
+        val targetProvider = _selectedProvider.value
         viewModelScope.launch {
             val result = withContext(Dispatchers.IO) {
+                // Filter credentials by selected provider
+                val providerCreds = codingPlanCreds.filter {
+                    it.metadata["provider"] == targetProvider
+                }
                 var quota: CodingPlanQuota? = null
-                for (cred in codingPlanCreds) {
+                for (cred in providerCreds) {
                     val metadata = cred.metadata.takeIf { it.isNotEmpty() } ?: continue
-                    val provider = metadata["provider"] ?: continue
-                    val fetcher = CodingPlanFetchers.forProvider(provider) ?: continue
+                    val fetcher = CodingPlanFetchers.forProvider(targetProvider) ?: continue
                     quota = fetcher.fetchQuota(metadata)
                     if (quota != null) break
                 }
@@ -282,6 +297,7 @@ fun ReposScreen(
     val codingPlanQuota by viewModel.codingPlanQuota.collectAsStateWithLifecycle()
     val isQuotaLoading by viewModel.isQuotaLoading.collectAsStateWithLifecycle()
     val quotaError by viewModel.codingPlanQuotaError.collectAsStateWithLifecycle()
+    val selectedProvider by viewModel.selectedProvider.collectAsStateWithLifecycle()
 
     // Auto-fetch once when credentials become available
     LaunchedEffect(credentialList) {
@@ -402,7 +418,14 @@ fun ReposScreen(
                         quota = codingPlanQuota,
                         isLoading = isQuotaLoading,
                         error = quotaError,
+                        selectedProvider = selectedProvider,
                         onRefresh = { viewModel.fetchCodingPlanQuota(force = true) },
+                    )
+                    // Provider switcher cards
+                    Spacer(modifier = Modifier.height(8.dp))
+                    ProviderCardsRow(
+                        selectedProvider = selectedProvider,
+                        onSelect = { viewModel.selectProvider(it) },
                     )
                     Spacer(modifier = Modifier.height(16.dp))
                 }
@@ -904,6 +927,7 @@ private fun CodingPlanBoard(
     quota: CodingPlanQuota?,
     isLoading: Boolean,
     error: String?,
+    selectedProvider: String,
     onRefresh: () -> Unit,
 ) {
     Column(
@@ -1124,5 +1148,47 @@ private fun QuotaGauge(label: String, used: Int, total: Int, modifier: Modifier 
             maxLines = 1,
             color = Primary,
         )
+    }
+}
+
+/**
+ * Provider cards row for switching between coding plan providers.
+ * Shows 百炼, ChatGPT, Claude service cards.
+ */
+@Composable
+private fun ProviderCardsRow(
+    selectedProvider: String,
+    onSelect: (String) -> Unit,
+) {
+    val providers = listOf(
+        "qwen_bailian" to stringResource(R.string.provider_qwen),
+        "chatgpt" to stringResource(R.string.provider_chatgpt),
+        "claude" to stringResource(R.string.provider_claude),
+    )
+
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        providers.forEach { (key, label) ->
+            val isSelected = selectedProvider == key
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .background(if (isSelected) IndustrialOrange.copy(alpha = 0.15f) else SurfaceHighest)
+                    .border(1.dp, if (isSelected) IndustrialOrange else Primary)
+                    .clickable { onSelect(key) }
+                    .padding(vertical = 8.dp, horizontal = 4.dp),
+            ) {
+                Text(
+                    text = label,
+                    fontFamily = JetBrainsMonoFamily,
+                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                    fontSize = 10.sp,
+                    color = if (isSelected) IndustrialOrange else MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.align(Alignment.Center),
+                )
+            }
+        }
     }
 }

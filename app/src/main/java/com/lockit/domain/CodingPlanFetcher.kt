@@ -1,6 +1,8 @@
 package com.lockit.domain
 
 import com.lockit.domain.qwen.QwenCodingPlan
+import com.lockit.domain.chatgpt.ChatGPTCodingPlan
+import com.lockit.domain.claude.ClaudeCodingPlan
 
 /**
  * Result of a coding plan quota fetch.
@@ -43,6 +45,8 @@ interface CodingPlanFetcher {
 object CodingPlanFetchers {
     private val registry: Map<String, CodingPlanFetcher> = mapOf(
         "qwen_bailian" to QwenCodingPlan,
+        "chatgpt" to ChatGPTCodingPlan,
+        "claude" to ClaudeCodingPlan,
     )
 
     fun forProvider(key: String): CodingPlanFetcher? = registry[key]
