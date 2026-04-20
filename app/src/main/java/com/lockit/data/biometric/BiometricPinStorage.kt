@@ -89,7 +89,11 @@ class BiometricPinStorage(private val sharedPreferences: SharedPreferences) {
 
             // Delete existing key if present (regenerate for new PIN)
             if (keyStore.containsAlias(KEY_ALIAS)) {
-                keyStore.deleteEntry(KEY_ALIAS)
+                try {
+                    keyStore.deleteEntry(KEY_ALIAS)
+                } catch (e: java.security.KeyStoreException) {
+                    // TEE busy or unavailable - log but continue, will regenerate
+                }
             }
 
             val keyGenerator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore")
@@ -105,6 +109,25 @@ class BiometricPinStorage(private val sharedPreferences: SharedPreferences) {
             Cipher.getInstance(TRANSFORMATION).apply {
                 init(Cipher.ENCRYPT_MODE, secretKey)
             }
+        } catch (e: java.security.KeyStoreException) {
+            onError("KEYSTORE_ERROR: ${e.message}")
+            return
+        } catch (e: java.security.NoSuchAlgorithmException) {
+            onError("ALGORITHM_NOT_SUPPORTED: ${e.message}")
+            return
+        } catch (e: java.security.InvalidAlgorithmParameterException) {
+            onError("KEYGEN_FAILED: ${e.message}")
+            return
+        } catch (e: java.security.InvalidKeyException) {
+            onError("KEY_INVALID: ${e.message}")
+            return
+        } catch (e: java.security.NoSuchProviderException) {
+            onError("PROVIDER_NOT_FOUND: ${e.message}")
+            return
+        } catch (e: IllegalStateException) {
+            // SecureElement full or hardware unavailable
+            onError("SECURE_ELEMENT_ERROR: ${e.message}")
+            return
         } catch (e: Exception) {
             onError("CIPHER_INIT_FAILED: ${e.message}")
             return

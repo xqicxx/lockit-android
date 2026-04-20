@@ -97,7 +97,16 @@ fun ConfigScreen(
         var ctx = view.context
         while (ctx is android.content.ContextWrapper) {
             if (ctx is FragmentActivity) return ctx
-            ctx = ctx.baseContext
+            val base = ctx.baseContext
+            if (base === ctx) break  // Prevent infinite loop
+            ctx = base
+        }
+        // Fallback: traverse View hierarchy to find Activity
+        var v: android.view.View? = view
+        while (v != null) {
+            val context = v.context
+            if (context is FragmentActivity) return context
+            v = v.parent as? android.view.View
         }
         return null
     }
@@ -995,7 +1004,16 @@ private fun LinkBiometricDialog(
         var ctx = view.context
         while (ctx is android.content.ContextWrapper) {
             if (ctx is FragmentActivity) return ctx
-            ctx = ctx.baseContext
+            val base = ctx.baseContext
+            if (base === ctx) break  // Prevent infinite loop
+            ctx = base
+        }
+        // Fallback: traverse View hierarchy to find Activity
+        var v: android.view.View? = view
+        while (v != null) {
+            val context = v.context
+            if (context is FragmentActivity) return context
+            v = v.parent as? android.view.View
         }
         return null
     }
