@@ -1,14 +1,21 @@
 package com.lockit.ui.screens.add_credential
 
+import android.app.Activity
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
@@ -21,12 +28,16 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lockit.LockitApp
+import com.lockit.R
 import com.lockit.domain.model.CredentialType
 import com.lockit.domain.model.requiredFieldIndices
 import com.lockit.ui.components.BackButtonRow
@@ -39,7 +50,10 @@ import com.lockit.ui.components.ChipGroup
 import com.lockit.ui.components.CredentialTypeDropdown
 import com.lockit.ui.components.DropdownWithCustomInput
 import com.lockit.ui.components.ScreenHero
+import com.lockit.ui.screens.auth.WebViewAuthActivity
+import com.lockit.ui.theme.IndustrialOrange
 import com.lockit.ui.theme.JetBrainsMonoFamily
+import com.lockit.ui.theme.Primary
 import com.lockit.ui.theme.TacticalRed
 import com.lockit.ui.theme.White
 import com.lockit.utils.CodingPlanParser
@@ -193,7 +207,55 @@ fun AddCredentialScreen(
     var saveError: String? by remember { mutableStateOf(null) }
     var nameWarning by remember { mutableStateOf<String?>(null) }
 
+    // WebView auth state for CodingPlan
+    var selectedAuthProvider by remember { mutableStateOf("qwen_bailian") }
+    var authCredentialStatus by remember { mutableStateOf<String?>(null) } // null, "success", "failed"
+
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+
+    // WebView auth launcher
+    val webViewAuthLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == WebViewAuthActivity.RESULT_SUCCESS) {
+            val credentialData = result.data?.getStringExtra(WebViewAuthActivity.EXTRA_CREDENTIAL_DATA)
+            if (credentialData != null) {
+                // Parse credential data (format: "key=value;key2=value2")
+                val dataMap = credentialData.split(";")
+                    .associate {
+                        val parts = it.split("=")
+                        if (parts.size >= 2) parts[0] to parts.subList(1, parts.size).joinToString("=")
+                        else parts[0] to ""
+                    }
+
+                // Fill in provider name (field 0)
+                val provider = dataMap["provider"] ?: selectedAuthProvider
+                fieldValues[0] = provider
+                userEditedName = true
+
+                // Fill in credentials based on provider
+                when (provider) {
+                    "qwen_bailian" -> {
+                        dataMap["cookie"]?.let { fieldValues[3] = it }
+                        dataMap["sec_token"]?.let { fieldValues[4] = it }
+                    }
+                    "chatgpt" -> {
+                        dataMap["accessToken"]?.let { fieldValues[3] = it }
+                        dataMap["accountId"]?.let { fieldValues[4] = it }
+                    }
+                    "claude" -> {
+                        dataMap["sessionKey"]?.let { fieldValues[3] = it }
+                        dataMap["orgId"]?.let { fieldValues[4] = it }
+                    }
+                }
+                userEditedCookie = true
+                authCredentialStatus = "success"
+            }
+        } else if (result.resultCode == WebViewAuthActivity.RESULT_FAILED) {
+            authCredentialStatus = "failed"
+        }
+    }
 
     val fields by remember(selectedType) {
         derivedStateOf { selectedType.fields }
@@ -350,6 +412,88 @@ fun AddCredentialScreen(
             )
 
             Spacer(modifier = Modifier.height(16.dp))
+
+            // WebView auth section for CodingPlan type
+            if (selectedType == CredentialType.CodingPlan) {
+                // Provider selector
+                Text(
+                    text = stringResource(R.string.auth_provider_label),
+                    fontFamily = JetBrainsMonoFamily,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 10.sp,
+                    color = Primary,
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    listOf("qwen_bailian", "chatgpt", "claude").forEach { provider ->
+                        val isSelected = selectedAuthProvider == provider
+                        val label = when (provider) {
+                            "qwen_bailian" -> stringResource(R.string.provider_qwen)
+                            "chatgpt" -> stringResource(R.string.provider_chatgpt)
+                            "claude" -> stringResource(R.string.provider_claude)
+                            else -> provider
+                        }
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .background(if (isSelected) IndustrialOrange.copy(alpha = 0.15f) else MaterialTheme.colorScheme.surfaceContainerHighest)
+                                .border(1.dp, if (isSelected) IndustrialOrange else Primary)
+                                .clickable { selectedAuthProvider = provider }
+                                .padding(vertical = 8.dp, horizontal = 4.dp),
+                        ) {
+                            Text(
+                                text = label,
+                                fontFamily = JetBrainsMonoFamily,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                fontSize = 10.sp,
+                                color = if (isSelected) IndustrialOrange else MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.align(Alignment.Center),
+                            )
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // WebView login button
+                BrutalistButton(
+                    text = stringResource(R.string.auth_webview_button),
+                    onClick = {
+                        val intent = WebViewAuthActivity.createIntent(context, selectedAuthProvider)
+                        webViewAuthLauncher.launch(intent)
+                    },
+                    variant = ButtonVariant.Secondary,
+                    modifier = Modifier.fillMaxWidth(),
+                    useMonoFont = true,
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Credential status
+                authCredentialStatus?.let { status ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = when (status) {
+                                "success" -> stringResource(R.string.auth_credential_success)
+                                "failed" -> stringResource(R.string.auth_credential_failed)
+                                else -> ""
+                            },
+                            fontFamily = JetBrainsMonoFamily,
+                            fontSize = 10.sp,
+                            color = when (status) {
+                                "success" -> IndustrialOrange
+                                "failed" -> TacticalRed
+                                else -> Primary
+                            },
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+            }
 
             // Fields for selected type
             fields.forEachIndexed { index, field ->

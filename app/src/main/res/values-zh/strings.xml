@@ -314,4 +314,15 @@
     <string name="toast_base_url_copied">基础URL已复制</string>
     <string name="toast_email_copied">邮箱已复制</string>
     <string name="toast_phone_copied">电话已复制</string>
+
+    <!-- Provider Names -->
+    <string name="provider_qwen">百炼</string>
+    <string name="provider_chatgpt">ChatGPT</string>
+    <string name="provider_claude">Claude</string>
+
+    <!-- WebView Auth -->
+    <string name="auth_provider_label">认证服务</string>
+    <string name="auth_webview_button">🔐 WebView 一键登录</string>
+    <string name="auth_credential_success">✅ 凭证已获取</string>
+    <string name="auth_credential_failed">❌ 获取失败，请重试</string>
 </resources>
