@@ -537,25 +537,57 @@ fun AddCredentialScreen(
                     )
                 } else {
                     val isRawCurlField = selectedType == CredentialType.CodingPlan && index == 1
+                    val isApiKeyField = selectedType == CredentialType.CodingPlan && index == 2
                     val isCookieField = selectedType == CredentialType.CodingPlan && index == 3
                     val isMultiline = isRawCurlField || isCookieField
-                    BrutalistTextField(
-                        value = getField(index),
-                        onValueChange = { value ->
-                            when {
-                                isRawCurlField -> handleRawCurlChange(value)
-                                isCookieField -> {
-                                    fieldValues[index] = value
-                                    userEditedCookie = true
-                                }
-                                else -> fieldValues[index] = value
+
+                    // Dynamic labels for CodingPlan based on provider
+                    val dynamicLabel: String = when {
+                        isApiKeyField && selectedType == CredentialType.CodingPlan -> {
+                            val provider = getField(0)
+                            when (provider) {
+                                "openai", "chatgpt" -> "ACCESS_TOKEN"
+                                "anthropic", "claude" -> "SESSION_KEY"
+                                else -> field.label
                             }
-                        },
-                        label = field.label,
-                        placeholder = field.placeholder,
-                        error = fieldErrors[index],
-                        maxLines = if (isMultiline) 10 else 1,
-                    )
+                        }
+                        isCookieField && selectedType == CredentialType.CodingPlan -> {
+                            val provider = getField(0)
+                            when (provider) {
+                                "openai", "chatgpt" -> "ACCOUNT_ID"
+                                "anthropic", "claude" -> "ORG_ID"
+                                else -> field.label
+                            }
+                        }
+                        else -> field.label
+                    }
+
+                    // Hide COOKIE field for non-Bailian providers if empty
+                    val shouldShowField = if (isCookieField && selectedType == CredentialType.CodingPlan) {
+                        val provider = getField(0)
+                        // Always show for bailian, show for others too (they need accountId/orgId)
+                        true
+                    } else true
+
+                    if (shouldShowField) {
+                        BrutalistTextField(
+                            value = getField(index),
+                            onValueChange = { value ->
+                                when {
+                                    isRawCurlField -> handleRawCurlChange(value)
+                                    isCookieField -> {
+                                        fieldValues[index] = value
+                                        userEditedCookie = true
+                                    }
+                                    else -> fieldValues[index] = value
+                                }
+                            },
+                            label = dynamicLabel,
+                            placeholder = field.placeholder,
+                            error = fieldErrors[index],
+                            maxLines = if (isMultiline) 10 else 1,
+                        )
+                    }
                 }
                 Spacer(modifier = Modifier.height(16.dp))
             }
