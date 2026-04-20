@@ -247,6 +247,7 @@ fun AddCredentialScreen(
                         // Store extra fields for metadata
                         authExtraData = dataMap
                         android.util.Log.d("AddCredential", "Bailian: apiKey=${dataMap["apiKey"]}, cookie=${dataMap["cookie"]}")
+                        android.util.Log.d("AddCredential", "fieldValues after fill: ${fieldValues.toList()}")
                     }
                     "openai", "chatgpt" -> {
                         // apiKey (accessToken) fills API_KEY field

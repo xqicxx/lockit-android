@@ -210,6 +210,7 @@ private fun EditCredentialForm(
                         fieldValues[3] = dataMap["cookie"] ?: ""
                         fieldValues[4] = dataMap["baseUrl"] ?: ""
                         android.util.Log.d("EditCredential", "Bailian: apiKey=${dataMap["apiKey"]}")
+                        android.util.Log.d("EditCredential", "fieldValues after fill: ${fieldValues.toList()}")
                     }
                     "openai", "chatgpt" -> {
                         fieldValues[2] = dataMap["apiKey"] ?: ""
