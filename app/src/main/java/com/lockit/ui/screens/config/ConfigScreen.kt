@@ -1047,13 +1047,17 @@ private fun LinkBiometricDialog(
                             return@BrutalistButton
                         }
 
+                        // Capture PIN value BEFORE async verification to prevent race condition
+                        // If user modifies input during async operation, we verify/store the original value
+                        val pinToVerify = pin
+
                         // Set linking state immediately to prevent race condition (multiple clicks)
                         isLinking = true
 
                         // First verify PIN is correct
                         scope.launch {
                             val verifyResult = withContext(Dispatchers.IO) {
-                                app.vaultManager.unlockVault(pin)
+                                app.vaultManager.unlockVault(pinToVerify)
                             }
                             if (verifyResult.isFailure) {
                                 isLinking = false
@@ -1077,9 +1081,10 @@ private fun LinkBiometricDialog(
                                 return@launch
                             }
 
+                            // Use the captured PIN value, NOT the mutable pin state
                             biometricStorage.storePin(
                                 activity = activity,
-                                pin = pin,
+                                pin = pinToVerify,
                                 title = context.getString(R.string.biometric_link_pin_title),
                                 subtitle = context.getString(R.string.biometric_link_pin_subtitle),
                                 onSuccess = {
