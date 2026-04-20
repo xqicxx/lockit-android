@@ -80,10 +80,10 @@ class WebViewAuthActivity : Activity() {
             webChromeClient = object : WebChromeClient() {}
 
             val loginUrl = when (provider) {
-                "qwen_bailian" -> "https://account.aliyun.com/login.htm"
+                "qwen_bailian" -> "https://bailian.console.aliyun.com/cn-beijing/?tab=coding-plan#/efm/coding-plan-detail"
                 "chatgpt" -> "https://chatgpt.com/auth/login"
                 "claude" -> "https://claude.ai/login"
-                else -> "https://account.aliyun.com/login.htm"
+                else -> "https://bailian.console.aliyun.com/cn-beijing/?tab=coding-plan#/efm/coding-plan-detail"
             }
             loadUrl(loginUrl)
         }
