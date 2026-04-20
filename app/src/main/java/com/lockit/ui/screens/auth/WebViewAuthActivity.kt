@@ -210,10 +210,10 @@ class AuthWebViewClient(
         val cookies = cookieManager.getCookie(url ?: "") ?: ""
 
         val isLoggedIn = when (provider) {
-            // Only consider logged in when we have valid cookies (not just page URL)
+            // Bailian: must have login_aliyunid_ticket (full login session)
             "qwen_bailian" -> {
                 url?.contains("console.aliyun.com") == true &&
-                (cookies.contains("aliyun_choice") || cookies.contains("login_aliyunid"))
+                cookies.contains("login_aliyunid_ticket")
             }
             // ChatGPT: logged in when URL is main page (not auth path) and has cookies
             "chatgpt" -> url?.contains("chatgpt.com") == true &&
