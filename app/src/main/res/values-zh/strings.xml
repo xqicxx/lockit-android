@@ -63,6 +63,15 @@
     <!-- Config Screen -->
     <string name="config_title">CLI设置</string>
     <string name="config_subtitle">初始化核心仓库的命令行接口</string>
+
+    <!-- Add Credential Screen -->
+    <string name="add_credential_title">新增凭据</string>
+    <string name="add_credential_subtitle">在密码库中创建新的密钥条目</string>
+
+    <!-- Edit Credential Screen -->
+    <string name="edit_credential_title">编辑凭据</string>
+    <string name="edit_credential_subtitle">修改现有凭据数据</string>
+
     <string name="config_vault_status">密码库状态</string>
     <string name="config_state">状态</string>
     <string name="config_unlocked">已解锁</string>

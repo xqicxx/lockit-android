@@ -308,8 +308,8 @@ private fun EditCredentialForm(
             BackButtonRow(onBack = onBack)
 
             ScreenHero(
-                title = "Edit Credential",
-                subtitle = "Modify existing secret entry",
+                title = stringResource(R.string.edit_credential_title),
+                subtitle = stringResource(R.string.edit_credential_subtitle),
             )
             Spacer(modifier = Modifier.height(24.dp))
 

@@ -63,6 +63,15 @@
     <!-- Config Screen -->
     <string name="config_title">CLI Setup</string>
     <string name="config_subtitle">Initialize the command-line interface for the core repository</string>
+
+    <!-- Add Credential Screen -->
+    <string name="add_credential_title">Add Credential</string>
+    <string name="add_credential_subtitle">Initialize a new secret entry in the vault</string>
+
+    <!-- Edit Credential Screen -->
+    <string name="edit_credential_title">Edit Credential</string>
+    <string name="edit_credential_subtitle">Modify existing credential data</string>
+
     <string name="config_vault_status">VAULT_STATUS</string>
     <string name="config_state">STATE</string>
     <string name="config_unlocked">UNLOCKED</string>

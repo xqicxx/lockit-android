@@ -407,8 +407,8 @@ fun AddCredentialScreen(
             BackButtonRow(onBack = onBack)
 
             ScreenHero(
-                title = "Add Credential",
-                subtitle = "Initialize a new secret entry in the vault",
+                title = stringResource(R.string.add_credential_title),
+                subtitle = stringResource(R.string.add_credential_subtitle),
             )
             Spacer(modifier = Modifier.height(24.dp))
 
