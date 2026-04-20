@@ -148,10 +148,8 @@ class AuthWebViewClient(
 
     override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
         super.onPageStarted(view, url, favicon)
-        // Reset extraction state when user navigates away from console (allows retry)
-        if (url?.contains("console.aliyun.com") == false && provider == "qwen_bailian") {
-            hasExtracted = false
-        }
+        // Reset extraction state on any page navigation (allows retry for all providers)
+        hasExtracted = false
     }
 
     override fun onPageFinished(view: WebView?, url: String?) {
@@ -203,6 +201,9 @@ class AuthWebViewClient(
                 "cookie" to cookies,
                 "sec_token" to secToken
             ))
+        } else {
+            // Reset state to allow retry on next page load
+            hasExtracted = false
         }
         // Don't call returnFailed - let user continue in WebView
         // They can click close button to manually exit
