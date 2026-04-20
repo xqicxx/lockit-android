@@ -72,6 +72,31 @@ enum class CredentialType(
             CredentialField("PASSWORD", "Enter password..."),
         ),
     ),
+    CodingPlan(
+        "CODING_PLAN", "code",
+        "Store coding agent plan tokens. Paste your curl command or enter credentials manually.",
+        listOf(
+            CredentialField("PROVIDER", "Select provider", presets = listOf(
+                "qwen_bailian", "openai", "anthropic", "google", "deepseek",
+                "minimax", "glm", "moonshot", "volcengine", "tencent",
+            ), isDropdown = true),
+            CredentialField("RAW_CURL", "Paste curl command (auto-extracts all fields)..."),
+            CredentialField("API_KEY", "API key (required)...", required = true),
+            CredentialField("COOKIE", "Bailian console cookie..."),
+            CredentialField("BASE_URL", "Select base URL (required)", presets = listOf(
+                "https://coding.dashscope.aliyuncs.com/v1",
+                "https://coding.dashscope.aliyuncs.com/apps/anthropic",
+                "https://api.openai.com/v1",
+                "https://api.anthropic.com/v1",
+                "https://generativelanguage.googleapis.com/v1",
+                "https://api.deepseek.com/v1",
+                "https://api.moonshot.cn/v1",
+                "https://api.minimax.chat/v1",
+                "https://open.bigmodel.cn/api/paas/v4",
+                "https://bailian.console.aliyun.com",
+            ), isDropdown = true, editable = true, required = true),
+        ),
+    ),
     Password(
         "PASSWORD", "password",
         "Store standalone passwords not tied to a specific account. Good for WiFi, router, or shared passwords.",
@@ -222,31 +247,6 @@ enum class CredentialType(
         listOf(
             CredentialField("TITLE", "e.g. WiFi Password, Server Info..."),
             CredentialField("TAGS", "e.g. wifi, network, home..."),
-        ),
-    ),
-    CodingPlan(
-        "CODING_PLAN", "code",
-        "Store coding agent plan tokens. Paste your curl command or enter credentials manually.",
-        listOf(
-            CredentialField("PROVIDER", "Select provider", presets = listOf(
-                "qwen_bailian", "openai", "anthropic", "google", "deepseek",
-                "minimax", "glm", "moonshot", "volcengine", "tencent",
-            ), isDropdown = true),
-            CredentialField("RAW_CURL", "Paste curl command (auto-extracts all fields)..."),
-            CredentialField("API_KEY", "API key (required)...", required = true),
-            CredentialField("COOKIE", "Bailian console cookie..."),
-            CredentialField("BASE_URL", "Select base URL (required)", presets = listOf(
-                "https://coding.dashscope.aliyuncs.com/v1",
-                "https://coding.dashscope.aliyuncs.com/apps/anthropic",
-                "https://api.openai.com/v1",
-                "https://api.anthropic.com/v1",
-                "https://generativelanguage.googleapis.com/v1",
-                "https://api.deepseek.com/v1",
-                "https://api.moonshot.cn/v1",
-                "https://api.minimax.chat/v1",
-                "https://open.bigmodel.cn/api/paas/v4",
-                "https://bailian.console.aliyun.com",
-            ), isDropdown = true, editable = true, required = true),
         ),
     ),
     Custom(
