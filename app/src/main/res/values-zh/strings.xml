@@ -124,6 +124,7 @@
     <string name="config_token_source">Token来源</string>
     <string name="config_checking">检查中...</string>
     <string name="config_downloading">下载中...</string>
+    <string name="config_upgrading">升级中...</string>
     <string name="config_check_update">检查更新</string>
 
     <!-- Language Section -->

@@ -87,7 +87,18 @@ class KeyManager(private val context: Context) {
 
         val salt = getSalt() ?: throw IllegalStateException("Vault not initialized")
 
-        // Re-derive master key with OWASP params
+        // First verify password with CURRENT params (not new params!)
+        val (currentMemory, currentIterations, currentParallelism) = getArgon2Params()
+        val verifyKey = crypto.deriveKey(password, salt, currentMemory, currentIterations, currentParallelism)
+
+        // Verify password is correct by comparing with current master key
+        if (!verifyKey.contentEquals(masterKey!!)) {
+            verifyKey.fill(0)
+            throw IllegalArgumentException("WRONG_PIN")
+        }
+        verifyKey.fill(0)
+
+        // Now re-derive master key with OWASP params (same password, same salt, new params)
         val newKey = crypto.deriveKey(
             password,
             salt,
@@ -95,12 +106,6 @@ class KeyManager(private val context: Context) {
             Argon2Params.ITERATIONS_OWASP,
             Argon2Params.PARALLELISM_OWASP
         )
-
-        // Verify the new key matches current master key (sanity check)
-        if (!newKey.contentEquals(masterKey!!)) {
-            newKey.fill(0)
-            throw IllegalStateException("Key derivation mismatch - wrong password")
-        }
 
         // Update stored params and hash
         val keyHash = hashKey(newKey)
@@ -111,7 +116,8 @@ class KeyManager(private val context: Context) {
             putInt("argon2_parallelism", Argon2Params.PARALLELISM_OWASP)
         }
 
-        newKey.fill(0) // Clean up temp copy
+        // Update the in-memory master key reference to the new derived key
+        masterKey = newKey
     }
 
     /**

@@ -987,7 +987,7 @@ private fun Argon2UpgradeDialog(
                     useMonoFont = true,
                 )
                 BrutalistButton(
-                    text = if (isUpgrading) "UPGRADING..." else "UPGRADE",
+                    text = if (isUpgrading) context.getString(R.string.config_upgrading) else context.getString(R.string.config_argon2_upgrade_btn),
                     onClick = {
                         if (isUpgrading) return@BrutalistButton
                         if (pin.length < 4) {
@@ -1007,7 +1007,12 @@ private fun Argon2UpgradeDialog(
                                 onSuccess()
                             } else {
                                 isUpgrading = false
-                                error = result.exceptionOrNull()?.message ?: "UPGRADE_FAILED"
+                                val errorMsg = result.exceptionOrNull()?.message ?: "UPGRADE_FAILED"
+                                error = when (errorMsg) {
+                                    "WRONG_PIN" -> context.getString(R.string.error_wrong_pin)
+                                    "Vault must be unlocked before upgrade" -> context.getString(R.string.config_locked)
+                                    else -> errorMsg
+                                }
                             }
                         }
                     },

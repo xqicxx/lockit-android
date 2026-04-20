@@ -123,6 +123,7 @@
     <string name="config_token_source">TOKEN_SOURCE</string>
     <string name="config_checking">CHECKING...</string>
     <string name="config_downloading">DOWNLOADING...</string>
+    <string name="config_upgrading">UPGRADING...</string>
     <string name="config_check_update">CHECK_UPDATE</string>
 
     <!-- Language Section -->
