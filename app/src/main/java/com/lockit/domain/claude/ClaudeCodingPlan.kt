@@ -42,24 +42,24 @@ object ClaudeCodingPlan : CodingPlanFetcher {
     private fun fetchFromApi(sessionKey: String, orgId: String): CodingPlanQuota? {
         val url = URL("https://claude.ai/api/organizations/$orgId/usage")
         val conn = url.openConnection() as HttpURLConnection
+        try {
+            conn.connectTimeout = 5000
+            conn.readTimeout = 10000
+            conn.useCaches = false
 
-        conn.connectTimeout = 5000
-        conn.readTimeout = 10000
-        conn.useCaches = false
+            conn.setRequestMethod("GET")
+            conn.setRequestProperty("Accept", "application/json")
+            conn.setRequestProperty("Cookie", "sessionKey=$sessionKey")
 
-        conn.setRequestMethod("GET")
-        conn.setRequestProperty("Accept", "application/json")
-        conn.setRequestProperty("Cookie", "sessionKey=$sessionKey")
+            if (conn.responseCode != 200) {
+                return null
+            }
 
-        if (conn.responseCode != 200) {
+            val response = conn.inputStream.bufferedReader().use { it.readText() }
+            return parseResponse(response)
+        } finally {
             conn.disconnect()
-            return null
         }
-
-        val response = conn.inputStream.bufferedReader().use { it.readText() }
-        conn.disconnect()
-
-        return parseResponse(response)
     }
 
     private fun parseResponse(response: String): CodingPlanQuota? {

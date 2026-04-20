@@ -43,25 +43,25 @@ object ChatGPTCodingPlan : CodingPlanFetcher {
     private fun fetchFromApi(accessToken: String, accountId: String): CodingPlanQuota? {
         val url = URL(USAGE_API)
         val conn = url.openConnection() as HttpURLConnection
+        try {
+            conn.connectTimeout = 5000
+            conn.readTimeout = 10000
+            conn.useCaches = false
 
-        conn.connectTimeout = 5000
-        conn.readTimeout = 10000
-        conn.useCaches = false
+            conn.setRequestMethod("GET")
+            conn.setRequestProperty("Accept", "application/json")
+            conn.setRequestProperty("Authorization", "Bearer $accessToken")
+            conn.setRequestProperty("ChatGPT-Account-Id", accountId)
 
-        conn.setRequestMethod("GET")
-        conn.setRequestProperty("Accept", "application/json")
-        conn.setRequestProperty("Authorization", "Bearer $accessToken")
-        conn.setRequestProperty("ChatGPT-Account-Id", accountId)
+            if (conn.responseCode != 200) {
+                return null
+            }
 
-        if (conn.responseCode != 200) {
+            val response = conn.inputStream.bufferedReader().use { it.readText() }
+            return parseResponse(response)
+        } finally {
             conn.disconnect()
-            return null
         }
-
-        val response = conn.inputStream.bufferedReader().use { it.readText() }
-        conn.disconnect()
-
-        return parseResponse(response)
     }
 
     private fun parseResponse(response: String): CodingPlanQuota? {
