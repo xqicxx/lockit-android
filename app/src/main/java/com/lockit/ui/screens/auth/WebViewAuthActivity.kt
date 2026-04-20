@@ -213,10 +213,16 @@ class AuthWebViewClient(
             // Only consider logged in when we have valid cookies (not just page URL)
             "qwen_bailian" -> {
                 url?.contains("console.aliyun.com") == true &&
-                cookies.contains("aliyun_choice") || cookies.contains("login_aliyunid")
+                (cookies.contains("aliyun_choice") || cookies.contains("login_aliyunid"))
             }
-            "chatgpt" -> url?.contains("chatgpt.com") == true && !url.contains("auth/login") && cookies.isNotBlank()
-            "claude" -> url?.contains("claude.ai") == true && !url.contains("login") && cookies.contains("sessionKey")
+            // ChatGPT: logged in when URL is main page (not auth path) and has cookies
+            "chatgpt" -> url?.contains("chatgpt.com") == true &&
+                         !url.contains("/auth") &&
+                         cookies.isNotBlank()
+            // Claude: logged in when sessionKey cookie exists
+            "claude" -> url?.contains("claude.ai") == true &&
+                        !url.contains("/login") &&
+                        cookies.contains("sessionKey")
             else -> false
         }
 

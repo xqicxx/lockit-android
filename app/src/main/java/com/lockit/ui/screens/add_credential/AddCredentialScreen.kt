@@ -221,6 +221,13 @@ fun AddCredentialScreen(
                     dataMap[key] = json.optString(key, "")
                 }
 
+                android.util.Log.d("AddCredential", "WebView returned: $dataMap")
+
+                // Clear all fields first (except provider which will be set)
+                for (i in 1 until fieldValues.size) {
+                    fieldValues[i] = ""
+                }
+
                 // Fill in provider name (field 0)
                 val provider = dataMap["provider"] ?: selectedAuthProvider
                 fieldValues[0] = provider
@@ -229,33 +236,35 @@ fun AddCredentialScreen(
                 // Fill in credentials based on provider
                 when (provider) {
                     "qwen", "qwen_bailian" -> {
-                        // Fill RAW_CURL if available
-                        val rawCurl = dataMap["rawCurl"] ?: ""
-                        if (rawCurl.isNotBlank()) fieldValues[1] = rawCurl
-                        // Fill API_KEY if available
-                        dataMap["apiKey"]?.let { fieldValues[2] = it }
+                        // Fill RAW_CURL
+                        fieldValues[1] = dataMap["rawCurl"] ?: ""
+                        // Fill API_KEY (direct assignment, not ?.let)
+                        fieldValues[2] = dataMap["apiKey"] ?: ""
                         // Fill COOKIE
-                        dataMap["cookie"]?.let { fieldValues[3] = it }
-                        // Fill BASE_URL (index 4)
-                        dataMap["baseUrl"]?.let { fieldValues[4] = it }
+                        fieldValues[3] = dataMap["cookie"] ?: ""
+                        // Fill BASE_URL
+                        fieldValues[4] = dataMap["baseUrl"] ?: ""
                         // Store extra fields for metadata
                         authExtraData = dataMap
+                        android.util.Log.d("AddCredential", "Bailian: apiKey=${dataMap["apiKey"]}, cookie=${dataMap["cookie"]}")
                     }
                     "openai", "chatgpt" -> {
                         // apiKey (accessToken) fills API_KEY field
-                        dataMap["apiKey"]?.let { fieldValues[2] = it }
+                        fieldValues[2] = dataMap["apiKey"] ?: ""
                         // Fill BASE_URL
-                        dataMap["baseUrl"]?.let { fieldValues[4] = it }
+                        fieldValues[4] = dataMap["baseUrl"] ?: ""
                         // Store extra fields (accountId) for metadata
                         authExtraData = dataMap
+                        android.util.Log.d("AddCredential", "ChatGPT: apiKey=${dataMap["apiKey"]}, accountId=${dataMap["accountId"]}")
                     }
                     "anthropic", "claude" -> {
                         // apiKey (sessionKey) fills API_KEY field
-                        dataMap["apiKey"]?.let { fieldValues[2] = it }
+                        fieldValues[2] = dataMap["apiKey"] ?: ""
                         // Fill BASE_URL
-                        dataMap["baseUrl"]?.let { fieldValues[4] = it }
+                        fieldValues[4] = dataMap["baseUrl"] ?: ""
                         // Store extra fields (orgId) for metadata
                         authExtraData = dataMap
+                        android.util.Log.d("AddCredential", "Claude: apiKey=${dataMap["apiKey"]}, orgId=${dataMap["orgId"]}")
                     }
                 }
                 userEditedCookie = true

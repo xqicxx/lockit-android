@@ -189,14 +189,37 @@ private fun EditCredentialForm(
                     dataMap[key] = json.optString(key, "")
                 }
 
-                // Fill in credentials for qwen_bailian
-                when (dataMap["provider"]) {
+                android.util.Log.d("EditCredential", "WebView returned: $dataMap")
+
+                // Clear all fields first before filling new data
+                for (i in fieldValues.indices) {
+                    fieldValues[i] = ""
+                }
+
+                // Set provider field (field 0) based on returned provider
+                val provider = dataMap["provider"] ?: ""
+                if (provider.isNotBlank()) {
+                    fieldValues[0] = provider
+                }
+
+                // Fill in credentials based on provider (direct assignment)
+                when (provider) {
                     "qwen", "qwen_bailian" -> {
-                        val rawCurl = dataMap["rawCurl"] ?: ""
-                        if (rawCurl.isNotBlank()) fieldValues[1] = rawCurl
-                        dataMap["apiKey"]?.let { fieldValues[2] = it }
-                        dataMap["cookie"]?.let { fieldValues[3] = it }
-                        dataMap["baseUrl"]?.let { fieldValues[4] = it }
+                        fieldValues[1] = dataMap["rawCurl"] ?: ""
+                        fieldValues[2] = dataMap["apiKey"] ?: ""
+                        fieldValues[3] = dataMap["cookie"] ?: ""
+                        fieldValues[4] = dataMap["baseUrl"] ?: ""
+                        android.util.Log.d("EditCredential", "Bailian: apiKey=${dataMap["apiKey"]}")
+                    }
+                    "openai", "chatgpt" -> {
+                        fieldValues[2] = dataMap["apiKey"] ?: ""
+                        fieldValues[4] = dataMap["baseUrl"] ?: ""
+                        android.util.Log.d("EditCredential", "ChatGPT: apiKey=${dataMap["apiKey"]}")
+                    }
+                    "anthropic", "claude" -> {
+                        fieldValues[2] = dataMap["apiKey"] ?: ""
+                        fieldValues[4] = dataMap["baseUrl"] ?: ""
+                        android.util.Log.d("EditCredential", "Claude: apiKey=${dataMap["apiKey"]}")
                     }
                 }
                 userEditedCookie = true
@@ -304,12 +327,20 @@ private fun EditCredentialForm(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // WebView auth button for CodingPlan type
+            // WebView auth buttons for CodingPlan type - based on selected provider
             if (selectedType == CredentialType.CodingPlan && app.vaultManager.isUnlocked()) {
+                val currentProvider = getField(0)
+                val authProvider = when (currentProvider) {
+                    "qwen", "qwen_bailian" -> "qwen_bailian"
+                    "openai", "chatgpt" -> "chatgpt"
+                    "anthropic", "claude" -> "claude"
+                    else -> "qwen_bailian"  // Default fallback
+                }
+
                 BrutalistButton(
                     text = stringResource(R.string.auth_webview_update),
                     onClick = {
-                        val intent = WebViewAuthActivity.createIntent(context, "qwen_bailian")
+                        val intent = WebViewAuthActivity.createIntent(context, authProvider)
                         webViewAuthLauncher.launch(intent)
                     },
                     variant = ButtonVariant.Secondary,
