@@ -149,6 +149,10 @@ class AuthWebViewClient(
 
     override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
         super.onPageStarted(view, url, favicon)
+        // Reset extraction state when user navigates away from console (allows retry)
+        if (url?.contains("console.aliyun.com") == false && provider == "qwen_bailian") {
+            hasExtracted = false
+        }
         // Track login flow: user must visit account/login page first
         if (url?.contains("account.aliyun.com") == true || url?.contains("login") == true) {
             hasVisitedLogin = true
