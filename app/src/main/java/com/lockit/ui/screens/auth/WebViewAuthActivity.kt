@@ -64,6 +64,10 @@ class WebViewAuthActivity : Activity() {
             settings.javaScriptEnabled = true
             settings.domStorageEnabled = true
             settings.loadsImagesAutomatically = true
+            // Override User-Agent to mimic Chrome browser, bypassing Google Safe Browsing
+            // detection (disallowed_useragent error). WebView's default UA contains
+            // "wv" and "Mobile Safari" which triggers Google's block.
+            settings.userAgentString = "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Mobile Safari/537.36"
 
             webViewClient = AuthWebViewClient(provider, this@WebViewAuthActivity, scope)
             webChromeClient = object : WebChromeClient() {}
