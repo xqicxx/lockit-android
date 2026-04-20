@@ -202,6 +202,7 @@ fun AddCredentialScreen(
     // WebView auth state for CodingPlan
     var selectedAuthProvider by remember { mutableStateOf("qwen_bailian") }
     var authCredentialStatus by remember { mutableStateOf<String?>(null) } // null, "success", "failed"
+    var authExtraData by remember { mutableStateOf<Map<String, String>>(emptyMap()) } // Extra data from WebView
 
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
@@ -237,14 +238,24 @@ fun AddCredentialScreen(
                         dataMap["cookie"]?.let { fieldValues[3] = it }
                         // Fill BASE_URL (index 4)
                         dataMap["baseUrl"]?.let { fieldValues[4] = it }
+                        // Store extra fields for metadata
+                        authExtraData = dataMap
                     }
                     "openai", "chatgpt" -> {
-                        dataMap["accessToken"]?.let { fieldValues[3] = it }
+                        // apiKey (accessToken) fills API_KEY field
+                        dataMap["apiKey"]?.let { fieldValues[2] = it }
+                        // Fill BASE_URL
                         dataMap["baseUrl"]?.let { fieldValues[4] = it }
+                        // Store extra fields (accountId) for metadata
+                        authExtraData = dataMap
                     }
                     "anthropic", "claude" -> {
-                        dataMap["sessionKey"]?.let { fieldValues[3] = it }
+                        // apiKey (sessionKey) fills API_KEY field
+                        dataMap["apiKey"]?.let { fieldValues[2] = it }
+                        // Fill BASE_URL
                         dataMap["baseUrl"]?.let { fieldValues[4] = it }
+                        // Store extra fields (orgId) for metadata
+                        authExtraData = dataMap
                     }
                 }
                 userEditedCookie = true
@@ -584,20 +595,19 @@ fun AddCredentialScreen(
                                     nameWarning = "NAME_TAKEN. Auto-renamed to: $finalName"
                                 }
 
-                                // For CodingPlan: store all fields as metadata
+                                // For CodingPlan: store all fields as metadata (provider-specific)
                                 val metadata = if (selectedType == CredentialType.CodingPlan) {
                                     val provider = getField(0)
                                     val rawCurl = getField(1)
                                     val apiKey = getField(2).takeIf { it.isNotBlank() }
                                         ?: extractApiKeyFromCurl(rawCurl)
-                                    // Sanitize cookie: remove newlines and whitespace
                                     val rawCookie = getField(3).takeIf { it.isNotBlank() }
                                         ?: extractCookieFromCurl(rawCurl)
                                     val cookie = rawCookie.replace("\n", "").replace("\r", "").trim()
                                     val baseUrl = getField(4).takeIf { it.isNotBlank() }
                                         ?: extractBaseUrlFromCurl(rawCurl)
 
-                                    // Save to SharedPreferences for immediate prefetch on app startup
+                                    // Save to SharedPreferences for immediate prefetch
                                     com.lockit.data.vault.CodingPlanPrefs.save(
                                         context = app,
                                         provider = provider,
@@ -605,12 +615,28 @@ fun AddCredentialScreen(
                                         apiKey = apiKey ?: "",
                                     )
 
+                                    // Build metadata based on provider type (include authExtraData)
                                     JSONObject().apply {
                                         put("provider", provider)
-                                        put("rawCurl", rawCurl)
-                                        put("apiKey", apiKey)
-                                        put("cookie", cookie)
                                         put("baseUrl", baseUrl)
+                                        when (provider) {
+                                            "qwen", "qwen_bailian" -> {
+                                                put("rawCurl", rawCurl)
+                                                put("apiKey", apiKey)
+                                                put("cookie", cookie)
+                                            }
+                                            "openai", "chatgpt" -> {
+                                                put("accessToken", apiKey)
+                                                authExtraData["accountId"]?.let { put("accountId", it) }
+                                            }
+                                            "anthropic", "claude" -> {
+                                                put("sessionKey", apiKey)
+                                                authExtraData["orgId"]?.let { put("orgId", it) }
+                                            }
+                                            else -> {
+                                                put("apiKey", apiKey)
+                                            }
+                                        }
                                     }.toString()
                                 } else {
                                     "{}"

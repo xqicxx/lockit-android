@@ -51,7 +51,8 @@ object ChatGptAuthClient {
                         "provider" to "openai",
                         "accessToken" to accessToken,
                         "accountId" to accountId,
-                        "baseUrl" to "https://api.openai.com/v1"
+                        "baseUrl" to "https://api.openai.com/v1",
+                        "apiKey" to accessToken  // For API_KEY field compatibility
                     )
                 } else {
                     Log.e(TAG, "Missing accessToken or accountId")

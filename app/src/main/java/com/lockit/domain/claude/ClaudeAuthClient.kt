@@ -79,7 +79,8 @@ object ClaudeAuthClient {
             "provider" to "anthropic",
             "sessionKey" to sessionKey,
             "orgId" to (orgId ?: ""),
-            "baseUrl" to "https://api.anthropic.com/v1"
+            "baseUrl" to "https://api.anthropic.com/v1",
+            "apiKey" to sessionKey  // For API_KEY field compatibility
         )
     }
 }
