@@ -290,14 +290,15 @@ fun ConfigScreen(
             )
             Spacer(modifier = Modifier.height(24.dp))
 
-            // Vault Status Section
+            // Vault Status Section - Dynamic values from code constants
+            val cryptoConstants = app.vaultManager.getCryptoConstants()
             ConfigSection(
                 title = stringResource(R.string.config_vault_status),
                 items = listOf(
                     stringResource(R.string.config_state) to if (app.vaultManager.isUnlocked()) stringResource(R.string.config_unlocked) else stringResource(R.string.config_locked),
-                    stringResource(R.string.config_encryption) to stringResource(R.string.config_aes_gcm),
-                    stringResource(R.string.config_key_derivation) to stringResource(R.string.config_argon2id),
-                    stringResource(R.string.config_storage) to stringResource(R.string.config_sqlite),
+                    stringResource(R.string.config_encryption) to cryptoConstants.ENCRYPTION_ALGORITHM,
+                    stringResource(R.string.config_key_derivation) to cryptoConstants.KEY_DERIVATION_ALGORITHM,
+                    stringResource(R.string.config_storage) to cryptoConstants.STORAGE_TYPE,
                 ),
             )
 
@@ -511,7 +512,6 @@ fun ConfigScreen(
             Spacer(modifier = Modifier.height(24.dp))
 
             // Security Section - All values from code constants (dynamic)
-            val cryptoConstants = app.vaultManager.getCryptoConstants()
             val argon2Params = app.vaultManager.getArgon2ParamsInfo()
             val (argon2MemoryKB, argon2Iterations, argon2Parallelism) = argon2Params
 

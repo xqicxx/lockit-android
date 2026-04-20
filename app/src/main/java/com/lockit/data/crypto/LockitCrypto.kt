@@ -11,10 +11,16 @@ import javax.crypto.spec.SecretKeySpec
  * Crypto constants - exposed for UI display
  */
 object CryptoConstants {
+    // AES-GCM parameters
     const val NONCE_LENGTH = 12          // bytes
     const val GCM_TAG_LENGTH = 128       // bits
     const val KEY_LENGTH = 32            // bytes (256 bits)
     const val SALT_LENGTH = 16           // bytes
+
+    // Algorithm names for display
+    const val ENCRYPTION_ALGORITHM = "AES-256-GCM"
+    const val KEY_DERIVATION_ALGORITHM = "ARGON2ID"
+    const val STORAGE_TYPE = "LOCAL_SQLITE"
 }
 
 private const val NONCE_LENGTH = CryptoConstants.NONCE_LENGTH
