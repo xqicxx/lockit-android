@@ -145,17 +145,12 @@ class AuthWebViewClient(
 ) : WebViewClient() {
 
     private var hasExtracted = false
-    private var hasVisitedLogin = false  // Track if user went through login flow
 
     override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
         super.onPageStarted(view, url, favicon)
         // Reset extraction state when user navigates away from console (allows retry)
         if (url?.contains("console.aliyun.com") == false && provider == "qwen_bailian") {
             hasExtracted = false
-        }
-        // Track login flow: user must visit account/login page first
-        if (url?.contains("account.aliyun.com") == true || url?.contains("login") == true) {
-            hasVisitedLogin = true
         }
     }
 
@@ -165,8 +160,8 @@ class AuthWebViewClient(
         if (hasExtracted) return
 
         val isLoggedIn = when (provider) {
-            // Only consider logged in if user went through login flow and reached console
-            "qwen_bailian" -> hasVisitedLogin && url?.contains("console.aliyun.com") == true
+            // Consider logged in when user reaches console page
+            "qwen_bailian" -> url?.contains("console.aliyun.com") == true
             "chatgpt" -> url?.contains("chatgpt.com") == true && !url.contains("auth/login")
             "claude" -> url?.contains("claude.ai") == true && !url.contains("login")
             else -> false
