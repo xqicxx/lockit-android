@@ -439,6 +439,26 @@ fun AddCredentialScreen(
                         modifier = Modifier.weight(1f),
                         useMonoFont = true,
                     )
+                    BrutalistButton(
+                        text = stringResource(R.string.auth_chatgpt),
+                        onClick = {
+                            val intent = WebViewAuthActivity.createIntent(context, "chatgpt")
+                            webViewAuthLauncher.launch(intent)
+                        },
+                        variant = ButtonVariant.Secondary,
+                        modifier = Modifier.weight(1f),
+                        useMonoFont = true,
+                    )
+                    BrutalistButton(
+                        text = stringResource(R.string.auth_claude),
+                        onClick = {
+                            val intent = WebViewAuthActivity.createIntent(context, "claude")
+                            webViewAuthLauncher.launch(intent)
+                        },
+                        variant = ButtonVariant.Secondary,
+                        modifier = Modifier.weight(1f),
+                        useMonoFont = true,
+                    )
                 }
 
                 // Auth status feedback

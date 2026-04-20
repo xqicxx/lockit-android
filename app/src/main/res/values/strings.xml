@@ -341,4 +341,6 @@
     <string name="auth_quick_verify_section">QUICK_VERIFY</string>
     <string name="auth_quick_verify_desc">一键获取凭证数据</string>
     <string name="auth_qwen_bailian">QWEN_BAILIAN</string>
+    <string name="auth_chatgpt">CHATGPT</string>
+    <string name="auth_claude">CLAUDE</string>
 </resources>

@@ -15,6 +15,8 @@ import android.widget.FrameLayout
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import com.lockit.domain.qwen.BailianAuthClient
+import com.lockit.domain.chatgpt.ChatGptAuthClient
+import com.lockit.domain.claude.ClaudeAuthClient
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -256,116 +258,24 @@ class AuthWebViewClient(
 
     private fun extractChatGPTCredentials(cookies: String) {
         scope.launch {
-            try {
-                val result = withContext(Dispatchers.IO) {
-                    val sessionUrl = URL("https://chatgpt.com/api/auth/session")
-                    val conn = sessionUrl.openConnection() as HttpURLConnection
-                    conn.connectTimeout = 5000
-                    conn.readTimeout = 10000
-                    conn.setRequestProperty("Cookie", cookies)
-
-                    if (conn.responseCode != 200) {
-                        conn.disconnect()
-                        return@withContext null
-                    }
-
-                    val response = conn.inputStream.bufferedReader().use { it.readText() }
-                    conn.disconnect()
-
-                    val json = JSONObject(response)
-                    val accessToken = json.optString("accessToken", "")
-                    val userObj = json.optJSONObject("user")
-                    val accountId = userObj?.optString("id", "") ?: ""
-
-                    if (accessToken.isNotBlank() && accountId.isNotBlank()) {
-                        mapOf(
-                            "provider" to "openai",
-                            "accessToken" to accessToken,
-                            "accountId" to accountId
-                        )
-                    } else null
-                }
-                if (result != null) {
-                    returnResult(result)
-                } else {
-                    returnFailed("凭证获取失败")
-                }
-            } catch (e: Exception) {
-                returnFailed("获取失败: ${e.message}")
+            android.widget.Toast.makeText(activity, "获取中...", android.widget.Toast.LENGTH_SHORT).show()
+            val result = ChatGptAuthClient.fetchCredentials(cookies)
+            if (result.containsKey("error")) {
+                returnFailed(result["error"] ?: "凭证获取失败")
+            } else {
+                returnResult(result)
             }
         }
     }
 
     private fun extractClaudeCredentials(cookies: String, view: WebView?) {
-        val sessionKey = cookies.split(";")
-            .map { it.trim() }
-            .find { it.startsWith("sessionKey=") }
-            ?.substringAfter("sessionKey=")
-            ?.trim()
-
-        if (sessionKey == null || sessionKey.isBlank()) {
-            returnFailed("凭证获取失败")
-            return
-        }
-
-        view?.evaluateJavascript(
-            "(function() { " +
-            "try { " +
-            "  const orgData = JSON.parse(localStorage.getItem('claude-organization') || '{}');" +
-            "  return orgData.activeOrganization?.id || '';" +
-            "} catch(e) { return ''; }" +
-            "})();",
-            { orgId ->
-                if (orgId.isNotBlank() && orgId != "null") {
-                    returnResult(mapOf(
-                        "provider" to "anthropic",
-                        "sessionKey" to sessionKey,
-                        "orgId" to orgId.trim('"')
-                    ))
-                } else {
-                    fetchClaudeOrgIdFromApi(sessionKey)
-                }
-            }
-        )
-    }
-
-    private fun fetchClaudeOrgIdFromApi(sessionKey: String) {
         scope.launch {
-            try {
-                val result = withContext(Dispatchers.IO) {
-                    val authUrl = URL("https://claude.ai/api/auth/me")
-                    val conn = authUrl.openConnection() as HttpURLConnection
-                    conn.connectTimeout = 5000
-                    conn.readTimeout = 10000
-                    conn.setRequestProperty("Cookie", "sessionKey=$sessionKey")
-
-                    if (conn.responseCode != 200) {
-                        conn.disconnect()
-                        return@withContext null
-                    }
-
-                    val response = conn.inputStream.bufferedReader().use { it.readText() }
-                    conn.disconnect()
-
-                    val json = JSONObject(response)
-                    val orgs = json.optJSONArray("organizations")
-                    val orgId = orgs?.optJSONObject(0)?.optString("id", "") ?: ""
-
-                    if (orgId.isNotBlank()) {
-                        mapOf(
-                            "provider" to "anthropic",
-                            "sessionKey" to sessionKey,
-                            "orgId" to orgId
-                        )
-                    } else null
-                }
-                if (result != null) {
-                    returnResult(result)
-                } else {
-                    returnFailed("凭证获取失败")
-                }
-            } catch (e: Exception) {
-                returnFailed("获取失败: ${e.message}")
+            android.widget.Toast.makeText(activity, "获取中...", android.widget.Toast.LENGTH_SHORT).show()
+            val result = ClaudeAuthClient.fetchCredentials(cookies)
+            if (result.containsKey("error")) {
+                returnFailed(result["error"] ?: "凭证获取失败")
+            } else {
+                returnResult(result)
             }
         }
     }
