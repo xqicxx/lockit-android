@@ -1,6 +1,7 @@
 package com.lockit.data.vault
 
 import android.content.Context
+import androidx.core.content.edit
 import androidx.room.withTransaction
 import com.lockit.data.audit.AuditLogger
 import com.lockit.data.audit.AuditSeverity
@@ -260,13 +261,181 @@ class VaultManager(
     fun needsArgon2Upgrade(): Boolean = keyManager.needsArgon2Upgrade()
 
     /**
-     * Upgrade Argon2 parameters to OWASP recommended values.
+     * Check if vault might need recovery from failed upgrade.
+     * Returns true if OWASP params are stored (indicating upgrade was attempted)
+     * but vault is unlocked and credentials can't be decrypted.
      */
-    fun upgradeArgon2Params(password: String): Result<Unit> = keyManager.upgradeArgon2Params(password)
+    suspend fun needsRecovery(): Boolean {
+        // If vault params are OWASP but vault is unlocked with potentially wrong key
+        val (memory, iterations, parallelism) = keyManager.getArgon2Params()
+        val isOwaspParams = memory == Argon2Params.MEMORY_OWASP &&
+            iterations == Argon2Params.ITERATIONS_OWASP &&
+            parallelism == Argon2Params.PARALLELISM_OWASP
+
+        // If OWASP params but vault is unlocked, check if we can decrypt
+        if (isOwaspParams && keyManager.isUnlocked()) {
+            // Try to get credentials - if decryption fails, need recovery
+            try {
+                val masterKey = keyManager.getMasterKey() ?: return false
+                val entities = dao.getAllEntities()
+                if (entities.isNotEmpty()) {
+                    // Try decrypt first credential
+                    crypto.decrypt(entities.first().value, masterKey)
+                    return false // Decrypt succeeded, no recovery needed
+                }
+            } catch (e: Exception) {
+                return true // Decrypt failed, need recovery
+            }
+        }
+        return false
+    }
+
+    /**
+     * Upgrade Argon2 parameters to OWASP recommended values.
+     * CRITICAL: Re-encrypts all credentials with the new key derived from OWASP params.
+     * This is necessary because different Argon2 params produce different keys
+     * even with the same password and salt.
+     */
+    suspend fun upgradeArgon2Params(password: String): Result<Unit> = runCatching {
+        if (!keyManager.isVaultInitialized()) {
+            throw IllegalStateException("Vault not initialized")
+        }
+
+        val salt = keyManager.getSalt() ?: throw IllegalStateException("Vault not initialized")
+        val (currentMemory, currentIterations, currentParallelism) = keyManager.getArgon2Params()
+
+        // Derive old key with current params
+        val oldKey = crypto.deriveKey(password, salt, currentMemory, currentIterations, currentParallelism)
+
+        // Verify old key by checking hash
+        val oldKeyHash = java.security.MessageDigest.getInstance("SHA-256").digest(oldKey)
+        val storedHashStr = context.getSharedPreferences("lockit_vault", Context.MODE_PRIVATE)
+            .getString("vault_key_hash", null)
+            ?: throw IllegalStateException("Vault corrupted: no key hash")
+        val storedHash = java.util.Base64.getDecoder().decode(storedHashStr)
+        if (!oldKeyHash.contentEquals(storedHash)) {
+            oldKey.fill(0)
+            throw IllegalArgumentException("WRONG_PIN")
+        }
+
+        // Derive new key with OWASP params
+        val newKey = crypto.deriveKey(
+            password,
+            salt,
+            Argon2Params.MEMORY_OWASP,
+            Argon2Params.ITERATIONS_OWASP,
+            Argon2Params.PARALLELISM_OWASP
+        )
+
+        // CRITICAL: Re-encrypt all credentials with new key
+        LockitDatabase.getInstance(context).withTransaction {
+            val allEntities = dao.getAllEntities()
+            for (entity in allEntities) {
+                val decrypted = crypto.decrypt(entity.value, oldKey)
+                val reEncrypted = crypto.encrypt(decrypted, newKey)
+                dao.update(entity.copy(value = reEncrypted))
+            }
+        }
+
+        // Update stored params and hash AFTER successful re-encryption
+        val newKeyHash = java.security.MessageDigest.getInstance("SHA-256").digest(newKey)
+        context.getSharedPreferences("lockit_vault", Context.MODE_PRIVATE)
+            .edit(commit = true) {
+                putString("vault_key_hash", java.util.Base64.getEncoder().encodeToString(newKeyHash))
+                putInt("argon2_memory", Argon2Params.MEMORY_OWASP)
+                putInt("argon2_iterations", Argon2Params.ITERATIONS_OWASP)
+                putInt("argon2_parallelism", Argon2Params.PARALLELISM_OWASP)
+            }
+
+        // Update in-memory master key
+        keyManager.updateMasterKey(newKey)
+
+        // Zero out sensitive keys
+        oldKey.fill(0)
+        newKey.fill(0)
+
+        auditLogger.log("ARGON2_UPGRADED", "Argon2 params upgraded to OWASP, credentials re-encrypted", AuditSeverity.Warning)
+    }
+
+    /**
+     * Recover vault after failed Argon2 upgrade.
+     * Uses when vault params show OWASP but credentials are still encrypted with legacy key.
+     */
+    suspend fun recoverFromFailedUpgrade(password: String): Result<Unit> = runCatching {
+        android.util.Log.d("VaultManager", "Starting recovery with password length: ${password.length}")
+        if (!keyManager.isVaultInitialized()) {
+            throw IllegalStateException("Vault not initialized")
+        }
+
+        val salt = keyManager.getSalt() ?: throw IllegalStateException("Vault not initialized")
+        android.util.Log.d("VaultManager", "Salt: ${java.util.Base64.getEncoder().encodeToString(salt)}")
+
+        // Try to derive legacy key and decrypt first credential to verify
+        val legacyKey = crypto.deriveKey(
+            password,
+            salt,
+            Argon2Params.MEMORY_LEGACY,
+            Argon2Params.ITERATIONS_LEGACY,
+            Argon2Params.PARALLELISM_LEGACY
+        )
+
+        // Verify by trying to decrypt first credential
+        val firstEntity = dao.getAllEntities().firstOrNull()
+            ?: throw IllegalStateException("No credentials to recover")
+
+        try {
+            crypto.decrypt(firstEntity.value, legacyKey)
+        } catch (e: Exception) {
+            legacyKey.fill(0)
+            throw IllegalArgumentException("WRONG_PIN")
+        }
+
+        // Derive new key with OWASP params
+        val newKey = crypto.deriveKey(
+            password,
+            salt,
+            Argon2Params.MEMORY_OWASP,
+            Argon2Params.ITERATIONS_OWASP,
+            Argon2Params.PARALLELISM_OWASP
+        )
+
+        // Re-encrypt all credentials with new key
+        LockitDatabase.getInstance(context).withTransaction {
+            val allEntities = dao.getAllEntities()
+            for (entity in allEntities) {
+                val decrypted = crypto.decrypt(entity.value, legacyKey)
+                val reEncrypted = crypto.encrypt(decrypted, newKey)
+                dao.update(entity.copy(value = reEncrypted))
+            }
+        }
+
+        // Update stored params and hash
+        val newKeyHash = java.security.MessageDigest.getInstance("SHA-256").digest(newKey)
+        context.getSharedPreferences("lockit_vault", Context.MODE_PRIVATE)
+            .edit(commit = true) {
+                putString("vault_key_hash", java.util.Base64.getEncoder().encodeToString(newKeyHash))
+                putInt("argon2_memory", Argon2Params.MEMORY_OWASP)
+                putInt("argon2_iterations", Argon2Params.ITERATIONS_OWASP)
+                putInt("argon2_parallelism", Argon2Params.PARALLELISM_OWASP)
+            }
+
+        // Update in-memory master key
+        keyManager.updateMasterKey(newKey)
+
+        // Zero out sensitive keys
+        legacyKey.fill(0)
+        newKey.fill(0)
+
+        auditLogger.log("VAULT_RECOVERED", "Vault recovered from failed Argon2 upgrade", AuditSeverity.Warning)
+    }
 
     private fun decryptCredential(entity: CredentialEntity, masterKey: ByteArray): Credential {
-        val decryptedValue = crypto.decrypt(entity.value, masterKey)
-            .decodeToString()
+        val decryptedValue = try {
+            crypto.decrypt(entity.value, masterKey).decodeToString()
+        } catch (e: Exception) {
+            android.util.Log.e("VaultManager", "Decrypt failed for ${entity.name}: ${e.message}", e)
+            throw e
+        }
 
         val metadataMap = try {
             val json = org.json.JSONObject(entity.metadata)

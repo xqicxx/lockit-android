@@ -2,6 +2,7 @@ package com.lockit.ui.screens.vault_explorer
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -18,10 +19,11 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -59,9 +61,17 @@ import com.lockit.ui.components.findActivity
 import com.lockit.ui.components.parseCredentialFields
 import com.lockit.ui.theme.IndustrialOrange
 import com.lockit.ui.theme.JetBrainsMonoFamily
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.width
+import com.lockit.ui.components.BrutalistButton
+import com.lockit.ui.components.BrutalistTextField
+import com.lockit.ui.components.ButtonVariant
+import com.lockit.ui.theme.TacticalRed
 import com.lockit.ui.theme.Primary
 import com.lockit.ui.theme.White
 import com.lockit.utils.BiometricUtils
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -70,6 +80,7 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 // Toast data class for localization-safe toast messages
 data class ToastData(
@@ -82,6 +93,9 @@ class VaultExplorerViewModel(private val app: LockitApp) : ViewModel() {
 
     private val _credentials = MutableStateFlow<List<Credential>>(emptyList())
     val credentials: StateFlow<List<Credential>> = _credentials.asStateFlow()
+
+    private val _needsRecovery = MutableStateFlow(false)
+    val needsRecovery: StateFlow<Boolean> = _needsRecovery.asStateFlow()
 
     private val _searchFlow = MutableStateFlow<Job?>(null)
     private var lastQuery = ""
@@ -108,7 +122,16 @@ class VaultExplorerViewModel(private val app: LockitApp) : ViewModel() {
 
     private fun startObservingAllCredentials(): Job {
         return app.vaultManager.getAllCredentials()
-            .catch { _credentials.value = emptyList() }
+            .catch { e ->
+                android.util.Log.e("VaultExplorer", "Credential flow error: ${e.message}", e)
+                _credentials.value = emptyList()
+                // If vault is unlocked but decryption failed, mark needs recovery
+                if (app.vaultManager.isUnlocked()) {
+                    android.util.Log.w("VaultExplorer", "Vault unlocked but decrypt failed - needs recovery")
+                    _needsRecovery.value = true
+                    app.setNeedsRecovery(true)
+                }
+            }
             .onEach { _credentials.value = it }
             .launchIn(viewModelScope)
     }
@@ -118,6 +141,10 @@ class VaultExplorerViewModel(private val app: LockitApp) : ViewModel() {
             .catch { _credentials.value = emptyList() }
             .onEach { _credentials.value = it }
             .launchIn(viewModelScope)
+    }
+
+    fun clearNeedsRecovery() {
+        _needsRecovery.value = false
     }
 
     fun deleteCredential(credential: Credential) {
@@ -173,10 +200,13 @@ fun VaultExplorerScreen(
 ) {
     val credentials by viewModel.credentials.collectAsStateWithLifecycle()
     val toastData by viewModel.toastData.collectAsStateWithLifecycle()
+    val needsRecovery by viewModel.needsRecovery.collectAsStateWithLifecycle()
+    var showRecoveryDialog by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf(viewModel.searchQuery) }
     var phoneRegionForToast by remember { mutableStateOf("") }
     val clipboardManager = LocalClipboardManager.current
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     val services by remember { derivedStateOf { credentials.map { it.service.uppercase() }.distinct() } }
     val revealedCredentialIds = remember { mutableStateListOf<String>() }
     val view = LocalView.current
@@ -234,6 +264,50 @@ fun VaultExplorerScreen(
                 TopBarAddButton(onClick = onNavigateToAdd)
             },
         )
+
+        // Recovery warning banner - shown when vault needs recovery
+        if (needsRecovery) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(TacticalRed)
+                    .border(2.dp, Primary)
+                    .padding(16.dp)
+                    .clickable { showRecoveryDialog = true },
+            ) {
+                Column {
+                    Text(
+                        text = "⚠ VAULT_RECOVERY_REQUIRED",
+                        fontFamily = JetBrainsMonoFamily,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 12.sp,
+                        color = White,
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "Tap to recover credentials with legacy key.",
+                        fontFamily = JetBrainsMonoFamily,
+                        fontSize = 10.sp,
+                        color = White,
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+        }
+
+        // Recovery dialog
+        if (showRecoveryDialog) {
+            RecoveryDialog(
+                app = app,
+                onDismiss = { showRecoveryDialog = false },
+                onSuccess = {
+                    showRecoveryDialog = false
+                    viewModel.clearNeedsRecovery()
+                    viewModel.searchQuery = "" // Refresh credentials list
+                },
+                onError = { showRecoveryDialog = false },
+            )
+        }
 
         LazyColumn(
             modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
@@ -440,4 +514,112 @@ private class VaultExplorerViewModelFactory(
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T =
         VaultExplorerViewModel(app) as T
+}
+
+@Composable
+private fun RecoveryDialog(
+    app: LockitApp,
+    onDismiss: () -> Unit,
+    onSuccess: () -> Unit,
+    onError: () -> Unit,
+) {
+    var pin by remember { mutableStateOf("") }
+    var error by remember { mutableStateOf<String?>(null) }
+    var isRecovering by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+
+    androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                .border(2.dp, TacticalRed)
+                .padding(24.dp),
+        ) {
+            Text(
+                text = context.getString(R.string.config_recovery_title),
+                fontFamily = JetBrainsMonoFamily,
+                fontWeight = FontWeight.Bold,
+                fontSize = 14.sp,
+                color = TacticalRed,
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = context.getString(R.string.config_recovery_desc),
+                fontFamily = JetBrainsMonoFamily,
+                fontSize = 10.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+
+            error?.let {
+                Text(
+                    text = it,
+                    fontFamily = JetBrainsMonoFamily,
+                    fontSize = 10.sp,
+                    color = TacticalRed,
+                    modifier = Modifier.border(1.dp, TacticalRed).padding(8.dp),
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+
+            BrutalistTextField(
+                value = pin,
+                onValueChange = { if (it.length <= 4) { pin = it; error = null } },
+                label = context.getString(R.string.change_pin_current),
+                placeholder = context.getString(R.string.change_pin_placeholder),
+                isPassword = true,
+            )
+            Spacer(modifier = Modifier.height(24.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                BrutalistButton(
+                    text = context.getString(R.string.btn_cancel),
+                    onClick = onDismiss,
+                    variant = ButtonVariant.Secondary,
+                    modifier = Modifier.weight(1f),
+                    useMonoFont = true,
+                )
+                BrutalistButton(
+                    text = if (isRecovering) context.getString(R.string.config_recovering) else context.getString(R.string.config_recovery_btn),
+                    onClick = {
+                        if (isRecovering) return@BrutalistButton
+                        if (pin.length < 4) {
+                            error = context.getString(R.string.error_pin_too_short)
+                            return@BrutalistButton
+                        }
+
+                        val pinToVerify = pin
+                        isRecovering = true
+
+                        scope.launch {
+                            val result = withContext(Dispatchers.IO) {
+                                app.vaultManager.recoverFromFailedUpgrade(pinToVerify)
+                            }
+                            if (result.isSuccess) {
+                                isRecovering = false
+                                app.setNeedsRecovery(false)
+                                onSuccess()
+                            } else {
+                                isRecovering = false
+                                val errorMsg = result.exceptionOrNull()?.message ?: "RECOVERY_FAILED"
+                                error = when (errorMsg) {
+                                    "WRONG_PIN" -> context.getString(R.string.error_wrong_pin)
+                                    else -> errorMsg
+                                }
+                            }
+                        }
+                    },
+                    variant = ButtonVariant.Danger,
+                    modifier = Modifier.weight(1f),
+                    useMonoFont = true,
+                    enabled = !isRecovering,
+                )
+            }
+        }
+    }
 }

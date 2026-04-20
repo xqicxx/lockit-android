@@ -406,9 +406,63 @@ fun AddCredentialScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // WebView auth section for CodingPlan type - hidden (no providers to show yet)
-            // Only show when there are 2+ existing CodingPlan credentials from different providers
-            // Provider selector removed - user can manually fill the form
+            // WebView auth section for CodingPlan type
+            if (selectedType == CredentialType.CodingPlan && app.vaultManager.isUnlocked()) {
+                Text(
+                    text = stringResource(R.string.auth_quick_verify_section),
+                    fontFamily = JetBrainsMonoFamily,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 12.sp,
+                    color = IndustrialOrange,
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = stringResource(R.string.auth_quick_verify_desc),
+                    fontFamily = JetBrainsMonoFamily,
+                    fontSize = 10.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Quick verify buttons for different providers
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    BrutalistButton(
+                        text = stringResource(R.string.auth_qwen_bailian),
+                        onClick = {
+                            val intent = WebViewAuthActivity.createIntent(context, "qwen_bailian")
+                            webViewAuthLauncher.launch(intent)
+                        },
+                        variant = ButtonVariant.Secondary,
+                        modifier = Modifier.weight(1f),
+                        useMonoFont = true,
+                    )
+                }
+
+                // Auth status feedback
+                authCredentialStatus?.let { status ->
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = when (status) {
+                            "success" -> stringResource(R.string.auth_credential_success)
+                            "failed" -> stringResource(R.string.auth_credential_failed)
+                            else -> ""
+                        },
+                        fontFamily = JetBrainsMonoFamily,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = when (status) {
+                            "success" -> IndustrialOrange
+                            "failed" -> TacticalRed
+                            else -> Primary
+                        },
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+            }
 
             // Fields for selected type
             fields.forEachIndexed { index, field ->

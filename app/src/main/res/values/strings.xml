@@ -124,7 +124,13 @@
     <string name="config_checking">CHECKING...</string>
     <string name="config_downloading">DOWNLOADING...</string>
     <string name="config_upgrading">UPGRADING...</string>
+    <string name="config_recovering">RECOVERING...</string>
     <string name="config_check_update">CHECK_UPDATE</string>
+
+    <!-- Recovery Section -->
+    <string name="config_recovery_title">VAULT_RECOVERY</string>
+    <string name="config_recovery_desc">Credentials encrypted with old key after failed Argon2 upgrade. Enter PIN to recover and re-encrypt with new key.</string>
+    <string name="config_recovery_btn">RECOVER</string>
 
     <!-- Language Section -->
     <string name="config_language">LANGUAGE</string>
@@ -192,6 +198,7 @@
     <string name="toast_credential_deleted">CREDENTIAL_DELETED:</string>
     <string name="toast_copied">_COPIED</string>
     <string name="toast_argon2_upgraded">ARGON2_UPGRADED_TO_OWASP</string>
+    <string name="toast_recovery_success">VAULT_RECOVERED_SUCCESSFULLY</string>
 
     <!-- Argon2 Upgrade -->
     <string name="config_argon2_upgrade_title">ARGON2_UPGRADE_AVAILABLE</string>
@@ -333,4 +340,7 @@
     <string name="auth_webview_update">一键更新</string>
     <string name="auth_credential_success">凭证已获取</string>
     <string name="auth_credential_failed">获取失败，请重试</string>
+    <string name="auth_quick_verify_section">QUICK_VERIFY</string>
+    <string name="auth_quick_verify_desc">一键获取凭证数据</string>
+    <string name="auth_qwen_bailian">QWEN_BAILIAN</string>
 </resources>

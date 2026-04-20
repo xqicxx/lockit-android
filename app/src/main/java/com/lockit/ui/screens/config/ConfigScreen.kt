@@ -39,6 +39,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -114,6 +115,7 @@ fun ConfigScreen(
     var showChangePinDialog by remember { mutableStateOf(false) }
     var showLinkBiometricDialog by remember { mutableStateOf(false) }
     var showArgon2UpgradeDialog by remember { mutableStateOf(false) }
+    var showRecoveryDialog by remember { mutableStateOf(false) }
     var toastMessage by remember { mutableStateOf<String?>(null) }
 
     // Biometric status
@@ -141,6 +143,11 @@ fun ConfigScreen(
             "LOCKIT_ANDROID vUnknown"
         }
     }
+
+    // Check if vault needs recovery from failed Argon2 upgrade
+    // Observe the shared needsRecovery state from LockitApp (set by VaultExplorerViewModel)
+    val needsRecovery by app.needsRecovery.collectAsStateWithLifecycle()
+    android.util.Log.d("ConfigScreen", "needsRecovery state: $needsRecovery")
 
     // Google Drive sync
     val syncManager = remember { GoogleDriveSyncManager(context) }
@@ -210,9 +217,27 @@ fun ConfigScreen(
             onSuccess = {
                 showArgon2UpgradeDialog = false
                 toastMessage = context.getString(R.string.toast_argon2_upgraded)
+                app.setNeedsRecovery(false)
             },
             onError = { err ->
                 showArgon2UpgradeDialog = false
+                toastMessage = err
+            },
+        )
+    }
+
+    // Recovery dialog for failed Argon2 upgrade
+    if (showRecoveryDialog) {
+        RecoveryDialog(
+            app = app,
+            onDismiss = { showRecoveryDialog = false },
+            onSuccess = {
+                showRecoveryDialog = false
+                app.setNeedsRecovery(false)
+                toastMessage = context.getString(R.string.toast_recovery_success)
+            },
+            onError = { err ->
+                showRecoveryDialog = false
                 toastMessage = err
             },
         )
@@ -577,6 +602,18 @@ fun ConfigScreen(
                             modifier = Modifier.fillMaxWidth(),
                             useMonoFont = true,
                         )
+
+                        // Recovery button - shown if vault needs recovery
+                        if (needsRecovery) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            BrutalistButton(
+                                text = stringResource(R.string.config_recovery_btn),
+                                onClick = { showRecoveryDialog = true },
+                                variant = ButtonVariant.Danger,
+                                modifier = Modifier.fillMaxWidth(),
+                                useMonoFont = true,
+                            )
+                        }
                     }
                 }
             }
@@ -1020,6 +1057,117 @@ private fun Argon2UpgradeDialog(
                     modifier = Modifier.weight(1f),
                     useMonoFont = true,
                     enabled = !isUpgrading,
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Dialog to recover vault from failed Argon2 upgrade.
+ * Uses legacy params to derive key and re-encrypt credentials with OWASP params.
+ */
+@Composable
+private fun RecoveryDialog(
+    app: LockitApp,
+    onDismiss: () -> Unit,
+    onSuccess: () -> Unit,
+    onError: (String) -> Unit,
+) {
+    var pin by remember { mutableStateOf("") }
+    var error by remember { mutableStateOf<String?>(null) }
+    var isRecovering by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+
+    androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                .border(2.dp, TacticalRed)
+                .padding(24.dp),
+        ) {
+            Text(
+                text = stringResource(R.string.config_recovery_title),
+                fontFamily = JetBrainsMonoFamily,
+                fontWeight = FontWeight.Bold,
+                fontSize = 14.sp,
+                color = TacticalRed,
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = stringResource(R.string.config_recovery_desc),
+                fontFamily = JetBrainsMonoFamily,
+                fontSize = 10.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+
+            error?.let {
+                Text(
+                    text = it,
+                    fontFamily = JetBrainsMonoFamily,
+                    fontSize = 10.sp,
+                    color = TacticalRed,
+                    modifier = Modifier.border(1.dp, TacticalRed).padding(8.dp),
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+
+            BrutalistTextField(
+                value = pin,
+                onValueChange = { if (it.length <= 4) { pin = it; error = null } },
+                label = stringResource(R.string.change_pin_current),
+                placeholder = stringResource(R.string.change_pin_placeholder),
+                isPassword = true,
+            )
+            Spacer(modifier = Modifier.height(24.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                BrutalistButton(
+                    text = stringResource(R.string.btn_cancel),
+                    onClick = onDismiss,
+                    variant = ButtonVariant.Secondary,
+                    modifier = Modifier.weight(1f),
+                    useMonoFont = true,
+                )
+                BrutalistButton(
+                    text = if (isRecovering) context.getString(R.string.config_recovering) else context.getString(R.string.config_recovery_btn),
+                    onClick = {
+                        if (isRecovering) return@BrutalistButton
+                        if (pin.length < 4) {
+                            error = context.getString(R.string.error_pin_too_short)
+                            return@BrutalistButton
+                        }
+
+                        val pinToVerify = pin
+                        isRecovering = true
+
+                        scope.launch {
+                            val result = withContext(Dispatchers.IO) {
+                                app.vaultManager.recoverFromFailedUpgrade(pinToVerify)
+                            }
+                            if (result.isSuccess) {
+                                isRecovering = false
+                                onSuccess()
+                            } else {
+                                isRecovering = false
+                                val errorMsg = result.exceptionOrNull()?.message ?: "RECOVERY_FAILED"
+                                error = when (errorMsg) {
+                                    "WRONG_PIN" -> context.getString(R.string.error_wrong_pin)
+                                    else -> errorMsg
+                                }
+                            }
+                        }
+                    },
+                    variant = ButtonVariant.Danger,
+                    modifier = Modifier.weight(1f),
+                    useMonoFont = true,
+                    enabled = !isRecovering,
                 )
             }
         }
