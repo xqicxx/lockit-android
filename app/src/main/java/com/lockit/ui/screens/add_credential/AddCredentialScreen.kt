@@ -221,7 +221,7 @@ fun AddCredentialScreen(
                     dataMap[key] = json.optString(key, "")
                 }
 
-                android.util.Log.d("AddCredential", "WebView returned: $dataMap")
+                android.util.Log.d("AddCredential", "WebView returned: provider=${dataMap["provider"]}")
 
                 // Clear all fields first (except provider which will be set)
                 for (i in 1 until fieldValues.size) {
@@ -246,8 +246,8 @@ fun AddCredentialScreen(
                         fieldValues[4] = dataMap["baseUrl"] ?: ""
                         // Store extra fields for metadata
                         authExtraData = dataMap
-                        android.util.Log.d("AddCredential", "Bailian: apiKey=${dataMap["apiKey"]}, cookie=${dataMap["cookie"]}")
-                        android.util.Log.d("AddCredential", "fieldValues after fill: ${fieldValues.toList()}")
+                        android.util.Log.d("AddCredential", "Bailian: apiKey=${if (dataMap["apiKey"]?.isNotBlank() == true) "OK" else "EMPTY"}")
+                        android.util.Log.d("AddCredential", "fieldValues after fill: provider=${fieldValues[0]}")
                     }
                     "openai", "chatgpt" -> {
                         // apiKey (accessToken) fills API_KEY field
@@ -256,7 +256,7 @@ fun AddCredentialScreen(
                         fieldValues[4] = dataMap["baseUrl"] ?: ""
                         // Store extra fields (accountId) for metadata
                         authExtraData = dataMap
-                        android.util.Log.d("AddCredential", "ChatGPT: apiKey=${dataMap["apiKey"]}, accountId=${dataMap["accountId"]}")
+                        android.util.Log.d("AddCredential", "ChatGPT: apiKey=${if (dataMap["apiKey"]?.isNotBlank() == true) "OK" else "EMPTY"}")
                     }
                     "anthropic", "claude" -> {
                         // apiKey (sessionKey) fills API_KEY field
@@ -265,7 +265,7 @@ fun AddCredentialScreen(
                         fieldValues[4] = dataMap["baseUrl"] ?: ""
                         // Store extra fields (orgId) for metadata
                         authExtraData = dataMap
-                        android.util.Log.d("AddCredential", "Claude: apiKey=${dataMap["apiKey"]}, orgId=${dataMap["orgId"]}")
+                        android.util.Log.d("AddCredential", "Claude: apiKey=${if (dataMap["apiKey"]?.isNotBlank() == true) "OK" else "EMPTY"}")
                     }
                 }
                 userEditedCookie = true
