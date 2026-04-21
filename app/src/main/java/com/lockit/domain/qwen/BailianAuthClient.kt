@@ -97,14 +97,31 @@ object BailianAuthClient {
         // Parse: data.DataV2.data.data.codingPlanInstanceInfos[0].instanceId
         val json = JSONObject(response)
         val data = json.optJSONObject("data")
-        val dataV2 = data?.optJSONObject("DataV2")
-        val innerData = dataV2?.optJSONObject("data")
-        val innerData2 = innerData?.optJSONObject("data")
-        val instances = innerData2?.optJSONArray("codingPlanInstanceInfos")
-        if (instances != null && instances.length() > 0) {
-            return instances.getJSONObject(0).optString("instanceId", "")
+        if (data == null) {
+            Log.e(TAG, "JSON parse failed: 'data' is null. Response: ${response.take(200)}")
+            return ""
         }
-        return ""
+        val dataV2 = data.optJSONObject("DataV2")
+        if (dataV2 == null) {
+            Log.e(TAG, "JSON parse failed: 'DataV2' is null")
+            return ""
+        }
+        val innerData = dataV2.optJSONObject("data")
+        if (innerData == null) {
+            Log.e(TAG, "JSON parse failed: 'data' (inner) is null")
+            return ""
+        }
+        val innerData2 = innerData.optJSONObject("data")
+        if (innerData2 == null) {
+            Log.e(TAG, "JSON parse failed: 'data' (inner2) is null")
+            return ""
+        }
+        val instances = innerData2.optJSONArray("codingPlanInstanceInfos")
+        if (instances == null || instances.length() == 0) {
+            Log.e(TAG, "JSON parse failed: 'codingPlanInstanceInfos' is null/empty")
+            return ""
+        }
+        return instances.getJSONObject(0).optString("instanceId", "")
     }
 
     /**
@@ -155,13 +172,26 @@ object BailianAuthClient {
         // Parse: data.DataV2.data.data[0].apiKey
         val json = JSONObject(response)
         val data = json.optJSONObject("data")
-        val dataV2 = data?.optJSONObject("DataV2")
-        val innerData = dataV2?.optJSONObject("data")
-        val dataArray = innerData?.optJSONArray("data")
-        if (dataArray != null && dataArray.length() > 0) {
-            return dataArray.getJSONObject(0).optString("apiKey", "")
+        if (data == null) {
+            Log.e(TAG, "API JSON parse failed: 'data' is null. Response: ${response.take(200)}")
+            return null
         }
-        return null
+        val dataV2 = data.optJSONObject("DataV2")
+        if (dataV2 == null) {
+            Log.e(TAG, "API JSON parse failed: 'DataV2' is null")
+            return null
+        }
+        val innerData = dataV2.optJSONObject("data")
+        if (innerData == null) {
+            Log.e(TAG, "API JSON parse failed: 'data' (inner) is null")
+            return null
+        }
+        val dataArray = innerData.optJSONArray("data")
+        if (dataArray == null || dataArray.length() == 0) {
+            Log.e(TAG, "API JSON parse failed: 'data' array is null/empty")
+            return null
+        }
+        return dataArray.getJSONObject(0).optString("apiKey", "")
     }
 
     /**
