@@ -498,6 +498,7 @@ fun ReposScreen(
 
             var selectedCredential by remember { mutableStateOf<Credential?>(null) }
             var pendingCredentialForPinVerify by remember { mutableStateOf<Credential?>(null) }
+            var cardRevealed by remember { mutableStateOf(false) }
 
             // Handle Android back button: PIN dialog → modal → service detail
             BackHandler(enabled = pendingCredentialForPinVerify != null) {
@@ -505,11 +506,13 @@ fun ReposScreen(
             }
             BackHandler(enabled = selectedCredential != null && pendingCredentialForPinVerify == null) {
                 selectedCredential = null  // Close modal
+                cardRevealed = false
                 revealedCredentialIds.clear()
                 revealedEmailPasswordMap.clear()
             }
             BackHandler(enabled = selectedCredential == null && pendingCredentialForPinVerify == null) {
                 onServiceSelected(null)  // Go back to service list
+                cardRevealed = false
                 revealedCredentialIds.clear()
                 revealedEmailPasswordMap.clear()
             }
@@ -529,7 +532,10 @@ fun ReposScreen(
             selectedCredential?.let { cred ->
                 CredentialCardModal(
                     credential = cred,
-                    onDismiss = { selectedCredential = null },
+                    onDismiss = {
+                        selectedCredential = null
+                        cardRevealed = false
+                    },
                     onCopy = { action ->
                         val fields = parseCredentialFields(cred.value)
                         val valueToCopy = when (action) {
@@ -548,14 +554,37 @@ fun ReposScreen(
                             app.vaultManager.deleteCredential(cred)
                         }
                         selectedCredential = null
+                        cardRevealed = false
                     },
                     onEdit = {
                         onCredentialEdit(cred.id)
                         selectedCredential = null
+                        cardRevealed = false
                     },
-                    onNeedReveal = { },
-                    isRevealed = true,
-                    onHide = { },
+                    onNeedReveal = {
+                        val activity = getActivity()
+                        if (activity != null) {
+                            if (BiometricUtils.isSessionValid()) {
+                                cardRevealed = true
+                                return@CredentialCardModal
+                            }
+                            if (BiometricUtils.canAuthenticate(activity)) {
+                                BiometricUtils.requireBiometric(
+                                    activity = activity,
+                                    title = biometricViewTitle,
+                                    subtitle = biometricViewSubtitle,
+                                    onSuccess = { cardRevealed = true },
+                                    onError = {
+                                        android.widget.Toast.makeText(context, "Authentication failed", android.widget.Toast.LENGTH_SHORT).show()
+                                    },
+                                )
+                            } else {
+                                android.widget.Toast.makeText(context, "Biometric not available", android.widget.Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    },
+                    isRevealed = cardRevealed,
+                    onHide = { cardRevealed = false },
                 )
             }
 
@@ -569,6 +598,7 @@ fun ReposScreen(
                 BackButtonRow(
                     onBack = {
                         onServiceSelected(null)
+                        cardRevealed = false
                         revealedCredentialIds.clear()
                         revealedEmailPasswordMap.clear()
                     },
@@ -635,6 +665,7 @@ fun ReposScreen(
                         CompactCredentialRow(
                             credential = credential,
                             onClick = {
+                                cardRevealed = false  // Reset reveal state for new credential
                                 // 15-min session valid → proceed directly
                                 if (BiometricUtils.isSessionValid()) {
                                     selectedCredential = credential
