@@ -78,6 +78,7 @@ import com.lockit.utils.BiometricUtils
 import androidx.fragment.app.FragmentActivity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -827,18 +828,18 @@ fun ConfigScreen(
                             onClick = {
                                 isCheckingUpdate = true
                                 scope.launch {
-                                    // Wrap vault access in runCatching to handle race condition
-                                    // Vault could be locked between isUnlocked() check and Flow.first()
-                                    val credentialsResult = runCatching {
-                                        app.vaultManager.getAllCredentials().first()
+                                    // Use firstOrNull() to avoid infinite hang on empty Flow
+                                    // Vault could be locked between isUnlocked() check and Flow emission
+                                    val credentials = runCatching {
+                                        app.vaultManager.getAllCredentials().firstOrNull() ?: emptyList()
                                     }
-                                    if (credentialsResult.isFailure) {
+                                    if (credentials.isFailure) {
                                         toastMessage = context.getString(R.string.toast_vault_locked)
                                         isCheckingUpdate = false
                                         return@launch
                                     }
                                     // Read GitHub Token from vault (optional - public repos don't need it)
-                                    val tokenCredential = credentialsResult.getOrNull()
+                                    val tokenCredential = credentials.getOrNull()
                                         ?.find { it.name == githubTokenCredentialName }
 
                                     // Token is optional - public repos work without it
