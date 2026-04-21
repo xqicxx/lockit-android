@@ -189,7 +189,7 @@ private fun EditCredentialForm(
                     dataMap[key] = json.optString(key, "")
                 }
 
-                android.util.Log.d("EditCredential", "WebView returned: $dataMap")
+                android.util.Log.d("EditCredential", "WebView returned: provider=${dataMap["provider"]}")
 
                 // Clear all fields first before filling new data
                 for (i in fieldValues.indices) {
@@ -209,18 +209,18 @@ private fun EditCredentialForm(
                         fieldValues[2] = dataMap["apiKey"] ?: ""
                         fieldValues[3] = dataMap["cookie"] ?: ""
                         fieldValues[4] = dataMap["baseUrl"] ?: ""
-                        android.util.Log.d("EditCredential", "Bailian: apiKey=${dataMap["apiKey"]}")
-                        android.util.Log.d("EditCredential", "fieldValues after fill: ${fieldValues.toList()}")
+                        android.util.Log.d("EditCredential", "Bailian: apiKey=${if (dataMap["apiKey"]?.isNotBlank() == true) "OK" else "EMPTY"}")
+                        android.util.Log.d("EditCredential", "fieldValues after fill: provider=${fieldValues[0]}")
                     }
                     "openai", "chatgpt" -> {
                         fieldValues[2] = dataMap["apiKey"] ?: ""
                         fieldValues[4] = dataMap["baseUrl"] ?: ""
-                        android.util.Log.d("EditCredential", "ChatGPT: apiKey=${dataMap["apiKey"]}")
+                        android.util.Log.d("EditCredential", "ChatGPT: apiKey=${if (dataMap["apiKey"]?.isNotBlank() == true) "OK" else "EMPTY"}")
                     }
                     "anthropic", "claude" -> {
                         fieldValues[2] = dataMap["apiKey"] ?: ""
                         fieldValues[4] = dataMap["baseUrl"] ?: ""
-                        android.util.Log.d("EditCredential", "Claude: apiKey=${dataMap["apiKey"]}")
+                        android.util.Log.d("EditCredential", "Claude: apiKey=${if (dataMap["apiKey"]?.isNotBlank() == true) "OK" else "EMPTY"}")
                     }
                 }
                 userEditedCookie = true

@@ -1,45 +1,59 @@
 package com.lockit.data.vault
 
 import android.content.Context
-import android.content.SharedPreferences
+import androidx.security.crypto.EncryptedSharedPreferences
+import androidx.security.crypto.MasterKey
 
 /**
- * Stores coding plan auth data (cookie, tokens, etc.) in SharedPreferences
+ * Stores coding plan auth data (cookie, tokens, etc.) in EncryptedSharedPreferences
  * for immediate prefetch on app startup without waiting for vault unlock.
+ *
+ * Uses AES-256-GCM encryption via Android Keystore - no user PIN required.
+ * Root users cannot read credentials even with file access.
  *
  * Supports multiple providers: qwen_bailian, chatgpt, claude
  */
 object CodingPlanPrefs {
-    private const val PREFS_NAME = "coding_plan_prefs"
+    private const val PREFS_NAME = "coding_plan_prefs_encrypted"
     private const val KEY_ACTIVE_PROVIDER = "active_provider"
 
-    // Provider-specific keys stored as: "{provider}_{field}"
     private val PROVIDER_FIELDS = listOf("cookie", "api_key", "accessToken", "accountId", "sessionKey", "orgId")
 
-    private fun getPrefs(context: Context): SharedPreferences =
-        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    private fun getMasterKey(context: Context): MasterKey {
+        return MasterKey.Builder(context)
+            .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+            .build()
+    }
 
-    // Legacy single-provider methods (backward compatible)
+    private fun getEncryptedPrefs(context: Context): androidx.security.crypto.EncryptedSharedPreferences {
+        return EncryptedSharedPreferences.create(
+            context,
+            PREFS_NAME,
+            getMasterKey(context),
+            EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+            EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+        ) as androidx.security.crypto.EncryptedSharedPreferences
+    }
+
     fun save(context: Context, provider: String, cookie: String, apiKey: String) {
-        getPrefs(context).edit()
+        getEncryptedPrefs(context).edit()
             .putString(KEY_ACTIVE_PROVIDER, provider)
             .putString("${provider}_cookie", cookie)
             .putString("${provider}_api_key", apiKey)
             .apply()
     }
 
-    // New multi-provider methods
     fun setActiveProvider(context: Context, provider: String) {
-        getPrefs(context).edit()
+        getEncryptedPrefs(context).edit()
             .putString(KEY_ACTIVE_PROVIDER, provider)
             .apply()
     }
 
     fun getActiveProvider(context: Context): String? =
-        getPrefs(context).getString(KEY_ACTIVE_PROVIDER, null)
+        getEncryptedPrefs(context).getString(KEY_ACTIVE_PROVIDER, null)
 
     fun saveProviderData(context: Context, provider: String, data: Map<String, String>) {
-        val editor = getPrefs(context).edit()
+        val editor = getEncryptedPrefs(context).edit()
         data.forEach { (key, value) ->
             editor.putString("${provider}_$key", value)
         }
@@ -48,13 +62,12 @@ object CodingPlanPrefs {
     }
 
     fun getProviderData(context: Context, provider: String): Map<String, String> {
-        val prefs = getPrefs(context)
+        val prefs = getEncryptedPrefs(context)
         return PROVIDER_FIELDS.associateWith { field ->
             prefs.getString("${provider}_$field", "") ?: ""
         }.filterValues { it.isNotBlank() }
     }
 
-    // Legacy getters (backward compatible with qwen_bailian)
     fun getProvider(context: Context): String? = getActiveProvider(context)
     fun getCookie(context: Context): String? = getProviderData(context, "qwen_bailian")["cookie"]
     fun getApiKey(context: Context): String? = getProviderData(context, "qwen_bailian")["api_key"]
@@ -63,11 +76,11 @@ object CodingPlanPrefs {
         getActiveProvider(context) != null && getProviderData(context, getActiveProvider(context) ?: "").isNotEmpty()
 
     fun clear(context: Context) {
-        getPrefs(context).edit().clear().apply()
+        getEncryptedPrefs(context).edit().clear().apply()
     }
 
     fun clearProvider(context: Context, provider: String) {
-        val editor = getPrefs(context).edit()
+        val editor = getEncryptedPrefs(context).edit()
         PROVIDER_FIELDS.forEach { field ->
             editor.remove("${provider}_$field")
         }

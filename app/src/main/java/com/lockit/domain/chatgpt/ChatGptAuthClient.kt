@@ -39,7 +39,7 @@ object ChatGptAuthClient {
                 val response = conn.inputStream.bufferedReader().use { it.readText() }
                 conn.disconnect()
 
-                Log.d(TAG, "Session response: $response")
+                Log.d(TAG, "Session response: OK (${response.length} chars)")
 
                 val json = JSONObject(response)
                 val accessToken = json.optString("accessToken", "")

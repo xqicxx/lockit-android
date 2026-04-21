@@ -47,7 +47,7 @@ object ClaudeAuthClient {
                 val response = conn.inputStream.bufferedReader().use { it.readText() }
                 conn.disconnect()
 
-                Log.d(TAG, "Auth response: $response")
+                Log.d(TAG, "Auth response: OK (${response.length} chars)")
 
                 val json = JSONObject(response)
                 val orgs = json.optJSONArray("organizations")

@@ -22,10 +22,10 @@ object BailianAuthClient {
         return withContext(Dispatchers.IO) {
             try {
                 val instanceId = fetchInstanceId(cookie)
-                Log.d(TAG, "instanceId: $instanceId")
+                Log.d(TAG, "instanceId: ${if (instanceId.isNotBlank()) "OK" else "EMPTY"}")
 
                 val apiKey = if (instanceId.isNotBlank()) fetchApiKeys(cookie, instanceId) else null
-                Log.d(TAG, "apiKey: $apiKey")
+                Log.d(TAG, "apiKey: ${if (apiKey?.isNotBlank() == true) "OK" else "EMPTY"}")
 
                 val curlCommand = buildCurlCommand(cookie)
 
@@ -92,7 +92,7 @@ object BailianAuthClient {
         val response = conn.inputStream.bufferedReader().use { it.readText() }
         conn.disconnect()
 
-        Log.d(TAG, "Instance response: $response")
+        Log.d(TAG, "Instance response: OK (${response.length} chars)")
 
         // Parse: data.DataV2.data.data.codingPlanInstanceInfos[0].instanceId
         val json = JSONObject(response)
@@ -150,7 +150,7 @@ object BailianAuthClient {
         val response = conn.inputStream.bufferedReader().use { it.readText() }
         conn.disconnect()
 
-        Log.d(TAG, "API response: $response")
+        Log.d(TAG, "API response: OK (${response.length} chars)")
 
         // Parse: data.DataV2.data.data[0].apiKey
         val json = JSONObject(response)
