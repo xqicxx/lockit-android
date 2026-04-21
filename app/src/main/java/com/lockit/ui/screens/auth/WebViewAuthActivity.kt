@@ -242,9 +242,15 @@ class AuthWebViewClient(
             url.startsWith("weixin://") ||
             url.startsWith("sms:") ||
             url.startsWith("tel:")) {
-            val intent = Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url))
-            activity.startActivity(intent)
-            return true
+            try {
+                val intent = Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url))
+                activity.startActivity(intent)
+                return true
+            } catch (e: android.content.ActivityNotFoundException) {
+                // External app not installed, continue loading in WebView
+                android.widget.Toast.makeText(activity, "External app not installed", android.widget.Toast.LENGTH_SHORT).show()
+                return false
+            }
         }
 
         return false
