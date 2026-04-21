@@ -498,18 +498,23 @@ fun ReposScreen(
 
             var selectedCredential by remember { mutableStateOf<Credential?>(null) }
             var pendingCredentialForPinVerify by remember { mutableStateOf<Credential?>(null) }
+            var cardRevealed by remember { mutableStateOf(false) }
+            var pendingRevealAction by remember { mutableStateOf<(() -> Unit)?>(null) }
 
             // Handle Android back button: PIN dialog → modal → service detail
-            BackHandler(enabled = pendingCredentialForPinVerify != null) {
+            BackHandler(enabled = pendingCredentialForPinVerify != null || pendingRevealAction != null) {
                 pendingCredentialForPinVerify = null  // Close PIN dialog first
+                pendingRevealAction = null  // Close reveal PIN dialog
             }
-            BackHandler(enabled = selectedCredential != null && pendingCredentialForPinVerify == null) {
+            BackHandler(enabled = selectedCredential != null && pendingCredentialForPinVerify == null && pendingRevealAction == null) {
                 selectedCredential = null  // Close modal
+                cardRevealed = false
                 revealedCredentialIds.clear()
                 revealedEmailPasswordMap.clear()
             }
-            BackHandler(enabled = selectedCredential == null && pendingCredentialForPinVerify == null) {
+            BackHandler(enabled = selectedCredential == null && pendingCredentialForPinVerify == null && pendingRevealAction == null) {
                 onServiceSelected(null)  // Go back to service list
+                cardRevealed = false
                 revealedCredentialIds.clear()
                 revealedEmailPasswordMap.clear()
             }
@@ -529,7 +534,11 @@ fun ReposScreen(
             selectedCredential?.let { cred ->
                 CredentialCardModal(
                     credential = cred,
-                    onDismiss = { selectedCredential = null },
+                    onDismiss = {
+                        selectedCredential = null
+                        cardRevealed = false
+                        pendingRevealAction = null
+                    },
                     onCopy = { action ->
                         val fields = parseCredentialFields(cred.value)
                         val valueToCopy = when (action) {
@@ -548,14 +557,55 @@ fun ReposScreen(
                             app.vaultManager.deleteCredential(cred)
                         }
                         selectedCredential = null
+                        cardRevealed = false
+                        pendingRevealAction = null
                     },
                     onEdit = {
                         onCredentialEdit(cred.id)
                         selectedCredential = null
+                        cardRevealed = false
+                        pendingRevealAction = null
                     },
-                    onNeedReveal = { },
-                    isRevealed = true,
-                    onHide = { },
+                    onNeedReveal = {
+                        val activity = getActivity()
+                        val credToReveal = cred  // Capture credential for audit logging
+                        if (activity != null) {
+                            if (BiometricUtils.canAuthenticate(activity)) {
+                                BiometricUtils.requireBiometric(
+                                    activity = activity,
+                                    title = biometricViewTitle,
+                                    subtitle = biometricViewSubtitle,
+                                    onSuccess = {
+                                        cardRevealed = true
+                                        credToReveal?.let { app.vaultManager.logCredentialViewed(it.name) }
+                                    },
+                                    onError = { pendingRevealAction = {
+                                        cardRevealed = true
+                                        credToReveal?.let { app.vaultManager.logCredentialViewed(it.name) }
+                                    } },
+                                )
+                            } else {
+                                pendingRevealAction = {
+                                    cardRevealed = true
+                                    credToReveal?.let { app.vaultManager.logCredentialViewed(it.name) }
+                                }
+                            }
+                        }
+                    },
+                    isRevealed = cardRevealed,
+                    onHide = { cardRevealed = false },
+                )
+            }
+
+            // PIN fallback for reveal when biometric unavailable
+            pendingRevealAction?.let { action ->
+                BrutalistPinVerifyDialog(
+                    app = app,
+                    onVerified = {
+                        pendingRevealAction = null
+                        action()
+                    },
+                    onDismiss = { pendingRevealAction = null },
                 )
             }
 
@@ -569,6 +619,8 @@ fun ReposScreen(
                 BackButtonRow(
                     onBack = {
                         onServiceSelected(null)
+                        cardRevealed = false
+                        pendingRevealAction = null
                         revealedCredentialIds.clear()
                         revealedEmailPasswordMap.clear()
                     },
@@ -635,6 +687,7 @@ fun ReposScreen(
                         CompactCredentialRow(
                             credential = credential,
                             onClick = {
+                                cardRevealed = false  // Reset reveal state for new credential
                                 // 15-min session valid → proceed directly
                                 if (BiometricUtils.isSessionValid()) {
                                     selectedCredential = credential
