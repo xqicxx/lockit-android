@@ -526,12 +526,11 @@ fun ReposScreen(
                 )
             }
 
-            if (selectedCredential != null) {
+            selectedCredential?.let { cred ->
                 CredentialCardModal(
-                    credential = selectedCredential!!,
+                    credential = cred,
                     onDismiss = { selectedCredential = null },
                     onCopy = { action ->
-                        val cred = selectedCredential!!
                         val fields = parseCredentialFields(cred.value)
                         val valueToCopy = when (action) {
                             CopyAction.VALUE -> extractSecretValue(cred.type, cred.value)
@@ -545,14 +544,13 @@ fun ReposScreen(
                         viewModel.logCredentialCopied(cred.name)
                     },
                     onDelete = {
-                        val cred = selectedCredential!!
                         scope.launch {
                             app.vaultManager.deleteCredential(cred)
                         }
                         selectedCredential = null
                     },
                     onEdit = {
-                        onCredentialEdit(selectedCredential!!.id)
+                        onCredentialEdit(cred.id)
                         selectedCredential = null
                     },
                     onNeedReveal = { },
@@ -577,7 +575,7 @@ fun ReposScreen(
                 )
 
                 ScreenHero(
-                    title = selectedService!!.uppercase(),
+                    title = selectedService?.uppercase() ?: "UNKNOWN",
                     subtitle = when {
                         isPhone -> stringResource(R.string.repos_phone_subtitle)
                         isCodingPlan -> stringResource(R.string.repos_coding_plan_subtitle)
