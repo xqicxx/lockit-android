@@ -92,7 +92,8 @@ class KeyManager(private val context: Context) {
         val verifyKey = crypto.deriveKey(password, salt, currentMemory, currentIterations, currentParallelism)
 
         // Verify password is correct by comparing with current master key
-        if (!verifyKey.contentEquals(masterKey!!)) {
+        val currentKey = masterKey ?: throw IllegalStateException("Vault not unlocked")
+        if (!verifyKey.contentEquals(currentKey)) {
             verifyKey.fill(0)
             throw IllegalArgumentException("WRONG_PIN")
         }

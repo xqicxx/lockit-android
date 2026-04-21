@@ -177,7 +177,8 @@ fun ConfigScreen(
     // Load last backup time when signed in
     if (signedInAccount != null && lastBackupTime == null && !isSyncing) {
         LaunchedEffect(signedInAccount) {
-            val timeResult = syncManager.getLastBackupTime(signedInAccount!!)
+            val account = signedInAccount ?: return@LaunchedEffect
+            val timeResult = syncManager.getLastBackupTime(account)
             lastBackupTime = timeResult.getOrNull()
         }
     }
@@ -244,16 +245,17 @@ fun ConfigScreen(
     }
 
     // Update dialog - Pre-fetch string resources to avoid context usage in coroutine after UI disposal
-    if (showUpdateDialog && availableUpdate != null) {
-        val apkUrl = availableUpdate?.apkUrl
-        val versionName = availableUpdate?.versionName
-        val strDownloadComplete = context.getString(R.string.toast_download_complete)
-        val strDownloadFailed = context.getString(R.string.toast_download_failed)
-        val strDownloadStarted = context.getString(R.string.toast_download_started)
-        val strDownloadLocation = context.getString(R.string.toast_download_location)
-        val strNoApkUrl = context.getString(R.string.toast_no_apk_url)
-        UpdateDialog(
-            release = availableUpdate!!,
+    availableUpdate?.let { release ->
+        if (showUpdateDialog) {
+            val apkUrl = release.apkUrl
+            val versionName = release.versionName
+            val strDownloadComplete = context.getString(R.string.toast_download_complete)
+            val strDownloadFailed = context.getString(R.string.toast_download_failed)
+            val strDownloadStarted = context.getString(R.string.toast_download_started)
+            val strDownloadLocation = context.getString(R.string.toast_download_location)
+            val strNoApkUrl = context.getString(R.string.toast_no_apk_url)
+            UpdateDialog(
+                release = release,
             onDismiss = { showUpdateDialog = false },
             onDownload = {
                 if (apkUrl == null) {
@@ -296,7 +298,8 @@ fun ConfigScreen(
                     }
                 }
             },
-        )
+            )
+        }
     }
 
     // GitHub Token config dialog
@@ -477,16 +480,17 @@ fun ConfigScreen(
                         BrutalistButton(
                             text = if (signedInAccount == null) stringResource(R.string.config_sign_in_google) else stringResource(R.string.config_sync_drive),
                             onClick = {
-                                if (signedInAccount == null) {
+                                val account = signedInAccount
+                                if (account == null) {
                                     signInLauncher.launch(syncManager.getSignInIntent())
                                 } else {
-                                    syncToDrive(app, syncManager, signedInAccount!!, context, scope) { error ->
+                                    syncToDrive(app, syncManager, account, context, scope) { error ->
                                         if (error != null) {
                                             toastMessage = error
                                         } else {
                                             toastMessage = context.getString(R.string.toast_sync_complete)
                                             scope.launch {
-                                                val timeResult = syncManager.getLastBackupTime(signedInAccount!!)
+                                                val timeResult = syncManager.getLastBackupTime(account)
                                                 lastBackupTime = timeResult.getOrNull()
                                             }
                                         }

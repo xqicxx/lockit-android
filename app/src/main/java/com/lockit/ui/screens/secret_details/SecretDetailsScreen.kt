@@ -102,22 +102,24 @@ fun SecretDetailsScreen(
         }
     }
 
-    if (showDeleteDialog && credential != null) {
-        BrutalistConfirmDialog(
-            title = "DELETE CREDENTIAL",
-            message = "Permanently delete \"${credential!!.name}\"? This action cannot be undone.",
-            confirmText = "DELETE",
-            onConfirm = {
-                showDeleteDialog = false
-                scope.launch {
-                    app.vaultManager.deleteCredential(credential!!)
-                    toastMessage = "CREDENTIAL_DELETED: ${credential!!.name}"
-                    kotlinx.coroutines.delay(500)
-                    onDelete()
-                }
-            },
-            onDismiss = { showDeleteDialog = false },
-        )
+    if (showDeleteDialog) {
+        credential?.let { credToDelete ->
+            BrutalistConfirmDialog(
+                title = "DELETE CREDENTIAL",
+                message = "Permanently delete \"${credToDelete.name}\"? This action cannot be undone.",
+                confirmText = "DELETE",
+                onConfirm = {
+                    showDeleteDialog = false
+                    scope.launch {
+                        app.vaultManager.deleteCredential(credToDelete)
+                        toastMessage = "CREDENTIAL_DELETED: ${credToDelete.name}"
+                        kotlinx.coroutines.delay(500)
+                        onDelete()
+                    }
+                },
+                onDismiss = { showDeleteDialog = false },
+            )
+        }
     }
 
     if (isLoading) {
