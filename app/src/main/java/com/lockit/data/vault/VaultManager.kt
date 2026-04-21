@@ -241,6 +241,13 @@ class VaultManager(
         auditLogger.log("CREDENTIAL_COPIED", "$name - clipboard copy", AuditSeverity.Info)
     }
 
+    /**
+     * Log credential viewed/revealed action.
+     */
+    fun logCredentialViewed(name: String) {
+        auditLogger.log("CREDENTIAL_VIEWED", "$name - value revealed", AuditSeverity.Info)
+    }
+
     fun getCredentialCount(): Flow<Int> = dao.getCount()
     fun getServiceCount(): Flow<Int> = dao.getServiceCount()
 

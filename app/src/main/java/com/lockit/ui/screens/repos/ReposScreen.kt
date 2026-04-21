@@ -499,6 +499,7 @@ fun ReposScreen(
             var selectedCredential by remember { mutableStateOf<Credential?>(null) }
             var pendingCredentialForPinVerify by remember { mutableStateOf<Credential?>(null) }
             var cardRevealed by remember { mutableStateOf(false) }
+            var pendingRevealAction by remember { mutableStateOf<(() -> Unit)?>(null) }
 
             // Handle Android back button: PIN dialog → modal → service detail
             BackHandler(enabled = pendingCredentialForPinVerify != null) {
@@ -563,20 +564,44 @@ fun ReposScreen(
                     },
                     onNeedReveal = {
                         val activity = getActivity()
+                        val credToReveal = cred  // Capture credential for audit logging
                         if (activity != null) {
-                            BiometricUtils.requireBiometric(
-                                activity = activity,
-                                title = biometricViewTitle,
-                                subtitle = biometricViewSubtitle,
-                                onSuccess = { cardRevealed = true },
-                                onError = {
-                                    android.widget.Toast.makeText(context, "Authentication failed", android.widget.Toast.LENGTH_SHORT).show()
-                                },
-                            )
+                            if (BiometricUtils.canAuthenticate(activity)) {
+                                BiometricUtils.requireBiometric(
+                                    activity = activity,
+                                    title = biometricViewTitle,
+                                    subtitle = biometricViewSubtitle,
+                                    onSuccess = {
+                                        cardRevealed = true
+                                        credToReveal?.let { app.vaultManager.logCredentialViewed(it.name) }
+                                    },
+                                    onError = { pendingRevealAction = {
+                                        cardRevealed = true
+                                        credToReveal?.let { app.vaultManager.logCredentialViewed(it.name) }
+                                    } },
+                                )
+                            } else {
+                                pendingRevealAction = {
+                                    cardRevealed = true
+                                    credToReveal?.let { app.vaultManager.logCredentialViewed(it.name) }
+                                }
+                            }
                         }
                     },
                     isRevealed = cardRevealed,
                     onHide = { cardRevealed = false },
+                )
+            }
+
+            // PIN fallback for reveal when biometric unavailable
+            pendingRevealAction?.let { action ->
+                BrutalistPinVerifyDialog(
+                    app = app,
+                    onVerified = {
+                        pendingRevealAction = null
+                        action()
+                    },
+                    onDismiss = { pendingRevealAction = null },
                 )
             }
 
