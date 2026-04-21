@@ -502,16 +502,17 @@ fun ReposScreen(
             var pendingRevealAction by remember { mutableStateOf<(() -> Unit)?>(null) }
 
             // Handle Android back button: PIN dialog → modal → service detail
-            BackHandler(enabled = pendingCredentialForPinVerify != null) {
+            BackHandler(enabled = pendingCredentialForPinVerify != null || pendingRevealAction != null) {
                 pendingCredentialForPinVerify = null  // Close PIN dialog first
+                pendingRevealAction = null  // Close reveal PIN dialog
             }
-            BackHandler(enabled = selectedCredential != null && pendingCredentialForPinVerify == null) {
+            BackHandler(enabled = selectedCredential != null && pendingCredentialForPinVerify == null && pendingRevealAction == null) {
                 selectedCredential = null  // Close modal
                 cardRevealed = false
                 revealedCredentialIds.clear()
                 revealedEmailPasswordMap.clear()
             }
-            BackHandler(enabled = selectedCredential == null && pendingCredentialForPinVerify == null) {
+            BackHandler(enabled = selectedCredential == null && pendingCredentialForPinVerify == null && pendingRevealAction == null) {
                 onServiceSelected(null)  // Go back to service list
                 cardRevealed = false
                 revealedCredentialIds.clear()
@@ -536,6 +537,7 @@ fun ReposScreen(
                     onDismiss = {
                         selectedCredential = null
                         cardRevealed = false
+                        pendingRevealAction = null
                     },
                     onCopy = { action ->
                         val fields = parseCredentialFields(cred.value)
@@ -556,11 +558,13 @@ fun ReposScreen(
                         }
                         selectedCredential = null
                         cardRevealed = false
+                        pendingRevealAction = null
                     },
                     onEdit = {
                         onCredentialEdit(cred.id)
                         selectedCredential = null
                         cardRevealed = false
+                        pendingRevealAction = null
                     },
                     onNeedReveal = {
                         val activity = getActivity()
@@ -616,6 +620,7 @@ fun ReposScreen(
                     onBack = {
                         onServiceSelected(null)
                         cardRevealed = false
+                        pendingRevealAction = null
                         revealedCredentialIds.clear()
                         revealedEmailPasswordMap.clear()
                     },
