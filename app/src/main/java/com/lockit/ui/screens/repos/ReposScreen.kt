@@ -564,23 +564,15 @@ fun ReposScreen(
                     onNeedReveal = {
                         val activity = getActivity()
                         if (activity != null) {
-                            if (BiometricUtils.isSessionValid()) {
-                                cardRevealed = true
-                                return@CredentialCardModal
-                            }
-                            if (BiometricUtils.canAuthenticate(activity)) {
-                                BiometricUtils.requireBiometric(
-                                    activity = activity,
-                                    title = biometricViewTitle,
-                                    subtitle = biometricViewSubtitle,
-                                    onSuccess = { cardRevealed = true },
-                                    onError = {
-                                        android.widget.Toast.makeText(context, "Authentication failed", android.widget.Toast.LENGTH_SHORT).show()
-                                    },
-                                )
-                            } else {
-                                android.widget.Toast.makeText(context, "Biometric not available", android.widget.Toast.LENGTH_SHORT).show()
-                            }
+                            BiometricUtils.requireBiometric(
+                                activity = activity,
+                                title = biometricViewTitle,
+                                subtitle = biometricViewSubtitle,
+                                onSuccess = { cardRevealed = true },
+                                onError = {
+                                    android.widget.Toast.makeText(context, "Authentication failed", android.widget.Toast.LENGTH_SHORT).show()
+                                },
+                            )
                         }
                     },
                     isRevealed = cardRevealed,
