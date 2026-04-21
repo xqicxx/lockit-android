@@ -233,6 +233,26 @@ class AuthWebViewClient(
     }
 
     override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
+        val url = request?.url?.toString() ?: return false
+
+        // Handle external app schemes (Alipay, Taobao, WeChat, SMS, Tel)
+        if (url.startsWith("alipay://") ||
+            url.startsWith("alipays://") ||
+            url.startsWith("taobao://") ||
+            url.startsWith("weixin://") ||
+            url.startsWith("sms:") ||
+            url.startsWith("tel:")) {
+            try {
+                val intent = Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url))
+                activity.startActivity(intent)
+                return true
+            } catch (e: android.content.ActivityNotFoundException) {
+                // External app not installed, continue loading in WebView
+                android.widget.Toast.makeText(activity, "External app not installed", android.widget.Toast.LENGTH_SHORT).show()
+                return false
+            }
+        }
+
         return false
     }
 
