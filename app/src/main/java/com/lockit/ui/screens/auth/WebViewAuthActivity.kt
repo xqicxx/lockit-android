@@ -68,9 +68,6 @@ class WebViewAuthActivity : ComponentActivity() {
 
         provider = intent.getStringExtra(EXTRA_PROVIDER) ?: "qwen_bailian"
 
-        // Handle incoming callback intent from external apps (Alipay, etc.)
-        handleCallbackIntent(intent)
-
         val rootView = FrameLayout(this)
         rootView.setBackgroundColor(android.graphics.Color.WHITE)
 
@@ -101,6 +98,10 @@ class WebViewAuthActivity : ComponentActivity() {
             }
             loadUrl(loginUrl)
         }
+
+        // Handle incoming callback intent from external apps (Alipay, etc.)
+        // Called AFTER webView initialization to avoid NPE
+        handleCallbackIntent(intent)
 
         // Glassmorphism floating buttons - draggable overlay
         val floatingButtons = DraggableFloatingButtons(
@@ -301,7 +302,13 @@ class AuthWebViewClient(
                 attempts++
 
                 // Get cookies from the WebView's current URL
-                val currentUrl = view?.url ?: "https://claude.ai"
+                // Use provider-specific fallback URL
+                val fallbackUrl = when (provider) {
+                    "chatgpt" -> "https://chatgpt.com"
+                    "claude" -> "https://claude.ai"
+                    else -> "https://claude.ai"
+                }
+                val currentUrl = view?.url ?: fallbackUrl
                 val cookieManager = CookieManager.getInstance()
                 val cookies = cookieManager.getCookie(currentUrl) ?: ""
 
@@ -314,10 +321,10 @@ class AuthWebViewClient(
                         cookies.contains("sessionKey=")
                     }
                     "chatgpt" -> {
-                        // ChatGPT: check if we're on the main page (not auth) and have session cookies
-                        // After login, URL becomes chatgpt.com (no /auth) and has cookies like __Secure-next-auth.session-token
+                        // ChatGPT: check if we're on the main page (not auth) AND have session cookies
+                        // Fix: && has higher precedence than ||, need parentheses
                         !currentUrl.contains("/auth") &&
-                        cookies.contains("__Secure-") || cookies.contains("session")
+                        (cookies.contains("__Secure-") || cookies.contains("session"))
                     }
                     else -> false
                 }
@@ -577,6 +584,7 @@ class OAuthWebChromeClient(
         } else {
             android.util.Log.e("OAuthWebChrome", "Transport cast failed, cleaning up")
             dialog.dismiss()
+            popupWebView.destroy()  // Prevent WebView leak
             return false
         }
     }
@@ -593,15 +601,15 @@ class OAuthWebChromeClient(
         activity.webView?.reload()
     }
 
-    private fun cleanupPopup(webView: WebView?) {
-        webView?.destroy()
-    }
-
     /**
      * Cleanup all popups when activity destroys.
+     * Dismiss dialogs and destroy WebViews to prevent memory/window leaks.
      */
     fun cleanupAll() {
-        popupWebViews.forEach { it.destroy() }
+        popupWebViews.forEach { webView ->
+            (webView.tag as? android.app.Dialog)?.dismiss()
+            webView.destroy()
+        }
         popupWebViews.clear()
     }
 }
