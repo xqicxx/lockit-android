@@ -41,5 +41,12 @@ abstract class LockitDatabase : RoomDatabase() {
                 INSTANCE = null
             }
         }
+
+        /**
+         * Get the database file path for sync operations.
+         */
+        fun getDatabaseFile(context: Context): java.io.File {
+            return context.applicationContext.getDatabasePath(DB_NAME)
+        }
     }
 }
