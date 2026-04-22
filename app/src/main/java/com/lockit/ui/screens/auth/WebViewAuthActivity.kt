@@ -186,10 +186,14 @@ class WebViewAuthActivity : ComponentActivity() {
                 webView?.reload()
                 android.widget.Toast.makeText(this, "支付宝认证完成，正在验证...", android.widget.Toast.LENGTH_SHORT).show()
             }
-            callbackUrl.contains("account.aliyun.com") || callbackUrl.contains("console.aliyun.com") -> {
-                // Direct HTTPS callback - load in WebView
-                authWebViewClient?.resetExtractionState()
-                webView?.loadUrl(callbackUrl)
+            else -> {
+                // Security: Use strict host validation, not contains() which can be bypassed
+                val host = data.host
+                if (host == "account.aliyun.com" || host == "console.aliyun.com") {
+                    // Direct HTTPS callback - load in WebView
+                    authWebViewClient?.resetExtractionState()
+                    webView?.loadUrl(callbackUrl)
+                }
             }
         }
     }
@@ -200,11 +204,8 @@ class WebViewAuthActivity : ComponentActivity() {
      */
     override fun onResume() {
         super.onResume()
-        // Trigger WebView reload to check if external auth succeeded
-        // The WebViewClient will check cookies and extract if login is complete
-        if (authWebViewClient?.hasExtracted() == false) {
-            webView?.reload()
-        }
+        // Removed: unconditional reload disrupts UX when user returns from password manager
+        // onNewIntent already handles deep link callbacks from external apps
     }
 
     override fun onDestroy() {
@@ -304,7 +305,7 @@ class AuthWebViewClient(
                 val cookieManager = CookieManager.getInstance()
                 val cookies = cookieManager.getCookie(currentUrl) ?: ""
 
-                android.util.Log.d("WebViewAuth", "Cookie poll attempt $attempts for $provider: ${cookies.take(100)}...")
+                android.util.Log.d("WebViewAuth", "Cookie poll attempt $attempts for $provider")
 
                 // Check login status based on provider
                 val isLoggedIn = when (provider) {
@@ -549,44 +550,47 @@ class OAuthWebChromeClient(
         }
 
         // Create a new WebView for the popup
-        val popupWebView = WebView(activity)
-        popupWebView.settings.javaScriptEnabled = true
-        popupWebView.settings.domStorageEnabled = true
-        // Popups should NOT create more popups to avoid infinite loops
-        popupWebView.settings.setSupportMultipleWindows(false)
-        popupWebView.settings.javaScriptCanOpenWindowsAutomatically = false
+        val popupWebView = WebView(activity).apply {
+            settings.javaScriptEnabled = true
+            settings.domStorageEnabled = true
+            // Popups should NOT create more popups to avoid infinite loops
+            settings.setSupportMultipleWindows(false)
+            settings.javaScriptCanOpenWindowsAutomatically = false
+            // Use simple client that does NOT extract credentials - popups are just for OAuth
+            webViewClient = OAuthPopupWebViewClient(activity)
+        }
 
-        // Use simple client that does NOT extract credentials - popups are just for OAuth
-        popupWebView.webViewClient = OAuthPopupWebViewClient(activity)
-
-        // Track WebView for cleanup
-        popupWebViews.add(popupWebView)
+        // Show the popup in a fullscreen dialog so the user can interact with it
+        val dialog = android.app.Dialog(activity, android.R.style.Theme_NoTitleBar_Fullscreen)
+        dialog.setContentView(popupWebView)
+        dialog.show()
+        // Store dialog reference for cleanup
+        popupWebView.tag = dialog
 
         // Configure the WebView to load in the popup
         val transport = resultMsg.obj as? android.webkit.WebView.WebViewTransport
         if (transport != null) {
             transport.webView = popupWebView
             resultMsg.sendToTarget()
+            popupWebViews.add(popupWebView)
             return true
         } else {
             android.util.Log.e("OAuthWebChrome", "Transport cast failed, cleaning up")
-            cleanupPopup(popupWebView)
+            dialog.dismiss()
             return false
         }
     }
 
     override fun onCloseWindow(window: WebView?) {
         android.util.Log.d("OAuthWebChrome", "onCloseWindow")
-        // Find and cleanup the closed popup
-        val index = popupWebViews.indexOf(window)
-        if (index >= 0) {
-            cleanupPopup(popupWebViews[index])
-            popupWebViews.removeAt(index)
-        }
+        // Dismiss the dialog to prevent window leaks
+        (window?.tag as? android.app.Dialog)?.dismiss()
+        popupWebViews.remove(window)
+        window?.destroy()
+
         // When popup closes, trigger main WebView to check login status
         activity.authWebViewClient?.resetExtractionState()
         activity.webView?.reload()
-        super.onCloseWindow(window)
     }
 
     private fun cleanupPopup(webView: WebView?) {
