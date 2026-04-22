@@ -18,6 +18,7 @@ import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Fingerprint
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.HorizontalDivider
@@ -59,6 +60,7 @@ import com.lockit.ui.components.extractSecretValue
 import com.lockit.ui.components.findActivity
 import com.lockit.ui.components.formatTime
 import com.lockit.ui.components.parseCredentialFields
+import com.lockit.ui.screens.auth.WebViewAuthActivity
 import com.lockit.ui.theme.IndustrialOrange
 import com.lockit.ui.theme.JetBrainsMonoFamily
 import com.lockit.ui.theme.Primary
@@ -68,6 +70,7 @@ import com.lockit.ui.theme.TacticalRed
 import com.lockit.ui.theme.White
 import com.lockit.utils.BiometricUtils
 import kotlinx.coroutines.launch
+import org.json.JSONObject
 import java.time.Instant
 
 @Composable
@@ -89,7 +92,41 @@ fun SecretDetailsScreen(
     val scope = rememberCoroutineScope()
     val clipboardManager = LocalClipboardManager.current
     val view = LocalView.current
+    val context = androidx.compose.ui.platform.LocalContext.current
     fun getActivity() = view.findActivity()
+
+    // WebView auth launcher for refreshing CodingPlan credentials
+    val webViewAuthLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        contract = androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == WebViewAuthActivity.RESULT_SUCCESS) {
+            val credentialData = result.data?.getStringExtra(WebViewAuthActivity.EXTRA_CREDENTIAL_DATA)
+            if (credentialData != null && credential != null) {
+                val json = JSONObject(credentialData)
+                val newMetadata = mutableMapOf<String, String>()
+                json.keys().forEach { key ->
+                    newMetadata[key] = json.optString(key, "")
+                }
+                // Update credential with new auth data
+                scope.launch {
+                    app.vaultManager.updateCredential(
+                        id = credential!!.id,
+                        name = credential!!.name,
+                        type = credential!!.type,
+                        service = credential!!.service,
+                        key = credential!!.key,
+                        value = credential!!.value,
+                        metadata = newMetadata.toString(),
+                    )
+                    // Reload credential
+                    credential = app.vaultManager.getCredentialById(credentialId)
+                    toastMessage = "AUTH_REFRESHED: ${credential!!.name}"
+                }
+            }
+        } else if (result.resultCode == WebViewAuthActivity.RESULT_FAILED) {
+            toastMessage = "AUTH_REFRESH_FAILED"
+        }
+    }
 
     LaunchedEffect(credentialId) {
         isLoading = true
@@ -249,6 +286,15 @@ fun SecretDetailsScreen(
                     onHideEmailPassword = if (cred.type == CredentialType.Email) {
                         { revealedEmailPassword = null }
                     } else null,
+                    onRefreshAuth = if (cred.type == CredentialType.CodingPlan) {
+                        {
+                            val provider = try {
+                                org.json.JSONObject(cred.metadata).optString("provider", "qwen_bailian")
+                            } catch (e: Exception) { "qwen_bailian" }
+                            val intent = WebViewAuthActivity.createIntent(context, provider)
+                            webViewAuthLauncher.launch(intent)
+                        }
+                    } else null,
                 )
                 Spacer(modifier = Modifier.height(16.dp))
             }
@@ -315,6 +361,7 @@ private fun SecretValueSection(
     onEmailPasswordReveal: (() -> Unit)? = null,
     revealedEmailPassword: String? = null,
     onHideEmailPassword: (() -> Unit)? = null,
+    onRefreshAuth: (() -> Unit)? = null,
 ) {
     BrutalistCard {
         Column(modifier = Modifier.padding(16.dp)) {
@@ -336,6 +383,105 @@ private fun SecretValueSection(
 
             // Show structured data based on credential type
             when (credential.type) {
+                CredentialType.CodingPlan -> {
+                    val metadata = parseCredentialFields(credential.value)
+                    val provider = metadata.getOrNull(0) ?: credential.metadata.let { meta ->
+                        try {
+                            org.json.JSONObject(meta).optString("provider", "")
+                        } catch (e: Exception) { "" }
+                    }.takeIf { it.isNotBlank() } ?: "qwen_bailian"
+
+                    // Provider info
+                    Box(
+                        modifier = Modifier.fillMaxWidth()
+                            .background(SurfaceLow).border(1.dp, Primary).padding(12.dp),
+                    ) {
+                        Column {
+                            Text(
+                                text = "PROVIDER",
+                                fontFamily = JetBrainsMonoFamily,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 9.sp,
+                                letterSpacing = 1.sp,
+                                color = IndustrialOrange,
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = provider.uppercase(),
+                                fontFamily = JetBrainsMonoFamily,
+                                fontSize = 14.sp,
+                                color = Primary,
+                                fontWeight = FontWeight.Bold,
+                            )
+                        }
+                    }
+
+                    // API Key (if available)
+                    val apiKey = metadata.getOrNull(2)?.takeIf { it.isNotBlank() }
+                        ?: credential.metadata.let { meta ->
+                            try { org.json.JSONObject(meta).optString("apiKey", "") } catch (e: Exception) { "" }
+                        }.takeIf { it.isNotBlank() }
+
+                    if (apiKey != null) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Box(
+                            modifier = Modifier.fillMaxWidth()
+                                .background(SurfaceLow).border(1.dp, Primary).padding(12.dp),
+                        ) {
+                            Column {
+                                Text(
+                                    text = "API_KEY",
+                                    fontFamily = JetBrainsMonoFamily,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 9.sp,
+                                    letterSpacing = 1.sp,
+                                    color = IndustrialOrange,
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = if (isRevealed) apiKey else "•".repeat(20),
+                                    fontFamily = JetBrainsMonoFamily,
+                                    fontSize = 12.sp,
+                                    color = if (isRevealed) Primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = if (isRevealed) 3 else 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
+                        }
+                    }
+
+                    // Base URL (if available)
+                    val baseUrl = metadata.getOrNull(4)?.takeIf { it.isNotBlank() }
+                        ?: credential.metadata.let { meta ->
+                            try { org.json.JSONObject(meta).optString("baseUrl", "") } catch (e: Exception) { "" }
+                        }.takeIf { it.isNotBlank() }
+
+                    if (baseUrl != null) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Box(
+                            modifier = Modifier.fillMaxWidth()
+                                .background(SurfaceLow).border(1.dp, Primary).padding(12.dp),
+                        ) {
+                            Column {
+                                Text(
+                                    text = "BASE_URL",
+                                    fontFamily = JetBrainsMonoFamily,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 9.sp,
+                                    letterSpacing = 1.sp,
+                                    color = IndustrialOrange,
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = baseUrl,
+                                    fontFamily = JetBrainsMonoFamily,
+                                    fontSize = 11.sp,
+                                    color = Primary,
+                                )
+                            }
+                        }
+                    }
+                }
                 CredentialType.Phone -> {
                     val phoneFields = parseCredentialFields(credential.value)
                     val phoneNumber = phoneFields.getOrNull(1)?.takeIf { it.isNotBlank() }
@@ -565,7 +711,8 @@ private fun SecretValueSection(
 
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (credential.type != CredentialType.Email && credential.type != CredentialType.Phone
-                    && credential.type != CredentialType.IdCard && credential.type != CredentialType.Note) {
+                    && credential.type != CredentialType.IdCard && credential.type != CredentialType.Note
+                    && credential.type != CredentialType.CodingPlan) {
                     BrutalistButton(
                         text = if (isRevealed) "HIDE" else "REVEAL",
                         onClick = onReveal,
@@ -573,6 +720,17 @@ private fun SecretValueSection(
                         modifier = Modifier.weight(1f),
                         useMonoFont = true,
                         icon = Icons.Default.Visibility,
+                        iconPosition = IconPosition.Start,
+                    )
+                }
+                if (credential.type == CredentialType.CodingPlan && onRefreshAuth != null) {
+                    BrutalistButton(
+                        text = "REFRESH_AUTH",
+                        onClick = onRefreshAuth,
+                        variant = ButtonVariant.Primary,
+                        modifier = Modifier.weight(1f),
+                        useMonoFont = true,
+                        icon = Icons.Default.Refresh,
                         iconPosition = IconPosition.Start,
                     )
                 }
