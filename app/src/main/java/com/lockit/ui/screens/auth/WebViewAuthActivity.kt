@@ -112,14 +112,11 @@ class WebViewAuthActivity : ComponentActivity() {
             }
         ).createView(this)
 
+        // No gravity anchoring - let Compose handle absolute positioning
         val buttonLayout = FrameLayout.LayoutParams(
-            FrameLayout.LayoutParams.WRAP_CONTENT,
-            FrameLayout.LayoutParams.WRAP_CONTENT
-        ).apply {
-            // Default position: top-right with safe margin
-            gravity = android.view.Gravity.TOP or android.view.Gravity.RIGHT
-            setMargins(16, 80, 16, 0)
-        }
+            FrameLayout.LayoutParams.MATCH_PARENT,
+            FrameLayout.LayoutParams.MATCH_PARENT
+        )
 
         val webViewLayout = FrameLayout.LayoutParams(
             FrameLayout.LayoutParams.MATCH_PARENT,

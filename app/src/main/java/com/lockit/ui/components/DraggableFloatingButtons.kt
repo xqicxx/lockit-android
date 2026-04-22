@@ -7,6 +7,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -60,9 +61,6 @@ private fun FloatingButtonsContent(
     onReset: () -> Unit,
     onClose: () -> Unit,
 ) {
-    val offsetX = remember { mutableStateOf(0f) }
-    val offsetY = remember { mutableStateOf(0f) }
-
     // Get screen bounds for clamping
     val density = LocalDensity.current
     val screenWidthPx = with(density) {
@@ -71,53 +69,57 @@ private fun FloatingButtonsContent(
     val screenHeightPx = with(density) {
         androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp.dp.toPx()
     }
-    val buttonWidthPx = with(density) { 140.dp.toPx() } // Approximate button container width
-    val buttonHeightPx = with(density) { 56.dp.toPx() } // Approximate button container height
+    val buttonWidthPx = with(density) { 140.dp.toPx() }
+    val buttonHeightPx = with(density) { 56.dp.toPx() }
 
+    // Initial position: top-right corner with margin
+    val offsetX = remember { mutableStateOf(screenWidthPx - buttonWidthPx - 32f) }
+    val offsetY = remember { mutableStateOf(80f) }
+
+    // Full-screen transparent container for touch capture
     Box(
-        modifier = Modifier
-            .offset { IntOffset(offsetX.value.roundToInt(), offsetY.value.roundToInt()) }
-            .pointerInput(Unit) {
-                detectDragGestures { change, dragAmount ->
-                    change.consume()
-                    // Update position and clamp to screen bounds
-                    val newX = offsetX.value + dragAmount.x
-                    val newY = offsetY.value + dragAmount.y
-                    // Clamp to keep buttons visible on screen
-                    offsetX.value = newX.coerceIn(-screenWidthPx + buttonWidthPx / 2, screenWidthPx - buttonWidthPx)
-                    offsetY.value = newY.coerceIn(-100f, screenHeightPx - buttonHeightPx - 100f)
-                }
-            }
-            .visibleBackground()
-            .padding(8.dp)
+        modifier = Modifier.fillMaxSize()
     ) {
-        Row {
-            // Back button
-            VisibleButton(
-                iconRes = R.drawable.ic_arrow_back,
-                contentDescription = "返回",
-                onClick = onBack,
-                backgroundColor = Color(0x80111111),
-                iconColor = Color.White
-            )
-
-            // Reset button
-            VisibleButton(
-                iconRes = R.drawable.ic_refresh,
-                contentDescription = "重新登录",
-                onClick = onReset,
-                backgroundColor = Color(0x80B34700),
-                iconColor = Color.White
-            )
-
-            // Close button
-            VisibleButton(
-                iconRes = R.drawable.ic_close,
-                contentDescription = "关闭",
-                onClick = onClose,
-                backgroundColor = Color(0x80A30000),
-                iconColor = Color.White
-            )
+        // Positioned button container (draggable anywhere)
+        Box(
+            modifier = Modifier
+                .offset { IntOffset(offsetX.value.roundToInt(), offsetY.value.roundToInt()) }
+                .pointerInput(Unit) {
+                    detectDragGestures { change, dragAmount ->
+                        change.consume()
+                        val newX = offsetX.value + dragAmount.x
+                        val newY = offsetY.value + dragAmount.y
+                        // Clamp to keep buttons visible
+                        offsetX.value = newX.coerceIn(0f, screenWidthPx - buttonWidthPx)
+                        offsetY.value = newY.coerceIn(0f, screenHeightPx - buttonHeightPx)
+                    }
+                }
+                .visibleBackground()
+                .padding(8.dp)
+        ) {
+            Row {
+                VisibleButton(
+                    iconRes = R.drawable.ic_arrow_back,
+                    contentDescription = "返回",
+                    onClick = onBack,
+                    backgroundColor = Color(0x80111111),
+                    iconColor = Color.White
+                )
+                VisibleButton(
+                    iconRes = R.drawable.ic_refresh,
+                    contentDescription = "重新登录",
+                    onClick = onReset,
+                    backgroundColor = Color(0x80B34700),
+                    iconColor = Color.White
+                )
+                VisibleButton(
+                    iconRes = R.drawable.ic_close,
+                    contentDescription = "关闭",
+                    onClick = onClose,
+                    backgroundColor = Color(0x80A30000),
+                    iconColor = Color.White
+                )
+            }
         }
     }
 }
