@@ -138,7 +138,7 @@ class ReposViewModel(app: LockitApp) : ViewModel() {
     private val _selectedProvider = MutableStateFlow<String>("qwen_bailian")
     val selectedProvider: StateFlow<String> = _selectedProvider.asStateFlow()
 
-    private var hasAutoFetchedQuota = false
+    var hasAutoFetchedQuota = false  // Public for LaunchedEffect observation
     private var currentApp: LockitApp? = null
 
     init {
@@ -220,21 +220,36 @@ class ReposViewModel(app: LockitApp) : ViewModel() {
 
     // Auto-fetch when credentials become available (call from UI once)
     fun autoFetchIfNeeded() {
-        // First check if we have prefetched quota from app startup
-        if (!hasAutoFetchedQuota) {
-            val prefetched = CodingPlanPrefetchState.quota
-            if (prefetched != null) {
-                _codingPlanQuota.value = prefetched
-                _codingPlanQuotaError.value = CodingPlanPrefetchState.error
-                _isQuotaLoading.value = CodingPlanPrefetchState.isLoading
-                hasAutoFetchedQuota = true
-                return
-            }
+        if (hasAutoFetchedQuota) return
+
+        // Check if prefetch is still running - wait for it to complete
+        if (CodingPlanPrefetchState.isLoading) {
+            _isQuotaLoading.value = true
+            hasAutoFetchedQuota = true  // Mark as handled to prevent duplicate fetch
+            return
         }
-        // If no prefetched data, fetch from credentials
-        if (!hasAutoFetchedQuota && _credentials.value.any { it.type == CredentialType.CodingPlan }) {
+
+        // First check if we have prefetched quota from app startup
+        val prefetched = CodingPlanPrefetchState.quota
+        if (prefetched != null) {
+            _codingPlanQuota.value = prefetched
+            _codingPlanQuotaError.value = CodingPlanPrefetchState.error
+            _isQuotaLoading.value = false
+            hasAutoFetchedQuota = true
+            return
+        }
+
+        // If no prefetched data and not loading, fetch from credentials
+        if (_credentials.value.any { it.type == CredentialType.CodingPlan }) {
             fetchCodingPlanQuota(force = true)
         }
+    }
+
+    // Update quota when prefetch completes (called from LaunchedEffect observer)
+    fun updateQuotaFromPrefetch(quota: CodingPlanQuota?, error: String?) {
+        _codingPlanQuota.value = quota
+        _codingPlanQuotaError.value = error
+        _isQuotaLoading.value = false
     }
 }
 
@@ -302,6 +317,20 @@ fun ReposScreen(
     // Auto-fetch once when credentials become available
     LaunchedEffect(credentialList) {
         viewModel.autoFetchIfNeeded()
+    }
+
+    // Poll prefetch state until loading completes (handles race condition)
+    LaunchedEffect(CodingPlanPrefetchState.isLoading) {
+        if (CodingPlanPrefetchState.isLoading && viewModel.hasAutoFetchedQuota) {
+            // Wait for prefetch to complete
+            while (CodingPlanPrefetchState.isLoading) {
+                kotlinx.coroutines.delay(100)
+            }
+            // Update ViewModel with prefetch result
+            CodingPlanPrefetchState.quota?.let {
+                viewModel.updateQuotaFromPrefetch(it, CodingPlanPrefetchState.error)
+            }
+        }
     }
 
     val displayedServiceCredentials = remember(serviceCredentials, searchQuery, selectedService) {

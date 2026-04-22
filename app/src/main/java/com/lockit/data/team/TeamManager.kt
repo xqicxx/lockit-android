@@ -52,11 +52,8 @@ class TeamManager(
                 createdBy = memberId,
             )
 
-            // Store in database
+            // Store in database atomically
             val entity = TeamEntity.fromTeam(team, memberId)
-            teamDao.insertTeam(entity)
-
-            // Persist the local member into team_members table
             val memberEntity = TeamMemberEntity(
                 id = memberId,
                 teamId = teamId,
@@ -64,7 +61,7 @@ class TeamManager(
                 role = TeamRole.ADMIN.name,
                 joinedAt = now.toEpochMilli()
             )
-            teamDao.insertMember(memberEntity)
+            teamDao.insertTeamWithMember(entity, memberEntity)
 
             // Audit log
             auditLogger.logTeamCreated(teamId, name)
@@ -117,9 +114,6 @@ class TeamManager(
             )
 
             val entity = TeamEntity.fromTeam(team, memberId)
-            teamDao.insertTeam(entity)
-
-            // Persist the local member into team_members table
             val memberEntity = TeamMemberEntity(
                 id = memberId,
                 teamId = teamId,
@@ -127,7 +121,7 @@ class TeamManager(
                 role = TeamRole.MEMBER.name,
                 joinedAt = now.toEpochMilli()
             )
-            teamDao.insertMember(memberEntity)
+            teamDao.insertTeamWithMember(entity, memberEntity)
 
             auditLogger.logTeamJoined(teamId)
 

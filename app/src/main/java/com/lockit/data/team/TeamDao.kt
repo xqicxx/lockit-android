@@ -25,7 +25,7 @@ interface TeamDao {
     @Query("SELECT COUNT(*) FROM teams")
     suspend fun getTeamCount(): Int
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @Insert(onConflict = OnConflictStrategy.ABORT)
     suspend fun insertTeam(team: TeamEntity)
 
     @Delete
@@ -39,10 +39,10 @@ interface TeamDao {
     @Query("SELECT * FROM team_members WHERE teamId = :teamId ORDER BY joinedAt ASC")
     suspend fun getMembers(teamId: String): List<TeamMemberEntity>
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @Insert(onConflict = OnConflictStrategy.ABORT)
     suspend fun insertMember(member: TeamMemberEntity)
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @Insert(onConflict = OnConflictStrategy.ABORT)
     suspend fun insertMembers(members: List<TeamMemberEntity>)
 
     @Query("DELETE FROM team_members WHERE teamId = :teamId AND id = :memberId")
@@ -78,5 +78,13 @@ interface TeamDao {
         deleteAllSharedCredentials(teamId)
         clearMembers(teamId)
         deleteTeamById(teamId)
+    }
+
+    // === Transaction wrappers for atomic operations ===
+
+    @Transaction
+    suspend fun insertTeamWithMember(team: TeamEntity, member: TeamMemberEntity) {
+        insertTeam(team)
+        insertMember(member)
     }
 }
