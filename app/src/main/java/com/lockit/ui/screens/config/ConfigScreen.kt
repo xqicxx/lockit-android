@@ -829,15 +829,24 @@ fun ConfigScreen(
                             onClick = {
                                 isCheckingUpdate = true
                                 scope.launch {
-                                    // Use firstOrNull() to avoid infinite hang on empty Flow
-                                    // Vault could be locked between isUnlocked() check and Flow emission
-                                    // Use try-catch that re-throws CancellationException for proper structured concurrency
-                                    val credentials: List<Credential> = try {
-                                        app.vaultManager.getAllCredentials().firstOrNull() ?: emptyList()
-                                    } catch (e: CancellationException) {
-                                        throw e  // Re-throw to maintain coroutine cancellation
-                                    } catch (e: Exception) {
-                                        toastMessage = context.getString(R.string.toast_vault_locked)
+                                    // Use Dispatchers.IO to move CPU-intensive decryption off main thread
+                                    val credentials: List<Credential> = withContext(Dispatchers.IO) {
+                                        // Use firstOrNull() to avoid infinite hang on empty Flow
+                                        // Vault could be locked between isUnlocked() check and Flow emission
+                                        // Use try-catch that re-throws CancellationException for proper structured concurrency
+                                        try {
+                                            app.vaultManager.getAllCredentials().firstOrNull() ?: emptyList()
+                                        } catch (e: CancellationException) {
+                                            throw e  // Re-throw to maintain coroutine cancellation
+                                        } catch (e: Exception) {
+                                            emptyList()  // Return empty on error, handled below
+                                        }
+                                    }
+                                    if (credentials.isEmpty()) {
+                                        // Could be vault locked or genuinely empty
+                                        if (!app.vaultManager.isUnlocked()) {
+                                            toastMessage = context.getString(R.string.toast_vault_locked)
+                                        }
                                         isCheckingUpdate = false
                                         return@launch
                                     }
