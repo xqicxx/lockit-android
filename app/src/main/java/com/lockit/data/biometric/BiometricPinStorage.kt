@@ -45,18 +45,15 @@ class BiometricPinStorage(private val sharedPreferences: SharedPreferences) {
 
     fun canAuthenticate(activity: FragmentActivity): Boolean {
         val biometricManager = BiometricManager.from(activity)
-        // Check for biometric OR device credential (password/PIN/pattern)
-        return biometricManager.canAuthenticate(
+        // Device credential + CryptoObject only works on API 30+
+        // On API 29 and below, CryptoObject requires BIOMETRIC_STRONG only
+        val authenticators = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             BiometricManager.Authenticators.BIOMETRIC_STRONG or
             BiometricManager.Authenticators.DEVICE_CREDENTIAL
-        ) == BiometricManager.BIOMETRIC_SUCCESS
-    }
-
-    fun canAuthenticateWithDeviceCredential(activity: FragmentActivity): Boolean {
-        val biometricManager = BiometricManager.from(activity)
-        return biometricManager.canAuthenticate(
-            BiometricManager.Authenticators.DEVICE_CREDENTIAL
-        ) == BiometricManager.BIOMETRIC_SUCCESS
+        } else {
+            BiometricManager.Authenticators.BIOMETRIC_STRONG
+        }
+        return biometricManager.canAuthenticate(authenticators) == BiometricManager.BIOMETRIC_SUCCESS
     }
 
     @TargetApi(30)
@@ -183,12 +180,20 @@ class BiometricPinStorage(private val sharedPreferences: SharedPreferences) {
         val promptInfo = BiometricPrompt.PromptInfo.Builder()
             .setTitle(title)
             .setSubtitle(subtitle)
-            .setAllowedAuthenticators(
-                BiometricManager.Authenticators.BIOMETRIC_STRONG or
-                BiometricManager.Authenticators.DEVICE_CREDENTIAL
-            )
-            // Note: Cannot set negative button text when DEVICE_CREDENTIAL is enabled
-            // Android automatically shows "Use device credential" option
+            .apply {
+                // Critical: DEVICE_CREDENTIAL + CryptoObject crashes on API < 30
+                // On API 30+: allow device credential fallback, no negative button needed
+                // On API 29-: only BIOMETRIC_STRONG, must set negative button text
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    setAllowedAuthenticators(
+                        BiometricManager.Authenticators.BIOMETRIC_STRONG or
+                        BiometricManager.Authenticators.DEVICE_CREDENTIAL
+                    )
+                } else {
+                    setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_STRONG)
+                    setNegativeButtonText("取消")
+                }
+            }
             .build()
 
         biometricPrompt.authenticate(promptInfo, BiometricPrompt.CryptoObject(cipher))
@@ -261,12 +266,20 @@ class BiometricPinStorage(private val sharedPreferences: SharedPreferences) {
         val promptInfo = BiometricPrompt.PromptInfo.Builder()
             .setTitle(title)
             .setSubtitle(subtitle)
-            .setAllowedAuthenticators(
-                BiometricManager.Authenticators.BIOMETRIC_STRONG or
-                BiometricManager.Authenticators.DEVICE_CREDENTIAL
-            )
-            // Note: Cannot set negative button text when DEVICE_CREDENTIAL is enabled
-            // Android automatically shows "Use device credential" option
+            .apply {
+                // Critical: DEVICE_CREDENTIAL + CryptoObject crashes on API < 30
+                // On API 30+: allow device credential fallback, no negative button needed
+                // On API 29-: only BIOMETRIC_STRONG, must set negative button text
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    setAllowedAuthenticators(
+                        BiometricManager.Authenticators.BIOMETRIC_STRONG or
+                        BiometricManager.Authenticators.DEVICE_CREDENTIAL
+                    )
+                } else {
+                    setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_STRONG)
+                    setNegativeButtonText("取消")
+                }
+            }
             .build()
 
         biometricPrompt.authenticate(promptInfo, BiometricPrompt.CryptoObject(cipher))
