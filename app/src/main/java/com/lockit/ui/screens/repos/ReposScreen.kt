@@ -326,10 +326,8 @@ fun ReposScreen(
             while (CodingPlanPrefetchState.isLoading) {
                 kotlinx.coroutines.delay(100)
             }
-            // Update ViewModel with prefetch result
-            CodingPlanPrefetchState.quota?.let {
-                viewModel.updateQuotaFromPrefetch(it, CodingPlanPrefetchState.error)
-            }
+            // Update ViewModel with prefetch result (always call to clear loading state)
+            viewModel.updateQuotaFromPrefetch(CodingPlanPrefetchState.quota, CodingPlanPrefetchState.error)
         }
     }
 

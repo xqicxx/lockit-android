@@ -137,10 +137,20 @@ class TeamManager(
     fun getAllTeams() = teamDao.getAllTeams()
 
     /**
-     * Get a specific team by ID.
+     * Get a specific team by ID with full member list.
      */
     suspend fun getTeamById(teamId: String): Team? = withContext(Dispatchers.IO) {
-        teamDao.getTeamById(teamId)?.toTeam()
+        val entity = teamDao.getTeamById(teamId) ?: return@withContext null
+        val memberEntities = teamDao.getMembers(teamId)
+        val members = memberEntities.map { m ->
+            TeamMember(
+                id = m.id,
+                name = m.name,
+                role = try { TeamRole.valueOf(m.role) } catch (_: Exception) { TeamRole.MEMBER },
+                joinedAt = Instant.ofEpochMilli(m.joinedAt)
+            )
+        }
+        entity.toTeam().copy(members = members)
     }
 
     /**
