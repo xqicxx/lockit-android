@@ -14,7 +14,11 @@ import com.lockit.data.database.LockitDatabase
 import com.lockit.domain.model.Credential
 import com.lockit.domain.model.CredentialType
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.Dispatchers
+import com.lockit.utils.SearchMatcher
 import java.time.Instant
 
 class VaultManager(
@@ -148,10 +152,31 @@ class VaultManager(
     }
 
     fun searchCredentials(query: String): Flow<List<Credential>> {
-        return dao.search(query).map { entities ->
-            val masterKey = requireMasterKey()
-            entities.map { decryptCredential(it, masterKey) }
+        val normalizedQuery = query.lowercase().trim()
+
+        if (normalizedQuery.isEmpty()) {
+            return getAllCredentials()
         }
+
+        // Use SQL LIKE for reactive filtering, then apply fuzzy matching
+        return dao.search(normalizedQuery).map { candidates ->
+            val masterKey = requireMasterKey()
+
+            // Apply fuzzy matching on LIKE candidates
+            val fuzzyMatches = SearchMatcher.filterAndSortEntities(candidates, normalizedQuery)
+
+            // If LIKE found nothing, fallback to limited fuzzy search (spelling tolerance)
+            val finalMatches = if (fuzzyMatches.isEmpty()) {
+                // Use getAll() Flow for reactivity, take first batch for fallback
+                val allEntities = dao.getAllEntitiesLimited(500)
+                SearchMatcher.filterAndSortEntities(allEntities, normalizedQuery)
+            } else {
+                fuzzyMatches
+            }
+
+            // Limit results to avoid UI lag, decrypt only matches
+            finalMatches.take(100).map { decryptCredential(it, masterKey) }
+        }.flowOn(Dispatchers.IO)
     }
 
     fun getCredentialsByService(service: String): Flow<List<Credential>> {
