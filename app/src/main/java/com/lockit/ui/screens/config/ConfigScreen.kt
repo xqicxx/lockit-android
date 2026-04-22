@@ -82,6 +82,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import java.io.File
 import java.time.Instant
 import java.time.format.DateTimeFormatter
@@ -834,11 +835,12 @@ fun ConfigScreen(
                                         // Track if there was a critical error during credential fetch
                                         var credentialFetchError: Boolean = false
                                         val credentials: List<Credential> = withContext(Dispatchers.IO) {
-                                            // Use firstOrNull() to avoid infinite hang on empty Flow
-                                            // Vault could be locked between isUnlocked() check and Flow emission
-                                            // Use try-catch that re-throws CancellationException for proper structured concurrency
+                                            // Room Flow is infinite - use withTimeoutOrNull to prevent indefinite hang
+                                            // if Flow doesn't emit within 5 seconds
                                             try {
-                                                app.vaultManager.getAllCredentials().firstOrNull() ?: emptyList()
+                                                withTimeoutOrNull(5000) {
+                                                    app.vaultManager.getAllCredentials().firstOrNull()
+                                                } ?: emptyList()  // Timeout returns null, default to empty
                                             } catch (e: CancellationException) {
                                                 throw e  // Re-throw to maintain coroutine cancellation
                                             } catch (e: IllegalStateException) {
@@ -846,7 +848,6 @@ fun ConfigScreen(
                                                 emptyList()
                                             } catch (e: Exception) {
                                                 // Critical error (corruption, decryption failure) when vault should be unlocked
-                                                // This should not be silently ignored
                                                 credentialFetchError = true
                                                 emptyList()
                                             }
