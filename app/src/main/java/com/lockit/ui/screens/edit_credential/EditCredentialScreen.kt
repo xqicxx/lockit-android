@@ -480,8 +480,16 @@ private fun EditCredentialForm(
                                     metadata = if (selectedType == CredentialType.CodingPlan) {
                                         val cookie = getField(3).takeIf { it.isNotBlank() }
                                             ?: extractCookieFromCurl(getField(1))
+                                        val rawProvider = getField(0)
+                                        // Normalize provider key for fetcher registry
+                                        val provider = when (rawProvider) {
+                                            "qwen" -> "qwen_bailian"
+                                            "anthropic" -> "claude"
+                                            "openai" -> "chatgpt"
+                                            else -> rawProvider
+                                        }
                                         JSONObject().apply {
-                                            put("provider", getField(0))
+                                            put("provider", provider)
                                             put("rawCurl", getField(1))
                                             put("apiKey", getField(2))
                                             put("cookie", cookie)
