@@ -651,6 +651,8 @@ fun AddCredentialScreen(
                                         ?: extractBaseUrlFromCurl(rawCurl)
 
                                     // Save to SharedPreferences for immediate prefetch with correct fields per provider
+                                    // Note: cookie field stores user's manual edits for accountId/orgId
+                                    // We prioritize manual edits over WebView-extracted data
                                     val prefsData: Map<String, String> = when (provider) {
                                         "qwen", "qwen_bailian" -> mapOf(
                                             "cookie" to cookie,
@@ -658,12 +660,12 @@ fun AddCredentialScreen(
                                         )
                                         "openai", "chatgpt" -> mapOf(
                                             "accessToken" to (apiKey ?: ""),
-                                            "accountId" to (authExtraData["accountId"] ?: ""),
-                                        ).filterValues { it.isNotBlank() }
+                                            "accountId" to (cookie.ifBlank { authExtraData["accountId"] ?: "" }),
+                                        )
                                         "anthropic", "claude" -> mapOf(
                                             "sessionKey" to (apiKey ?: ""),
-                                            "orgId" to (authExtraData["orgId"] ?: ""),
-                                        ).filterValues { it.isNotBlank() }
+                                            "orgId" to (cookie.ifBlank { authExtraData["orgId"] ?: "" }),
+                                        )
                                         else -> mapOf("api_key" to (apiKey ?: ""))
                                     }
                                     com.lockit.data.vault.CodingPlanPrefs.saveProviderData(
