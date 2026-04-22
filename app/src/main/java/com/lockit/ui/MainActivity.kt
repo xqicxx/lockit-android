@@ -45,6 +45,7 @@ import com.lockit.domain.CodingPlanPrefetchState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import androidx.lifecycle.lifecycleScope
 
 class MainActivity : FragmentActivity() {
 
@@ -113,6 +114,31 @@ class MainActivity : FragmentActivity() {
             )
         }
 
+        // Prefetch coding plan quota IMMEDIATELY on app startup - runs during lock screen
+        // Uses EncryptedSharedPreferences (no vault unlock needed)
+        if (!CodingPlanPrefetchState.hasPrefetched && CodingPlanPrefs.hasData(app)) {
+            CodingPlanPrefetchState.isLoading = true
+            CodingPlanPrefetchState.hasPrefetched = true
+            lifecycleScope.launch {
+                try {
+                    val metadata = CodingPlanPrefs.getMetadata(app)
+                    val provider = metadata["provider"]
+                    if (provider != null) {
+                        val fetcher = CodingPlanFetchers.forProvider(provider)
+                        if (fetcher != null) {
+                            val quota = withContext(Dispatchers.IO) {
+                                fetcher.fetchQuota(metadata)
+                            }
+                            CodingPlanPrefetchState.quota = quota
+                            CodingPlanPrefetchState.error = if (quota == null) "NO_QUOTA_DATA" else null
+                        }
+                    }
+                } finally {
+                    CodingPlanPrefetchState.isLoading = false
+                }
+            }
+        }
+
         setContent {
             val themeMode = ThemePreference.getThemeMode(this)
             LockitTheme(themeMode = themeMode) {
@@ -171,27 +197,6 @@ private fun MainFlow(app: LockitApp) {
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose {
             lifecycleOwner.lifecycle.removeObserver(observer)
-        }
-    }
-
-    // Prefetch coding plan quota immediately on app startup using SharedPreferences data
-    LaunchedEffect(Unit) {
-        if (!CodingPlanPrefetchState.hasPrefetched && CodingPlanPrefs.hasData(app)) {
-            CodingPlanPrefetchState.isLoading = true
-            CodingPlanPrefetchState.hasPrefetched = true
-            scope.launch {
-                val metadata = CodingPlanPrefs.getMetadata(app)
-                val provider = metadata["provider"] ?: return@launch
-                val fetcher = CodingPlanFetchers.forProvider(provider)
-                if (fetcher != null) {
-                    val quota = withContext(Dispatchers.IO) {
-                        fetcher.fetchQuota(metadata)
-                    }
-                    CodingPlanPrefetchState.quota = quota
-                    CodingPlanPrefetchState.error = if (quota == null) "NO_QUOTA_DATA" else null
-                }
-                CodingPlanPrefetchState.isLoading = false
-            }
         }
     }
 
