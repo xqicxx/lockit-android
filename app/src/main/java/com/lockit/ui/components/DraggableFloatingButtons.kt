@@ -66,58 +66,46 @@ private fun FloatingButtonsContent(
     val screenWidthPx = with(density) { configuration.screenWidthDp.dp.toPx() }
     val screenHeightPx = with(density) { configuration.screenHeightDp.dp.toPx() }
 
-    // Actual measured button size (not hardcoded)
-    val buttonWidthPx = remember { mutableStateOf(0f) }
-    val buttonHeightPx = remember { mutableStateOf(0f) }
+    // Actual measured button size
+    val buttonWidthPx = remember { mutableStateOf(100f) } // Default estimate
+    val buttonHeightPx = remember { mutableStateOf(104f) } // Default estimate (40+40+4+8+8)
+
+    // Initialization flag
+    val isInitialized = remember { mutableStateOf(false) }
 
     // Left/right side toggle state
     val isOnRight = remember { mutableStateOf(true) }
 
-    // Position: absolute screen coordinates
-    val offsetX = remember { mutableStateOf(screenWidthPx - 100f) }
-    val offsetY = remember { mutableStateOf(screenHeightPx / 2) }
+    // Position: absolute screen coordinates (start with estimated visible position)
+    val offsetX = remember { mutableStateOf(screenWidthPx - 120f) }
+    val offsetY = remember { mutableStateOf(screenHeightPx / 2 - 60f) }
 
-    // Recalculate position on config change (rotation, split-screen)
-    LaunchedEffect(configuration.screenWidthDp, configuration.screenHeightDp, buttonWidthPx.value, buttonHeightPx.value) {
-        // Snap to correct side after rotation
-        val btnW = buttonWidthPx.value
-        val btnH = buttonHeightPx.value
-        if (btnW > 0 && btnH > 0) {
-            if (isOnRight.value) {
-                offsetX.value = screenWidthPx - btnW - 16f
-            } else {
-                offsetX.value = 16f
-            }
-            // Ensure Y is in bounds
-            offsetY.value = offsetY.value.coerceIn(0f, screenHeightPx - btnH - 50f)
-        }
+    // Safe coerceIn
+    fun safeCoerceIn(value: Float, min: Float, max: Float): Float {
+        return if (min <= max) value.coerceIn(min, max) else value
     }
 
     // Snap to side function
     fun snapToSide(right: Boolean) {
         isOnRight.value = right
         val btnW = buttonWidthPx.value
-        if (btnW > 0) {
-            offsetX.value = if (right) screenWidthPx - btnW - 16f else 16f
-        }
+        offsetX.value = if (right) safeCoerceIn(screenWidthPx - btnW - 16f, 0f, screenWidthPx) else 16f
     }
 
-    // Safe coerceIn (handles case where min > max)
-    fun safeCoerceIn(value: Float, min: Float, max: Float): Float {
-        return if (min <= max) value.coerceIn(min, max) else if (value < min) min else if (value > max) max else value
-    }
-
-    // Full-screen container with measured button box
+    // Full-screen container
     Box(modifier = Modifier.fillMaxSize()) {
         Box(
             modifier = Modifier
                 .onGloballyPositioned { coordinates ->
-                    buttonWidthPx.value = coordinates.size.width.toFloat()
-                    buttonHeightPx.value = coordinates.size.height.toFloat()
+                    val w = coordinates.size.width.toFloat()
+                    val h = coordinates.size.height.toFloat()
+                    buttonWidthPx.value = w
+                    buttonHeightPx.value = h
                     // Initialize position on first measure
-                    if (offsetX.value == screenWidthPx - 100f) {
-                        offsetX.value = screenWidthPx - coordinates.size.width - 16f
-                        offsetY.value = screenHeightPx / 2 - coordinates.size.height / 2
+                    if (!isInitialized.value) {
+                        isInitialized.value = true
+                        offsetX.value = screenWidthPx - w - 16f
+                        offsetY.value = screenHeightPx / 2 - h / 2
                     }
                 }
                 .offset { IntOffset(offsetX.value.roundToInt(), offsetY.value.roundToInt()) }
@@ -126,12 +114,10 @@ private fun FloatingButtonsContent(
                         change.consume()
                         val btnW = buttonWidthPx.value
                         val btnH = buttonHeightPx.value
-                        if (btnW > 0 && btnH > 0) {
-                            val newX = offsetX.value + dragAmount.x
-                            val newY = offsetY.value + dragAmount.y
-                            offsetX.value = safeCoerceIn(newX, 0f, screenWidthPx - btnW)
-                            offsetY.value = safeCoerceIn(newY, 50f, screenHeightPx - btnH - 50f)
-                        }
+                        val newX = offsetX.value + dragAmount.x
+                        val newY = offsetY.value + dragAmount.y
+                        offsetX.value = safeCoerceIn(newX, 0f, screenWidthPx - btnW)
+                        offsetY.value = safeCoerceIn(newY, 50f, screenHeightPx - btnH - 50f)
                     }
                 }
                 .visibleBackground()
