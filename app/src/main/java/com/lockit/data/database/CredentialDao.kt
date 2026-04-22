@@ -17,7 +17,7 @@ interface CredentialDao {
     @Query("SELECT * FROM credentials ORDER BY updatedAt DESC")
     suspend fun getAllEntities(): List<CredentialEntity>
 
-    @Query("SELECT * FROM credentials ORDER BY updatedAt DESC LIMIT :limit")
+    @Query("SELECT * FROM credentials LIMIT :limit")
     suspend fun getAllEntitiesLimited(limit: Int): List<CredentialEntity>
 
     @Query("SELECT * FROM credentials WHERE id = :id")
