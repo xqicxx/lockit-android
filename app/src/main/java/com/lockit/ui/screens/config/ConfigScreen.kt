@@ -76,6 +76,7 @@ import com.lockit.ui.theme.White
 import com.lockit.utils.LocaleHelper
 import com.lockit.utils.BiometricUtils
 import androidx.fragment.app.FragmentActivity
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.firstOrNull
@@ -830,17 +831,18 @@ fun ConfigScreen(
                                 scope.launch {
                                     // Use firstOrNull() to avoid infinite hang on empty Flow
                                     // Vault could be locked between isUnlocked() check and Flow emission
-                                    val credentials = runCatching {
+                                    // Use try-catch that re-throws CancellationException for proper structured concurrency
+                                    val credentials: List<Credential> = try {
                                         app.vaultManager.getAllCredentials().firstOrNull() ?: emptyList()
-                                    }
-                                    if (credentials.isFailure) {
+                                    } catch (e: CancellationException) {
+                                        throw e  // Re-throw to maintain coroutine cancellation
+                                    } catch (e: Exception) {
                                         toastMessage = context.getString(R.string.toast_vault_locked)
                                         isCheckingUpdate = false
                                         return@launch
                                     }
                                     // Read GitHub Token from vault (optional - public repos don't need it)
-                                    val tokenCredential = credentials.getOrNull()
-                                        ?.find { it.name == githubTokenCredentialName }
+                                    val tokenCredential = credentials.find { it.name == githubTokenCredentialName }
 
                                     // Token is optional - public repos work without it
                                     // Show diagnostic toast if configured token has issues (non-blocking)
