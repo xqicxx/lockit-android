@@ -831,6 +831,8 @@ fun ConfigScreen(
                                 scope.launch {
                                     try {
                                         // Use Dispatchers.IO to move CPU-intensive decryption off main thread
+                                        // Track if there was a critical error during credential fetch
+                                        var credentialFetchError: Boolean = false
                                         val credentials: List<Credential> = withContext(Dispatchers.IO) {
                                             // Use firstOrNull() to avoid infinite hang on empty Flow
                                             // Vault could be locked between isUnlocked() check and Flow emission
@@ -839,13 +841,20 @@ fun ConfigScreen(
                                                 app.vaultManager.getAllCredentials().firstOrNull() ?: emptyList()
                                             } catch (e: CancellationException) {
                                                 throw e  // Re-throw to maintain coroutine cancellation
+                                            } catch (e: IllegalStateException) {
+                                                // Vault locked - will be handled by vault state check below
+                                                emptyList()
                                             } catch (e: Exception) {
-                                                emptyList()  // Return empty on error, handled below
+                                                // Critical error (corruption, decryption failure) when vault should be unlocked
+                                                // This should not be silently ignored
+                                                credentialFetchError = true
+                                                emptyList()
                                             }
                                         }
-                                        // Empty vault is OK - GitHub token is optional for public repos
-                                        // Only block if vault is actually locked
-                                        if (!app.vaultManager.isUnlocked()) {
+                                        // Check for critical errors first - vault unlocked but fetch failed
+                                        if (credentialFetchError && app.vaultManager.isUnlocked()) {
+                                            toastMessage = context.getString(R.string.toast_credential_error)
+                                        } else if (!app.vaultManager.isUnlocked()) {
                                             toastMessage = context.getString(R.string.toast_vault_locked)
                                         } else {
                                             // Proceed with update check (token will be null for empty vault)
