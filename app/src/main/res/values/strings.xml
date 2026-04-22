@@ -320,6 +320,9 @@
     <string name="action_credential_deleted">CREDENTIAL_DELETED</string>
     <string name="action_credential_viewed">CREDENTIAL_VIEWED</string>
     <string name="action_credential_copied">CREDENTIAL_COPIED</string>
+    <string name="action_team_created">TEAM_CREATED</string>
+    <string name="action_team_joined">TEAM_JOINED</string>
+    <string name="action_team_left">TEAM_LEFT</string>
 
     <!-- Quota Gauge Labels -->
     <string name="quota_5h">5H</string>
@@ -356,4 +359,30 @@
 
     <!-- Widget -->
     <string name="widget_coding_plan_description">显示 Coding Plan 用量进度条，实时查看配额</string>
+
+    <!-- Team Sharing -->
+    <string name="team_title">Team Sharing</string>
+    <string name="team_create_title">Create Team</string>
+    <string name="team_join_title">Join Team</string>
+    <string name="team_name_label">Team Name</string>
+    <string name="team_name_placeholder">Enter team name</string>
+    <string name="team_create_btn">Create</string>
+    <string name="team_join_btn">Join Team</string>
+    <string name="team_invite_label">Invite Code</string>
+    <string name="team_invite_placeholder">Paste invite code or scan QR</string>
+    <string name="team_invite_qr">Scan QR Code</string>
+    <string name="team_invite_copy">Copy Invite</string>
+    <string name="team_leave_btn">Leave Team</string>
+    <string name="team_no_teams">No teams</string>
+    <string name="team_members">Members</string>
+    <string name="team_role_admin">Admin</string>
+    <string name="team_role_member">Member</string>
+    <string name="team_role_viewer">Viewer</string>
+    <string name="team_created_success">Team created</string>
+    <string name="team_joined_success">Joined team</string>
+    <string name="team_leave_success">Left team</string>
+    <string name="team_invite_invalid">Invalid invite code</string>
+    <string name="team_already_member">Already a team member</string>
+    <string name="team_invite_share_title">Share Team Invite</string>
+    <string name="team_invite_share_desc">Let others scan QR or copy invite code to join</string>
 </resources>

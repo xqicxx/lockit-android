@@ -4,15 +4,25 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import com.lockit.data.team.TeamDao
+import com.lockit.data.team.TeamEntity
+import com.lockit.data.team.TeamMemberEntity
+import com.lockit.data.team.SharedCredentialEntity
 
 @Database(
-    entities = [CredentialEntity::class],
-    version = 1,
+    entities = [
+        CredentialEntity::class,
+        TeamEntity::class,
+        TeamMemberEntity::class,
+        SharedCredentialEntity::class,
+    ],
+    version = 2,
     exportSchema = false
 )
 abstract class LockitDatabase : RoomDatabase() {
 
     abstract fun credentialDao(): CredentialDao
+    abstract fun teamDao(): TeamDao
 
     companion object {
         private const val DB_NAME = "lockit.db"
@@ -26,7 +36,9 @@ abstract class LockitDatabase : RoomDatabase() {
                     context.applicationContext,
                     LockitDatabase::class.java,
                     DB_NAME
-                ).build()
+                )
+                    .fallbackToDestructiveMigration()  // Allow version upgrade without migration
+                    .build()
                 INSTANCE = instance
                 instance
             }

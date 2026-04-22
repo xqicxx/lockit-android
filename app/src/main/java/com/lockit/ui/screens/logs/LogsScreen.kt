@@ -262,6 +262,9 @@ private fun LogRow(entry: AuditEntry) {
         "CREDENTIAL_DELETED" -> stringResource(R.string.action_credential_deleted)
         "CREDENTIAL_VIEWED" -> stringResource(R.string.action_credential_viewed)
         "CREDENTIAL_COPIED" -> stringResource(R.string.action_credential_copied)
+        "TEAM_CREATED" -> stringResource(R.string.action_team_created)
+        "TEAM_JOINED" -> stringResource(R.string.action_team_joined)
+        "TEAM_LEFT" -> stringResource(R.string.action_team_left)
         else -> entry.action
     }
 
