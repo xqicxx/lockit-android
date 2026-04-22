@@ -6,10 +6,13 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
@@ -62,8 +65,8 @@ private fun FloatingButtonsContent(
     val configuration = androidx.compose.ui.platform.LocalConfiguration.current
     val screenWidthPx = with(density) { configuration.screenWidthDp.dp.toPx() }
     val screenHeightPx = with(density) { configuration.screenHeightDp.dp.toPx() }
-    val buttonWidthPx = with(density) { 180.dp.toPx() }
-    val buttonHeightPx = with(density) { 56.dp.toPx() }
+    val buttonWidthPx = with(density) { 88.dp.toPx() }  // 2 buttons + spacing
+    val buttonHeightPx = with(density) { 96.dp.toPx() } // 2 rows + spacing
 
     // Left/right side toggle state
     val isOnRight = remember { mutableStateOf(true) }
@@ -97,8 +100,6 @@ private fun FloatingButtonsContent(
                     change.consume()
                     val newX = offsetX.value + dragAmount.x
                     val newY = offsetY.value + dragAmount.y
-                    // Clamp: can move from right (0) to left (-screenWidth+buttonWidth+32)
-                    // Y: 0 to screenHeight - buttonHeight - 100
                     offsetX.value = newX.coerceIn(-(screenWidthPx - buttonWidthPx - 32f), 0f)
                     offsetY.value = newY.coerceIn(0f, screenHeightPx - buttonHeightPx - 100f)
                 }
@@ -106,35 +107,43 @@ private fun FloatingButtonsContent(
             .visibleBackground()
             .padding(8.dp)
     ) {
-        Row {
-            VisibleButton(
-                iconRes = R.drawable.ic_swap_horiz,
-                contentDescription = "切换位置",
-                onClick = { snapToSide(!isOnRight.value) },
-                backgroundColor = Color(0x80B34700),
-                iconColor = Color.White
-            )
-            VisibleButton(
-                iconRes = R.drawable.ic_arrow_back,
-                contentDescription = "返回",
-                onClick = onBack,
-                backgroundColor = Color(0x80111111),
-                iconColor = Color.White
-            )
-            VisibleButton(
-                iconRes = R.drawable.ic_refresh,
-                contentDescription = "重新登录",
-                onClick = onReset,
-                backgroundColor = Color(0x80B34700),
-                iconColor = Color.White
-            )
-            VisibleButton(
-                iconRes = R.drawable.ic_close,
-                contentDescription = "关闭",
-                onClick = onClose,
-                backgroundColor = Color(0x80A30000),
-                iconColor = Color.White
-            )
+        // 2x2 grid layout
+        Column {
+            Row {
+                VisibleButton(
+                    iconRes = R.drawable.ic_swap_horiz,
+                    contentDescription = "切换位置",
+                    onClick = { snapToSide(!isOnRight.value) },
+                    backgroundColor = Color(0x80B34700),
+                    iconColor = Color.White
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                VisibleButton(
+                    iconRes = R.drawable.ic_arrow_back,
+                    contentDescription = "返回",
+                    onClick = onBack,
+                    backgroundColor = Color(0x80111111),
+                    iconColor = Color.White
+                )
+            }
+            Spacer(modifier = Modifier.padding(4.dp))
+            Row {
+                VisibleButton(
+                    iconRes = R.drawable.ic_refresh,
+                    contentDescription = "重新登录",
+                    onClick = onReset,
+                    backgroundColor = Color(0x80B34700),
+                    iconColor = Color.White
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                VisibleButton(
+                    iconRes = R.drawable.ic_close,
+                    contentDescription = "关闭",
+                    onClick = onClose,
+                    backgroundColor = Color(0x80A30000),
+                    iconColor = Color.White
+                )
+            }
         }
     }
 }
