@@ -1,10 +1,12 @@
 package com.lockit.utils
 
+import com.lockit.data.database.CredentialEntity
 import com.lockit.domain.model.Credential
 
 /**
  * Search matcher for fuzzy credential search with scoring.
  * Supports exact match, prefix match, contains match, pinyin match (common chars), and Levenshtein distance.
+ * Security: Can match on plaintext Entity fields before decryption.
  */
 object SearchMatcher {
 
@@ -14,6 +16,27 @@ object SearchMatcher {
     private const val SCORE_PINYIN_MATCH = 40
     private const val SCORE_LEVENSHTEIN_MATCH = 30
     private const val LEVENSHTEIN_THRESHOLD = 2
+
+    /**
+     * Calculate match score for an Entity (plaintext fields only).
+     * Used to filter before decryption - reduces security exposure.
+     */
+    fun entityMatchScore(entity: CredentialEntity, query: String): Int {
+        val normalizedQuery = query.lowercase().trim()
+        if (normalizedQuery.isEmpty()) return 0
+
+        var maxScore = 0
+
+        // Check plaintext fields: name, service, type, key
+        val fields = listOf(entity.name, entity.service, entity.type, entity.key)
+        for (field in fields) {
+            if (field.isBlank()) continue
+            val score = fieldMatchScore(field, normalizedQuery)
+            if (score > maxScore) maxScore = score
+        }
+
+        return maxScore
+    }
 
     /**
      * Common Chinese characters to pinyin mapping (partial dictionary).
@@ -169,30 +192,37 @@ object SearchMatcher {
 
     /**
      * Calculate Levenshtein distance between two strings.
-     * Uses dynamic programming for efficiency.
+     * Uses space-optimized DP (2 rows only) to prevent memory crash.
      */
     private fun levenshteinDistance(a: String, b: String): Int {
         if (a == b) return 0
         if (a.isEmpty()) return b.length
         if (b.isEmpty()) return a.length
 
-        val dp = Array(a.length + 1) { IntArray(b.length + 1) }
+        // Use shorter string as column to minimize memory
+        val (longer, shorter) = if (a.length > b.length) a to b else b to a
 
-        for (i in 0..a.length) dp[i][0] = i
-        for (j in 0..b.length) dp[0][j] = j
+        // Space-optimized: only keep 2 rows (current and previous)
+        var prevRow = IntArray(shorter.length + 1) { it }
+        var currRow = IntArray(shorter.length + 1)
 
-        for (i in 1..a.length) {
-            for (j in 1..b.length) {
-                val cost = if (a[i - 1] == b[j - 1]) 0 else 1
-                dp[i][j] = minOf(
-                    dp[i - 1][j] + 1,      // deletion
-                    dp[i][j - 1] + 1,      // insertion
-                    dp[i - 1][j - 1] + cost // substitution
+        for (i in 1..longer.length) {
+            currRow[0] = i
+            for (j in 1..shorter.length) {
+                val cost = if (longer[i - 1] == shorter[j - 1]) 0 else 1
+                currRow[j] = minOf(
+                    prevRow[j] + 1,       // deletion
+                    currRow[j - 1] + 1,   // insertion
+                    prevRow[j - 1] + cost // substitution
                 )
             }
+            // Swap rows
+            val temp = prevRow
+            prevRow = currRow
+            currRow = temp
         }
 
-        return dp[a.length][b.length]
+        return prevRow[shorter.length]
     }
 
     /**
@@ -207,5 +237,19 @@ object SearchMatcher {
             .filter { (_, score) -> score > 0 }
             .sortedByDescending { (_, score) -> score }
             .map { (cred, _) -> cred }
+    }
+
+    /**
+     * Filter and sort entities by match score on plaintext fields.
+     * Returns entities in match order - decrypt only these to reduce security exposure.
+     */
+    fun filterAndSortEntities(entities: List<CredentialEntity>, query: String): List<CredentialEntity> {
+        if (query.isBlank()) return entities
+
+        return entities
+            .map { entity -> entity to entityMatchScore(entity, query) }
+            .filter { (_, score) -> score > 0 }
+            .sortedByDescending { (_, score) -> score }
+            .map { (entity, _) -> entity }
     }
 }

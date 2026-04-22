@@ -151,13 +151,14 @@ class VaultManager(
     }
 
     fun searchCredentials(query: String): Flow<List<Credential>> {
-        // Fetch all credentials for fuzzy matching (SQL LIKE defeats spelling tolerance)
-        // Use flowOn(Dispatchers.IO) to move decryption off main thread
+        // Security: Filter on plaintext fields BEFORE decryption
+        // Use flowOn(Dispatchers.IO) to move work off main thread
         return dao.getAll().map { entities ->
+            // First: fuzzy match on plaintext fields (name, service, type, key)
+            val matchingEntities = SearchMatcher.filterAndSortEntities(entities, query)
+            // Then: decrypt only the matching ones (reduces security exposure)
             val masterKey = requireMasterKey()
-            val credentials = entities.map { decryptCredential(it, masterKey) }
-            // Apply fuzzy matching scoring and sort by match score
-            SearchMatcher.sortByMatchScore(credentials, query)
+            matchingEntities.map { decryptCredential(it, masterKey) }
         }.flowOn(Dispatchers.IO)
     }
 
