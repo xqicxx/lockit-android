@@ -75,8 +75,8 @@ object ClaudeCodingPlan : CodingPlanFetcher {
         val remaining = usage.optInt("remaining", total - used)
 
         return CodingPlanQuota(
-            fiveHourUsed = used,
-            fiveHourTotal = total,
+            sessionUsed = used,
+            sessionTotal = total,
             weekUsed = 0,
             weekTotal = 0,
             monthUsed = 0,
@@ -85,6 +85,7 @@ object ClaudeCodingPlan : CodingPlanFetcher {
             instanceType = "Claude Pro",
             status = if (remaining > 0) "VALID" else "EXHAUSTED",
             remainingDays = 0,
+            planName = "Claude Pro",
             chargeAmount = 20.0,
             chargeType = "subscription",
             autoRenewFlag = true,
