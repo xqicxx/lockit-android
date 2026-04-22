@@ -14,7 +14,6 @@ import com.lockit.data.database.LockitDatabase
 import com.lockit.domain.model.Credential
 import com.lockit.domain.model.CredentialType
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.flowOn
@@ -152,32 +151,33 @@ class VaultManager(
         return credential
     }
 
-    fun searchCredentials(query: String): Flow<List<Credential>> = flow {
-        val masterKey = requireMasterKey()
+    fun searchCredentials(query: String): Flow<List<Credential>> {
         val normalizedQuery = query.lowercase().trim()
 
         if (normalizedQuery.isEmpty()) {
-            emit(getAllCredentials().first())
-        } else {
-            // Step 1: Try SQL LIKE for initial candidates (prevents OOM on large vaults)
-            val likeCandidates = dao.search(query).first()
+            return getAllCredentials()
+        }
 
-            // Step 2: Apply fuzzy matching on LIKE candidates
-            val fuzzyMatches = SearchMatcher.filterAndSortEntities(likeCandidates, normalizedQuery)
+        // Use SQL LIKE for reactive filtering, then apply fuzzy matching
+        return dao.search(query).map { candidates ->
+            val masterKey = requireMasterKey()
 
-            // Step 3: If LIKE found nothing, fallback to limited fuzzy search
-            // This enables spelling tolerance when SQL LIKE fails
+            // Apply fuzzy matching on LIKE candidates
+            val fuzzyMatches = SearchMatcher.filterAndSortEntities(candidates, normalizedQuery)
+
+            // If LIKE found nothing, fallback to limited fuzzy search (spelling tolerance)
             val finalMatches = if (fuzzyMatches.isEmpty()) {
-                val allEntities = dao.getAllEntitiesLimited(500)  // Safety limit
+                // Use getAll() Flow for reactivity, take first batch for fallback
+                val allEntities = dao.getAllEntitiesLimited(500)
                 SearchMatcher.filterAndSortEntities(allEntities, normalizedQuery)
             } else {
                 fuzzyMatches
             }
 
-            // Step 4: Decrypt only the final matches
-            emit(finalMatches.map { decryptCredential(it, masterKey) })
-        }
-    }.flowOn(Dispatchers.IO)
+            // Limit results to avoid UI lag, decrypt only matches
+            finalMatches.take(100).map { decryptCredential(it, masterKey) }
+        }.flowOn(Dispatchers.IO)
+    }
 
     fun getCredentialsByService(service: String): Flow<List<Credential>> {
         return dao.getByService(service).map { entities ->
