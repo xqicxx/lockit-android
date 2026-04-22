@@ -13,11 +13,10 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
@@ -32,12 +31,14 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import com.lockit.R
+import com.lockit.ui.theme.RectangleShape
 import kotlin.math.roundToInt
 
 /**
  * Draggable floating button container.
  * Uses MATCH_PARENT to cover full screen for drag support.
  * Initial position: right side, middle of screen.
+ * Technical Brutalism: RectangleShape, 1px black borders.
  */
 class DraggableFloatingButtons(
     private val onBack: () -> Unit,
@@ -67,23 +68,40 @@ private fun FloatingButtonsContent(
     val screenHeightPx = with(density) { configuration.screenHeightDp.dp.toPx() }
 
     // Button dimensions (measured after layout)
-    val buttonWidthPx = remember { mutableStateOf(200f) }
-    val buttonHeightPx = remember { mutableStateOf(120f) }
+    val buttonWidthPx = remember { mutableStateOf(0f) }
+    val buttonHeightPx = remember { mutableStateOf(0f) }
+    val isInitialized = remember { mutableStateOf(false) }
 
-    // Initial position: right edge, middle of screen
-    val offsetX = remember { mutableStateOf(screenWidthPx - buttonWidthPx.value - 32f) }
+    // Position states - start at right edge, middle of screen
+    val offsetX = remember { mutableStateOf(screenWidthPx) }
     val offsetY = remember { mutableStateOf(screenHeightPx / 2f) }
 
     // Left/right snap toggle
     val isOnRight = remember { mutableStateOf(true) }
 
+    // Re-clamp positions when screen size changes (orientation change)
+    LaunchedEffect(screenWidthPx, screenHeightPx) {
+        if (isInitialized.value && buttonWidthPx.value > 0 && buttonHeightPx.value > 0) {
+            val maxX = (screenWidthPx - buttonWidthPx.value).coerceAtLeast(0f)
+            val maxY = (screenHeightPx - buttonHeightPx.value).coerceAtLeast(0f)
+            offsetX.value = offsetX.value.coerceIn(0f, maxX)
+            offsetY.value = offsetY.value.coerceIn(0f, maxY)
+        }
+    }
+
+    fun safeCoerceIn(value: Float, min: Float, max: Float): Float {
+        return if (max >= min) value.coerceIn(min, max) else min
+    }
+
     fun snapToSide(right: Boolean) {
         isOnRight.value = right
         val btnW = buttonWidthPx.value
-        offsetX.value = if (right) screenWidthPx - btnW - 32f else 32f
+        val maxX = (screenWidthPx - btnW - 32f).coerceAtLeast(0f)
+        offsetX.value = safeCoerceIn(if (right) maxX else 32f, 0f, maxX)
     }
 
-    // Transparent full-screen container for touch passthrough
+    // Transparent full-screen container - touches pass through to WebView outside button area
+    // The Box with transparent background naturally passes non-consumed touches to underlying views
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -95,9 +113,12 @@ private fun FloatingButtonsContent(
                 .onGloballyPositioned { coordinates ->
                     buttonWidthPx.value = coordinates.size.width.toFloat()
                     buttonHeightPx.value = coordinates.size.height.toFloat()
-                    // Adjust initial position after first measurement
-                    if (offsetX.value > screenWidthPx - coordinates.size.width - 32f) {
-                        offsetX.value = screenWidthPx - coordinates.size.width - 32f
+                    // Set initial position after first measurement
+                    if (!isInitialized.value) {
+                        val maxX = (screenWidthPx - coordinates.size.width - 32f).coerceAtLeast(0f)
+                        offsetX.value = maxX
+                        offsetY.value = (screenHeightPx / 2f).coerceIn(0f, (screenHeightPx - coordinates.size.height).coerceAtLeast(0f))
+                        isInitialized.value = true
                     }
                 }
                 .offset { IntOffset(offsetX.value.roundToInt(), offsetY.value.roundToInt()) }
@@ -106,9 +127,11 @@ private fun FloatingButtonsContent(
                         change.consume()
                         val newX = offsetX.value + dragAmount.x
                         val newY = offsetY.value + dragAmount.y
-                        // Clamp to screen bounds
-                        offsetX.value = newX.coerceIn(0f, screenWidthPx - buttonWidthPx.value)
-                        offsetY.value = newY.coerceIn(0f, screenHeightPx - buttonHeightPx.value)
+                        // Safe clamp to screen bounds (avoid empty range crash)
+                        val maxX = (screenWidthPx - buttonWidthPx.value).coerceAtLeast(0f)
+                        val maxY = (screenHeightPx - buttonHeightPx.value).coerceAtLeast(0f)
+                        offsetX.value = newX.coerceIn(0f, maxX)
+                        offsetY.value = newY.coerceIn(0f, maxY)
                     }
                 }
                 .visibleBackground()
@@ -163,15 +186,16 @@ private fun VisibleButton(
     backgroundColor: Color,
     iconColor: Color,
 ) {
+    // Technical Brutalism: RectangleShape, 1px black borders
     IconButton(
         onClick = onClick,
         modifier = Modifier
             .size(40.dp)
             .background(
                 color = backgroundColor,
-                shape = CircleShape
+                shape = RectangleShape
             )
-            .border(1.dp, Color.White.copy(alpha = 0.3f), CircleShape)
+            .border(1.dp, Color.Black, RectangleShape)
     ) {
         Icon(
             painter = painterResource(id = iconRes),
@@ -184,15 +208,16 @@ private fun VisibleButton(
 
 @Composable
 private fun Modifier.visibleBackground(): Modifier {
+    // Technical Brutalism: 0px corners, 1px black border
     return this
-        .shadow(8.dp, RoundedCornerShape(24.dp))
+        .shadow(4.dp, RectangleShape)
         .background(
             color = Color(0x90111111),
-            shape = RoundedCornerShape(24.dp)
+            shape = RectangleShape
         )
         .border(
-            width = 1.5.dp,
-            color = Color.White.copy(alpha = 0.5f),
-            shape = RoundedCornerShape(24.dp)
+            width = 1.dp,
+            color = Color.Black,
+            shape = RectangleShape
         )
 }

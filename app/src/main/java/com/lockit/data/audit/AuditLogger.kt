@@ -22,6 +22,7 @@ enum class AuditSeverity { Info, Warning, Danger }
  * Simple audit log stored in SharedPreferences.
  * Logs are kept for display up to 30 days, export up to 1 year.
  * Uses JSON format for reliable parsing (no delimiter collision issues).
+ * Thread-safe: uses synchronized lock for read-modify-write operations.
  */
 class AuditLogger(context: Context) {
 
@@ -34,23 +35,29 @@ class AuditLogger(context: Context) {
 
     private val keyEntries = "audit_entries"
 
+    // Lock for thread-safe read-modify-write operations
+    private val lock = Any()
+
     /**
      * Record a new audit event.
+     * Thread-safe: uses synchronized block to prevent data loss under concurrent access.
      */
     fun log(
         action: String,
         detail: String = "",
         severity: AuditSeverity = AuditSeverity.Info,
     ) {
-        val entry = AuditEntry(
-            action = action,
-            detail = detail,
-            timestamp = Instant.now().toEpochMilli(),
-            severity = severity,
-        )
-        val current = getAllEntries()
-        val updated = listOf(entry) + current
-        saveEntries(updated)
+        synchronized(lock) {
+            val entry = AuditEntry(
+                action = action,
+                detail = detail,
+                timestamp = Instant.now().toEpochMilli(),
+                severity = severity,
+            )
+            val current = getAllEntriesInternal()
+            val updated = listOf(entry) + current
+            saveEntriesInternal(updated)
+        }
     }
 
     /**
@@ -86,21 +93,36 @@ class AuditLogger(context: Context) {
 
     /**
      * Clean up entries older than 1 year.
+     * Thread-safe: uses synchronized block.
      */
     fun pruneOldEntries(maxDays: Int = 365) {
-        val cutoff = Instant.now().minusSeconds(maxDays.toLong() * 24 * 3600)
-        val kept = getAllEntries().filter { Instant.ofEpochMilli(it.timestamp).isAfter(cutoff) }
-        saveEntries(kept)
+        synchronized(lock) {
+            val cutoff = Instant.now().minusSeconds(maxDays.toLong() * 24 * 3600)
+            val kept = getAllEntriesInternal().filter { Instant.ofEpochMilli(it.timestamp).isAfter(cutoff) }
+            saveEntriesInternal(kept)
+        }
     }
 
     // --- Private ---
 
     private fun getAllEntries(): List<AuditEntry> {
+        synchronized(lock) {
+            return getAllEntriesInternal()
+        }
+    }
+
+    private fun getAllEntriesInternal(): List<AuditEntry> {
         val json = prefs.getString(keyEntries, null) ?: return emptyList()
         return parseJson(json)
     }
 
     private fun saveEntries(entries: List<AuditEntry>) {
+        synchronized(lock) {
+            saveEntriesInternal(entries)
+        }
+    }
+
+    private fun saveEntriesInternal(entries: List<AuditEntry>) {
         prefs.edit { putString(keyEntries, toJson(entries)) }
     }
 
