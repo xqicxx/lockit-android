@@ -198,6 +198,7 @@
     <string name="toast_vault_locked">VAULT_LOCKED</string>
     <string name="toast_token_not_found">TOKEN_CREDENTIAL_NOT_FOUND</string>
     <string name="toast_token_empty">TOKEN_VALUE_EMPTY</string>
+    <string name="toast_credential_error">CREDENTIAL_FETCH_ERROR</string>
     <string name="toast_private_repo_denied">PRIVATE_REPO_ACCESS_DENIED</string>
     <string name="toast_rate_limit">GITHUB_RATE_LIMIT_EXCEEDED</string>
     <string name="toast_release_not_found">RELEASE_NOT_FOUND</string>

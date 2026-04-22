@@ -76,10 +76,13 @@ import com.lockit.ui.theme.White
 import com.lockit.utils.LocaleHelper
 import com.lockit.utils.BiometricUtils
 import androidx.fragment.app.FragmentActivity
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import java.io.File
 import java.time.Instant
 import java.time.format.DateTimeFormatter
@@ -827,45 +830,63 @@ fun ConfigScreen(
                             onClick = {
                                 isCheckingUpdate = true
                                 scope.launch {
-                                    // Wrap vault access in runCatching to handle race condition
-                                    // Vault could be locked between isUnlocked() check and Flow.first()
-                                    val credentialsResult = runCatching {
-                                        app.vaultManager.getAllCredentials().first()
-                                    }
-                                    if (credentialsResult.isFailure) {
-                                        toastMessage = context.getString(R.string.toast_vault_locked)
-                                        isCheckingUpdate = false
-                                        return@launch
-                                    }
-                                    // Read GitHub Token from vault (optional - public repos don't need it)
-                                    val tokenCredential = credentialsResult.getOrNull()
-                                        ?.find { it.name == githubTokenCredentialName }
-
-                                    // Token is optional - public repos work without it
-                                    // Show diagnostic toast if configured token has issues (non-blocking)
-                                    var tokenDiagnostic: String? = null
-                                    val token: String? = if (tokenCredential != null) {
-                                        val fields = tokenCredential.value?.let { parseCredentialFields(it) }
-                                        val parsedToken = fields?.getOrNull(3)?.takeIf { it.isNotBlank() }
-                                        if (parsedToken == null) {
-                                            // Credential exists but token field is empty/blank
-                                            tokenDiagnostic = context.getString(R.string.toast_token_empty)
+                                    try {
+                                        // Use Dispatchers.IO to move CPU-intensive decryption off main thread
+                                        // Track if there was a critical error during credential fetch
+                                        var credentialFetchError: Boolean = false
+                                        val credentials: List<Credential> = withContext(Dispatchers.IO) {
+                                            // Room Flow is infinite - use withTimeoutOrNull to prevent indefinite hang
+                                            // if Flow doesn't emit within 5 seconds
+                                            try {
+                                                withTimeoutOrNull(5000) {
+                                                    app.vaultManager.getAllCredentials().firstOrNull()
+                                                } ?: emptyList()  // Timeout returns null, default to empty
+                                            } catch (e: CancellationException) {
+                                                throw e  // Re-throw to maintain coroutine cancellation
+                                            } catch (e: IllegalStateException) {
+                                                // Vault locked - will be handled by vault state check below
+                                                emptyList()
+                                            } catch (e: Exception) {
+                                                // Critical error (corruption, decryption failure) when vault should be unlocked
+                                                credentialFetchError = true
+                                                emptyList()
+                                            }
                                         }
-                                        parsedToken
-                                    } else {
-                                        // Token credential not found in vault
-                                        tokenDiagnostic = context.getString(R.string.toast_token_not_found)
-                                        null
-                                    }
+                                        // Check for critical errors first - vault unlocked but fetch failed
+                                        if (credentialFetchError && app.vaultManager.isUnlocked()) {
+                                            toastMessage = context.getString(R.string.toast_credential_error)
+                                        } else if (!app.vaultManager.isUnlocked()) {
+                                            toastMessage = context.getString(R.string.toast_vault_locked)
+                                        } else {
+                                            // Proceed with update check (token will be null for empty vault)
+                                            val tokenCredential = credentials.find { it.name == githubTokenCredentialName }
 
-                                    // Show diagnostic toast if token has issues (non-blocking, just info)
-                                    if (tokenDiagnostic != null) {
-                                        Toast.makeText(context, tokenDiagnostic, Toast.LENGTH_SHORT).show()
-                                    }
+                                            // Token is optional - public repos work without it
+                                            // Show diagnostic toast if configured token has issues (non-blocking)
+                                            var tokenDiagnostic: String? = null
+                                            val token: String? = if (tokenCredential != null) {
+                                                val fields = tokenCredential.value?.let { parseCredentialFields(it) }
+                                                val parsedToken = fields?.getOrNull(3)?.takeIf { it.isNotBlank() }
+                                                if (parsedToken == null) {
+                                                    // Credential exists but token field is empty/blank
+                                                    tokenDiagnostic = context.getString(R.string.toast_token_empty)
+                                                }
+                                                parsedToken
+                                            } else {
+                                                // Token credential not found in vault - OK for public repos
+                                                if (credentials.isNotEmpty()) {
+                                                    tokenDiagnostic = context.getString(R.string.toast_token_not_found)
+                                                }
+                                                null
+                                            }
 
-                                    lastCheckedToken = token // Store for download (null if public repo)
-                                    val result = appUpdater.checkForUpdate(currentVersionCode, token)
-                                    isCheckingUpdate = false
+                                            // Show diagnostic toast if token has issues (non-blocking, just info)
+                                            if (tokenDiagnostic != null) {
+                                                Toast.makeText(context, tokenDiagnostic, Toast.LENGTH_SHORT).show()
+                                            }
+
+                                            lastCheckedToken = token // Store for download (null if public repo)
+                                            val result = appUpdater.checkForUpdate(currentVersionCode, token)
                                     if (result.isFailure) {
                                         val errorMsg = result.exceptionOrNull()?.message ?: "Unknown error"
                                         // AppUpdater returns descriptive messages for common errors:
@@ -884,13 +905,17 @@ fun ConfigScreen(
                                                 }
                                             }
                                             else -> "${context.getString(R.string.toast_check_failed)} $errorMsg"
+                                            }
+                                            toastMessage = detailedMessage
+                                        } else if (result.getOrNull() == null) {
+                                            toastMessage = context.getString(R.string.toast_already_latest)
+                                        } else {
+                                            availableUpdate = result.getOrNull()
+                                            showUpdateDialog = true
                                         }
-                                        toastMessage = detailedMessage
-                                    } else if (result.getOrNull() == null) {
-                                        toastMessage = context.getString(R.string.toast_already_latest)
-                                    } else {
-                                        availableUpdate = result.getOrNull()
-                                        showUpdateDialog = true
+                                        }
+                                    } finally {
+                                        isCheckingUpdate = false  // Always reset loading state
                                     }
                                 }
                             },
