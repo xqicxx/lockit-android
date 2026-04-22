@@ -15,6 +15,7 @@ import com.lockit.domain.model.Credential
 import com.lockit.domain.model.CredentialType
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import com.lockit.utils.SearchMatcher
 import java.time.Instant
 
 class VaultManager(
@@ -150,7 +151,9 @@ class VaultManager(
     fun searchCredentials(query: String): Flow<List<Credential>> {
         return dao.search(query).map { entities ->
             val masterKey = requireMasterKey()
-            entities.map { decryptCredential(it, masterKey) }
+            val credentials = entities.map { decryptCredential(it, masterKey) }
+            // Apply fuzzy matching scoring and sort by match score
+            SearchMatcher.sortByMatchScore(credentials, query)
         }
     }
 
