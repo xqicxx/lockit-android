@@ -116,8 +116,8 @@ object QwenCodingPlan : CodingPlanFetcher {
         val quotaInfo = instance.optJSONObject("codingPlanQuotaInfo") ?: return null
 
         return CodingPlanQuota(
-            fiveHourUsed = quotaInfo.optInt("per5HourUsedQuota", 0),
-            fiveHourTotal = quotaInfo.optInt("per5HourTotalQuota", 0),
+            sessionUsed = quotaInfo.optInt("per5HourUsedQuota", 0),
+            sessionTotal = quotaInfo.optInt("per5HourTotalQuota", 0),
             weekUsed = quotaInfo.optInt("perWeekUsedQuota", 0),
             weekTotal = quotaInfo.optInt("perWeekTotalQuota", 0),
             monthUsed = quotaInfo.optInt("perBillMonthUsedQuota", 0),
@@ -126,6 +126,7 @@ object QwenCodingPlan : CodingPlanFetcher {
             instanceType = instance.optString("instanceType", ""),
             status = instance.optString("status", ""),
             remainingDays = instance.optInt("remainingDays", 0),
+            planName = instance.optString("planName", ""),
             chargeAmount = instance.optDouble("chargeAmount", 0.0),
             chargeType = instance.optString("chargeType", ""),
             autoRenewFlag = instance.optBoolean("autoRenewFlag", false),

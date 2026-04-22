@@ -79,8 +79,8 @@ object ChatGPTCodingPlan : CodingPlanFetcher {
         val weeklyTotal = weeklyLimit?.optInt("total", 0) ?: 0
 
         return CodingPlanQuota(
-            fiveHourUsed = dailyUsed,
-            fiveHourTotal = dailyTotal,
+            sessionUsed = dailyUsed,
+            sessionTotal = dailyTotal,
             weekUsed = weeklyUsed,
             weekTotal = weeklyTotal,
             monthUsed = 0,

@@ -1110,7 +1110,7 @@ private fun CodingPlanBoard(
 
             // Quota gauges
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                QuotaGauge(stringResource(R.string.quota_5h), quota.fiveHourUsed, quota.fiveHourTotal, Modifier.weight(1f))
+                QuotaGauge(stringResource(R.string.quota_5h), quota.sessionUsed, quota.sessionTotal, Modifier.weight(1f))
                 QuotaGauge(stringResource(R.string.quota_week), quota.weekUsed, quota.weekTotal, Modifier.weight(1f))
                 QuotaGauge(stringResource(R.string.quota_month), quota.monthUsed, quota.monthTotal, Modifier.weight(1f))
             }
