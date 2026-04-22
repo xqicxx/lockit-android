@@ -640,7 +640,14 @@ fun AddCredentialScreen(
 
                                 // For CodingPlan: store all fields as metadata (provider-specific)
                                 val metadata = if (selectedType == CredentialType.CodingPlan) {
-                                    val provider = getField(0)
+                                    val rawProvider = getField(0)
+                                    // Normalize provider key for fetcher registry
+                                    val provider = when (rawProvider) {
+                                        "qwen" -> "qwen_bailian"
+                                        "anthropic" -> "claude"
+                                        "openai" -> "chatgpt"
+                                        else -> rawProvider
+                                    }
                                     val rawCurl = getField(1)
                                     val apiKey = getField(2).takeIf { it.isNotBlank() }
                                         ?: extractApiKeyFromCurl(rawCurl)
@@ -654,15 +661,15 @@ fun AddCredentialScreen(
                                     // Note: cookie field stores user's manual edits for accountId/orgId
                                     // We prioritize manual edits over WebView-extracted data
                                     val prefsData: Map<String, String> = when (provider) {
-                                        "qwen", "qwen_bailian" -> mapOf(
+                                        "qwen_bailian" -> mapOf(
                                             "cookie" to cookie,
                                             "api_key" to (apiKey ?: ""),
                                         )
-                                        "openai", "chatgpt" -> mapOf(
+                                        "chatgpt" -> mapOf(
                                             "accessToken" to (apiKey ?: ""),
                                             "accountId" to (cookie.ifBlank { authExtraData["accountId"] ?: "" }),
                                         )
-                                        "anthropic", "claude" -> mapOf(
+                                        "claude" -> mapOf(
                                             "sessionKey" to (apiKey ?: ""),
                                             "orgId" to (cookie.ifBlank { authExtraData["orgId"] ?: "" }),
                                         )
@@ -679,16 +686,16 @@ fun AddCredentialScreen(
                                         put("provider", provider)
                                         put("baseUrl", baseUrl)
                                         when (provider) {
-                                            "qwen", "qwen_bailian" -> {
+                                            "qwen_bailian" -> {
                                                 put("rawCurl", rawCurl)
                                                 put("apiKey", apiKey)
                                                 put("cookie", cookie)
                                             }
-                                            "openai", "chatgpt" -> {
+                                            "chatgpt" -> {
                                                 put("accessToken", apiKey)
                                                 authExtraData["accountId"]?.let { put("accountId", it) }
                                             }
-                                            "anthropic", "claude" -> {
+                                            "claude" -> {
                                                 put("sessionKey", apiKey)
                                                 authExtraData["orgId"]?.let { put("orgId", it) }
                                             }

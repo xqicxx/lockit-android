@@ -29,8 +29,25 @@
         </activity>
         <activity
             android:name=".ui.screens.auth.WebViewAuthActivity"
-            android:exported="false"
-            android:theme="@style/Theme.Lockit" />
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:theme="@style/Theme.Lockit">
+            <!-- Handle Alipay callback scheme -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <!-- Alipay callback uses this scheme format -->
+                <data android:scheme="alipays" />
+            </intent-filter>
+            <!-- Handle generic HTTPS callbacks from Aliyun -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="account.aliyun.com" />
+            </intent-filter>
+        </activity>
 
         <!-- Coding Plan Widget -->
         <receiver

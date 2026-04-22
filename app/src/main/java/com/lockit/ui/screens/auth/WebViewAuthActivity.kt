@@ -22,6 +22,7 @@ import com.lockit.ui.components.DraggableFloatingButtons
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
@@ -56,13 +57,19 @@ class WebViewAuthActivity : ComponentActivity() {
         }
     }
 
-    private var webView: WebView? = null
+    internal var webView: WebView? = null
+    internal var authWebViewClient: AuthWebViewClient? = null
+    private var oauthWebChromeClient: OAuthWebChromeClient? = null
     private val scope = CoroutineScope(Dispatchers.Main + Job())
+    private var provider: String = "qwen_bailian"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        val provider = intent.getStringExtra(EXTRA_PROVIDER) ?: "qwen_bailian"
+        provider = intent.getStringExtra(EXTRA_PROVIDER) ?: "qwen_bailian"
+
+        // Handle incoming callback intent from external apps (Alipay, etc.)
+        handleCallbackIntent(intent)
 
         val rootView = FrameLayout(this)
         rootView.setBackgroundColor(android.graphics.Color.WHITE)
@@ -73,10 +80,18 @@ class WebViewAuthActivity : ComponentActivity() {
             settings.loadsImagesAutomatically = true
             settings.mixedContentMode = android.webkit.WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
             settings.userAgentString = "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Mobile Safari/537.36"
+            // Enable popup windows for OAuth login (Google, Microsoft, Apple)
+            settings.setSupportMultipleWindows(true)
+            settings.javaScriptCanOpenWindowsAutomatically = true
             CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
 
-            webViewClient = AuthWebViewClient(provider, this@WebViewAuthActivity, scope)
-            webChromeClient = object : WebChromeClient() {}
+            val client = AuthWebViewClient(provider, this@WebViewAuthActivity, scope)
+            authWebViewClient = client
+            webViewClient = client
+            // Handle popup windows (OAuth login)
+            val chromeClient = OAuthWebChromeClient(provider, this@WebViewAuthActivity)
+            oauthWebChromeClient = chromeClient
+            webChromeClient = chromeClient
 
             val loginUrl = when (provider) {
                 "qwen_bailian" -> "https://bailian.console.aliyun.com/cn-beijing/?tab=coding-plan#/efm/coding-plan-detail"
@@ -96,7 +111,7 @@ class WebViewAuthActivity : ComponentActivity() {
                 webView?.clearCache(true)
                 webView?.clearHistory()
                 webView?.clearFormData()
-                (webView?.webViewClient as? AuthWebViewClient)?.resetExtractionState()
+                authWebViewClient?.resetExtractionState()
                 val loginUrl = when (provider) {
                     "qwen_bailian" -> "https://bailian.console.aliyun.com/cn-beijing/?tab=coding-plan#/efm/coding-plan-detail"
                     "chatgpt" -> "https://chatgpt.com/auth/login"
@@ -139,10 +154,66 @@ class WebViewAuthActivity : ComponentActivity() {
         setContentView(rootView)
     }
 
+    /**
+     * Handle callback from external apps (Alipay, etc.) after authentication.
+     * Called when activity receives new intent while already running (singleTask).
+     */
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleCallbackIntent(intent)
+    }
+
+    /**
+     * Process callback URL from external authentication apps.
+     * Alipay returns via alipays:// scheme with auth result.
+     */
+    private fun handleCallbackIntent(intent: Intent) {
+        val data = intent.data
+        if (data == null) return
+
+        val callbackUrl = data.toString()
+        android.util.Log.d("WebViewAuth", "Received callback: $callbackUrl")
+
+        // Handle Alipay callback - load the result URL in WebView
+        // Alipay typically returns: alipays://platformapi/startapp?appId=20000067&...
+        // or HTTPS callback to account.aliyun.com
+        when {
+            callbackUrl.startsWith("alipays://") -> {
+                // Reset extraction state to allow re-checking login
+                authWebViewClient?.resetExtractionState()
+                // Reload the original login page to check if auth succeeded
+                webView?.reload()
+                android.widget.Toast.makeText(this, "支付宝认证完成，正在验证...", android.widget.Toast.LENGTH_SHORT).show()
+            }
+            callbackUrl.contains("account.aliyun.com") || callbackUrl.contains("console.aliyun.com") -> {
+                // Direct HTTPS callback - load in WebView
+                authWebViewClient?.resetExtractionState()
+                webView?.loadUrl(callbackUrl)
+            }
+        }
+    }
+
+    /**
+     * When user returns from external app, trigger WebView to check login status.
+     * Only reset if not already extracted (prevents duplicate extraction).
+     */
+    override fun onResume() {
+        super.onResume()
+        // Trigger WebView reload to check if external auth succeeded
+        // The WebViewClient will check cookies and extract if login is complete
+        if (authWebViewClient?.hasExtracted() == false) {
+            webView?.reload()
+        }
+    }
+
     override fun onDestroy() {
         scope.coroutineContext[Job]?.cancel()
+        oauthWebChromeClient?.cleanupAll()
+        oauthWebChromeClient = null
         webView?.destroy()
         webView = null
+        authWebViewClient = null
         super.onDestroy()
     }
 }
@@ -158,40 +229,125 @@ class AuthWebViewClient(
 ) : WebViewClient() {
 
     private var hasExtracted = false
+    private var cookieCheckJob: kotlinx.coroutines.Job? = null
 
     fun resetExtractionState() {
         hasExtracted = false
+        cookieCheckJob?.cancel()
+        cookieCheckJob = null
     }
+
+    fun hasExtracted(): Boolean = hasExtracted
 
     override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
         super.onPageStarted(view, url, favicon)
-        // Reset extraction state on any page navigation (allows retry for all providers)
         hasExtracted = false
+        cookieCheckJob?.cancel()
+        android.util.Log.d("WebViewAuth", "Page started: $url")
+    }
+
+    /**
+     * Handle network errors (timeout, connection failed, etc.)
+     */
+    override fun onReceivedError(view: WebView?, request: WebResourceRequest?, error: android.webkit.WebResourceError?) {
+        super.onReceivedError(view, request, error)
+        val url = request?.url?.toString() ?: ""
+        val errorCode = error?.errorCode ?: -1
+        val description = error?.description ?: "Unknown error"
+
+        android.util.Log.e("WebViewAuth", "Error loading $url: $errorCode - $description")
+
+        // Only show error for main page load (not subresources)
+        if (request?.isForMainFrame == true) {
+            val errorMessage = when (errorCode) {
+                android.webkit.WebViewClient.ERROR_TIMEOUT -> "加载超时 - ChatGPT/Claude 需要代理，请确保系统 VPN 已开启"
+                android.webkit.WebViewClient.ERROR_CONNECT -> "无法连接服务器 - 请检查网络或 VPN"
+                android.webkit.WebViewClient.ERROR_HOST_LOOKUP -> "无法解析域名 - 请检查网络连接"
+                -1 -> "网络错误: $description"
+                else -> "加载失败 ($errorCode)"
+            }
+            android.widget.Toast.makeText(activity, errorMessage, android.widget.Toast.LENGTH_LONG).show()
+        }
     }
 
     override fun onPageFinished(view: WebView?, url: String?) {
         super.onPageFinished(view, url)
+        android.util.Log.d("WebViewAuth", "Page finished: $url")
 
         if (hasExtracted) return
 
-        // Check if user has actually logged in by verifying cookies exist
+        // For SPA (Claude/ChatGPT), start polling for cookies
+        // because onPageFinished may fire before auth state updates
+        if (provider == "claude" || provider == "chatgpt") {
+            startCookiePolling(view)
+        } else {
+            checkLoginAndExtract(view, url)
+        }
+    }
+
+    /**
+     * Poll cookies every 2 seconds for SPA login detection.
+     * Claude/ChatGPT are SPA - onPageFinished fires before auth state updates.
+     */
+    private fun startCookiePolling(view: WebView?) {
+        cookieCheckJob?.cancel()
+        cookieCheckJob = scope.launch {
+            var attempts = 0
+            val maxAttempts = 30 // 60 seconds max
+
+            while (!hasExtracted && attempts < maxAttempts) {
+                kotlinx.coroutines.delay(2000)
+                attempts++
+
+                // Get cookies from the WebView's current URL
+                val currentUrl = view?.url ?: "https://claude.ai"
+                val cookieManager = CookieManager.getInstance()
+                val cookies = cookieManager.getCookie(currentUrl) ?: ""
+
+                android.util.Log.d("WebViewAuth", "Cookie poll attempt $attempts for $provider: ${cookies.take(100)}...")
+
+                // Check login status based on provider
+                val isLoggedIn = when (provider) {
+                    "claude" -> {
+                        // Claude uses sessionKey cookie after login
+                        cookies.contains("sessionKey=")
+                    }
+                    "chatgpt" -> {
+                        // ChatGPT: check if we're on the main page (not auth) and have session cookies
+                        // After login, URL becomes chatgpt.com (no /auth) and has cookies like __Secure-next-auth.session-token
+                        !currentUrl.contains("/auth") &&
+                        cookies.contains("__Secure-") || cookies.contains("session")
+                    }
+                    else -> false
+                }
+
+                if (isLoggedIn) {
+                    hasExtracted = true
+                    android.util.Log.d("WebViewAuth", "Login detected after $attempts polls!")
+                    extractCredentials(view, currentUrl)
+                    break
+                }
+            }
+
+            if (!hasExtracted && attempts >= maxAttempts) {
+                android.widget.Toast.makeText(
+                    activity,
+                    "登录检测超时，请刷新页面重试",
+                    android.widget.Toast.LENGTH_LONG
+                ).show()
+            }
+        }
+    }
+
+    private fun checkLoginAndExtract(view: WebView?, url: String?) {
         val cookieManager = CookieManager.getInstance()
         val cookies = cookieManager.getCookie(url ?: "") ?: ""
 
         val isLoggedIn = when (provider) {
-            // Bailian: must have login_aliyunid_ticket (full login session)
             "qwen_bailian" -> {
                 url?.contains("console.aliyun.com") == true &&
                 cookies.contains("login_aliyunid_ticket")
             }
-            // ChatGPT: logged in when URL is main page (not auth path) and has cookies
-            "chatgpt" -> url?.contains("chatgpt.com") == true &&
-                         !url.contains("/auth") &&
-                         cookies.isNotBlank()
-            // Claude: logged in when sessionKey cookie exists
-            "claude" -> url?.contains("claude.ai") == true &&
-                        !url.contains("/login") &&
-                        cookies.contains("sessionKey")
             else -> false
         }
 
@@ -203,6 +359,21 @@ class AuthWebViewClient(
 
     override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
         val url = request?.url?.toString() ?: return false
+
+        // OAuth providers - must load in WebView (not external app)
+        // These are HTTPS redirects, not app schemes
+        val oauthDomains = listOf(
+            "accounts.google.com",
+            "login.microsoftonline.com",
+            "appleid.apple.com",
+            "auth.openai.com",
+        )
+        val isOAuthRedirect = oauthDomains.any { domain -> url.contains(domain) }
+        if (isOAuthRedirect) {
+            // Let WebView load OAuth page internally
+            android.util.Log.d("WebViewAuth", "OAuth redirect: $url")
+            return false  // Continue loading in WebView
+        }
 
         // Handle external app schemes (Alipay, Taobao, DingTalk, Tmall, WeChat, SMS, Tel)
         if (url.startsWith("alipay://") ||
@@ -241,6 +412,7 @@ class AuthWebViewClient(
             }
         }
 
+        // All other URLs load in WebView
         return false
     }
 
@@ -309,5 +481,123 @@ class AuthWebViewClient(
     private fun returnFailed(message: String) {
         activity.setResult(WebViewAuthActivity.RESULT_FAILED)
         activity.finish()
+    }
+}
+
+/**
+ * Simple WebViewClient for OAuth popup windows.
+ * Does NOT attempt credential extraction - popups are just for OAuth login.
+ * The main WebView handles credential extraction after OAuth completes.
+ */
+class OAuthPopupWebViewClient(
+    private val activity: WebViewAuthActivity,
+) : WebViewClient() {
+
+    override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
+        val url = request?.url?.toString() ?: return false
+
+        // Handle external app schemes from OAuth popups (rare but possible)
+        if (url.startsWith("alipay://") ||
+            url.startsWith("alipays://") ||
+            url.startsWith("weixin://") ||
+            url.startsWith("sms:") ||
+            url.startsWith("tel:")) {
+            try {
+                val intent = Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url))
+                activity.startActivity(intent)
+                return true
+            } catch (e: android.content.ActivityNotFoundException) {
+                return false
+            }
+        }
+
+        // All other URLs load in the popup WebView
+        return false
+    }
+
+    override fun onPageFinished(view: WebView?, url: String?) {
+        super.onPageFinished(view, url)
+        android.util.Log.d("OAuthPopup", "Popup page finished: $url")
+        // Do NOT extract credentials - this is just an OAuth popup
+    }
+}
+
+/**
+ * WebChromeClient that handles popup windows for OAuth login.
+ * Google/Microsoft/Apple OAuth may open new windows for authentication.
+ */
+class OAuthWebChromeClient(
+    private val provider: String,
+    private val activity: WebViewAuthActivity,
+) : WebChromeClient() {
+
+    // Track popup WebViews for cleanup
+    private val popupWebViews = mutableListOf<WebView>()
+
+    override fun onCreateWindow(
+        view: WebView?,
+        isDialog: Boolean,
+        isUserGesture: Boolean,
+        resultMsg: android.os.Message?
+    ): Boolean {
+        android.util.Log.d("OAuthWebChrome", "onCreateWindow: isDialog=$isDialog, isUserGesture=$isUserGesture")
+
+        // Validate resultMsg before proceeding
+        if (resultMsg == null) {
+            android.util.Log.e("OAuthWebChrome", "resultMsg is null, cannot create popup")
+            return false
+        }
+
+        // Create a new WebView for the popup
+        val popupWebView = WebView(activity)
+        popupWebView.settings.javaScriptEnabled = true
+        popupWebView.settings.domStorageEnabled = true
+        // Popups should NOT create more popups to avoid infinite loops
+        popupWebView.settings.setSupportMultipleWindows(false)
+        popupWebView.settings.javaScriptCanOpenWindowsAutomatically = false
+
+        // Use simple client that does NOT extract credentials - popups are just for OAuth
+        popupWebView.webViewClient = OAuthPopupWebViewClient(activity)
+
+        // Track WebView for cleanup
+        popupWebViews.add(popupWebView)
+
+        // Configure the WebView to load in the popup
+        val transport = resultMsg.obj as? android.webkit.WebView.WebViewTransport
+        if (transport != null) {
+            transport.webView = popupWebView
+            resultMsg.sendToTarget()
+            return true
+        } else {
+            android.util.Log.e("OAuthWebChrome", "Transport cast failed, cleaning up")
+            cleanupPopup(popupWebView)
+            return false
+        }
+    }
+
+    override fun onCloseWindow(window: WebView?) {
+        android.util.Log.d("OAuthWebChrome", "onCloseWindow")
+        // Find and cleanup the closed popup
+        val index = popupWebViews.indexOf(window)
+        if (index >= 0) {
+            cleanupPopup(popupWebViews[index])
+            popupWebViews.removeAt(index)
+        }
+        // When popup closes, trigger main WebView to check login status
+        activity.authWebViewClient?.resetExtractionState()
+        activity.webView?.reload()
+        super.onCloseWindow(window)
+    }
+
+    private fun cleanupPopup(webView: WebView?) {
+        webView?.destroy()
+    }
+
+    /**
+     * Cleanup all popups when activity destroys.
+     */
+    fun cleanupAll() {
+        popupWebViews.forEach { it.destroy() }
+        popupWebViews.clear()
     }
 }
