@@ -24,14 +24,18 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.ViewCompositionStrategy
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import com.lockit.R
+import com.lockit.ui.theme.Primary
+import com.lockit.ui.theme.IndustrialOrange
+import com.lockit.ui.theme.TacticalRed
 import kotlin.math.roundToInt
 
 /**
- * Draggable floating button container with glassmorphism effect.
+ * Draggable floating button container with visible styling.
  * Used in WebViewAuthActivity for overlay controls.
  */
 class DraggableFloatingButtons(
@@ -59,62 +63,82 @@ private fun FloatingButtonsContent(
     val offsetX = remember { mutableStateOf(0f) }
     val offsetY = remember { mutableStateOf(0f) }
 
+    // Get screen bounds for clamping
+    val density = LocalDensity.current
+    val screenWidthPx = with(density) {
+        androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp.dp.toPx()
+    }
+    val screenHeightPx = with(density) {
+        androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp.dp.toPx()
+    }
+    val buttonWidthPx = with(density) { 140.dp.toPx() } // Approximate button container width
+    val buttonHeightPx = with(density) { 56.dp.toPx() } // Approximate button container height
+
     Box(
         modifier = Modifier
             .offset { IntOffset(offsetX.value.roundToInt(), offsetY.value.roundToInt()) }
             .pointerInput(Unit) {
                 detectDragGestures { change, dragAmount ->
                     change.consume()
-                    offsetX.value += dragAmount.x
-                    offsetY.value += dragAmount.y
+                    // Update position and clamp to screen bounds
+                    val newX = offsetX.value + dragAmount.x
+                    val newY = offsetY.value + dragAmount.y
+                    // Clamp to keep buttons visible on screen
+                    offsetX.value = newX.coerceIn(-screenWidthPx + buttonWidthPx / 2, screenWidthPx - buttonWidthPx)
+                    offsetY.value = newY.coerceIn(-100f, screenHeightPx - buttonHeightPx - 100f)
                 }
             }
-            .glassmorphismBackground()
+            .visibleBackground()
             .padding(8.dp)
     ) {
         Row {
             // Back button
-            GlassButton(
+            VisibleButton(
                 iconRes = R.drawable.ic_arrow_back,
                 contentDescription = "返回",
-                onClick = onBack
+                onClick = onBack,
+                backgroundColor = Color(0x80111111),
+                iconColor = Color.White
             )
 
             // Reset button
-            GlassButton(
+            VisibleButton(
                 iconRes = R.drawable.ic_refresh,
                 contentDescription = "重新登录",
-                onClick = onReset
+                onClick = onReset,
+                backgroundColor = Color(0x80B34700),
+                iconColor = Color.White
             )
 
             // Close button
-            GlassButton(
+            VisibleButton(
                 iconRes = R.drawable.ic_close,
                 contentDescription = "关闭",
                 onClick = onClose,
-                isDestructive = true
+                backgroundColor = Color(0x80A30000),
+                iconColor = Color.White
             )
         }
     }
 }
 
 @Composable
-private fun GlassButton(
+private fun VisibleButton(
     iconRes: Int,
     contentDescription: String,
     onClick: () -> Unit,
-    isDestructive: Boolean = false,
+    backgroundColor: Color,
+    iconColor: Color,
 ) {
-    val iconColor = if (isDestructive) Color(0xFFA30000) else Color.White
-
     IconButton(
         onClick = onClick,
         modifier = Modifier
             .size(40.dp)
             .background(
-                color = if (isDestructive) Color(0x40A30000) else Color(0x30FFFFFF),
+                color = backgroundColor,
                 shape = CircleShape
             )
+            .border(1.dp, Color.White.copy(alpha = 0.3f), CircleShape)
     ) {
         Icon(
             painter = painterResource(id = iconRes),
@@ -126,20 +150,17 @@ private fun GlassButton(
 }
 
 @Composable
-private fun Modifier.glassmorphismBackground(): Modifier {
-    // Semi-transparent glass effect with shadow
-    // API 31+ would add RenderEffect blur, but for compatibility we use simple transparency
+private fun Modifier.visibleBackground(): Modifier {
+    // Dark background with white border - visible on any page color
     return this
         .shadow(8.dp, RoundedCornerShape(24.dp))
         .background(
-            color = Color(0x60FFFFFF), // Semi-transparent white
+            color = Color(0x90111111), // Dark semi-transparent (visible on white)
             shape = RoundedCornerShape(24.dp)
         )
         .border(
-            width = 1.dp,
-            color = Color(0x40FFFFFF), // Border glow
+            width = 1.5.dp,
+            color = Color.White.copy(alpha = 0.5f), // White border for contrast
             shape = RoundedCornerShape(24.dp)
         )
 }
-
-// Removed custom offset extension - using standard Modifier.offset(IntOffset)
