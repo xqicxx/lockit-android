@@ -29,6 +29,11 @@ class BiometricPinStorage(private val sharedPreferences: SharedPreferences) {
         private const val IV_KEY = "pin_iv"
         private const val TRANSFORMATION = "AES/GCM/NoPadding"
         private const val BIOMETRIC_PROMPTED_KEY = "biometric_prompted"
+        // Key version tracking for backward compatibility
+        // v1: AUTH_BIOMETRIC_STRONG only (pre-API 30 or legacy)
+        // v2: AUTH_BIOMETRIC_STRONG | AUTH_DEVICE_CREDENTIAL (API 30+)
+        private const val KEY_VERSION_KEY = "key_version"
+        private const val KEY_VERSION_DEVICE_CREDENTIAL = 2
     }
 
     fun isBiometricLinked(): Boolean {
@@ -45,9 +50,24 @@ class BiometricPinStorage(private val sharedPreferences: SharedPreferences) {
 
     fun canAuthenticate(activity: FragmentActivity): Boolean {
         val biometricManager = BiometricManager.from(activity)
-        return biometricManager.canAuthenticate(
+        // Device credential + CryptoObject only works on API 30+
+        // On API 29 and below, CryptoObject requires BIOMETRIC_STRONG only
+        val authenticators = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            BiometricManager.Authenticators.BIOMETRIC_STRONG or
+            BiometricManager.Authenticators.DEVICE_CREDENTIAL
+        } else {
             BiometricManager.Authenticators.BIOMETRIC_STRONG
-        ) == BiometricManager.BIOMETRIC_SUCCESS
+        }
+        return biometricManager.canAuthenticate(authenticators) == BiometricManager.BIOMETRIC_SUCCESS
+    }
+
+    /**
+     * Check if the current key supports device credential fallback.
+     * Returns false for legacy keys (created before device credential support was added).
+     */
+    fun isKeyDeviceCredentialCapable(): Boolean {
+        val version = sharedPreferences.getInt(KEY_VERSION_KEY, 1)
+        return version >= KEY_VERSION_DEVICE_CREDENTIAL && Build.VERSION.SDK_INT >= Build.VERSION_CODES.R
     }
 
     @TargetApi(30)
@@ -59,7 +79,8 @@ class BiometricPinStorage(private val sharedPreferences: SharedPreferences) {
             .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
             .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
             .setUserAuthenticationRequired(true)
-            .setUserAuthenticationParameters(0, KeyProperties.AUTH_BIOMETRIC_STRONG)
+            // Allow both biometric strong and device credential for fallback
+            .setUserAuthenticationParameters(0, KeyProperties.AUTH_BIOMETRIC_STRONG or KeyProperties.AUTH_DEVICE_CREDENTIAL)
             .build()
     }
 
@@ -152,6 +173,12 @@ class BiometricPinStorage(private val sharedPreferences: SharedPreferences) {
                         val editor = sharedPreferences.edit()
                         editor.putString(ENCRYPTED_PIN_KEY, Base64.encodeToString(encrypted, Base64.NO_WRAP))
                         editor.putString(IV_KEY, Base64.encodeToString(iv, Base64.NO_WRAP))
+                        // Mark key version to track device credential capability
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                            editor.putInt(KEY_VERSION_KEY, KEY_VERSION_DEVICE_CREDENTIAL)
+                        } else {
+                            editor.putInt(KEY_VERSION_KEY, 1)
+                        }
                         editor.apply()
 
                         onSuccess()
@@ -173,8 +200,20 @@ class BiometricPinStorage(private val sharedPreferences: SharedPreferences) {
         val promptInfo = BiometricPrompt.PromptInfo.Builder()
             .setTitle(title)
             .setSubtitle(subtitle)
-            .setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_STRONG)
-            .setNegativeButtonText("取消")
+            .apply {
+                // Critical: DEVICE_CREDENTIAL + CryptoObject crashes on API < 30
+                // On API 30+: allow device credential fallback, no negative button needed
+                // On API 29-: only BIOMETRIC_STRONG, must set negative button text
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    setAllowedAuthenticators(
+                        BiometricManager.Authenticators.BIOMETRIC_STRONG or
+                        BiometricManager.Authenticators.DEVICE_CREDENTIAL
+                    )
+                } else {
+                    setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_STRONG)
+                    setNegativeButtonText("取消")
+                }
+            }
             .build()
 
         biometricPrompt.authenticate(promptInfo, BiometricPrompt.CryptoObject(cipher))
@@ -230,7 +269,13 @@ class BiometricPinStorage(private val sharedPreferences: SharedPreferences) {
                         val pin = String(decrypted, Charsets.UTF_8)
                         onSuccess(pin)
                     } catch (e: Exception) {
-                        onError("DECRYPT_FAILED: ${e.message}")
+                        // Key may be incompatible with device credential - prompt user to re-link
+                        val errorMsg = if (!isKeyDeviceCredentialCapable()) {
+                            "KEY_INCOMPATIBLE: 请重新设置生物识别以启用设备密码后备"
+                        } else {
+                            "DECRYPT_FAILED: ${e.message}"
+                        }
+                        onError(errorMsg)
                     }
                 }
 
@@ -247,8 +292,23 @@ class BiometricPinStorage(private val sharedPreferences: SharedPreferences) {
         val promptInfo = BiometricPrompt.PromptInfo.Builder()
             .setTitle(title)
             .setSubtitle(subtitle)
-            .setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_STRONG)
-            .setNegativeButtonText("取消")
+            .apply {
+                // Critical: DEVICE_CREDENTIAL + CryptoObject crashes on API < 30
+                // Also: Legacy keys (v1) don't support device credential - decryption fails
+                // Check both API level AND key version before enabling DEVICE_CREDENTIAL
+                val supportsDeviceCredential = Build.VERSION.SDK_INT >= Build.VERSION_CODES.R &&
+                    isKeyDeviceCredentialCapable()
+
+                if (supportsDeviceCredential) {
+                    setAllowedAuthenticators(
+                        BiometricManager.Authenticators.BIOMETRIC_STRONG or
+                        BiometricManager.Authenticators.DEVICE_CREDENTIAL
+                    )
+                } else {
+                    setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_STRONG)
+                    setNegativeButtonText("取消")
+                }
+            }
             .build()
 
         biometricPrompt.authenticate(promptInfo, BiometricPrompt.CryptoObject(cipher))
@@ -258,6 +318,7 @@ class BiometricPinStorage(private val sharedPreferences: SharedPreferences) {
         val editor = sharedPreferences.edit()
         editor.remove(ENCRYPTED_PIN_KEY)
         editor.remove(IV_KEY)
+        editor.remove(KEY_VERSION_KEY)
         editor.apply()
 
         try {
