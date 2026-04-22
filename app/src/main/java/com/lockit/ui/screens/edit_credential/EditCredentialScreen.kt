@@ -37,6 +37,7 @@ import com.lockit.LockitApp
 import com.lockit.R
 import com.lockit.domain.model.Credential
 import com.lockit.domain.model.CredentialType
+import com.lockit.domain.model.CodingPlanFields
 import com.lockit.domain.model.requiredFieldIndices
 import com.lockit.ui.components.BackButtonRow
 import com.lockit.ui.components.BrutalistButton
@@ -139,11 +140,11 @@ private fun EditCredentialForm(
             val baseUrl = meta?.optString("baseUrl")
 
             mutableStateListOf(
-                credential.name,                                          // 0: PROVIDER
-                if (rawCurl?.isNotBlank() == true) rawCurl else fields.getOrElse(1) { "" },  // 1: RAW_CURL
-                fields.getOrElse(2) { "" },                               // 2: API_KEY
-                if (cookie?.isNotBlank() == true) cookie else fields.getOrElse(3) { "" },    // 3: COOKIE
-                if (baseUrl?.isNotBlank() == true) baseUrl else fields.getOrElse(4) { "" },  // 4: BASE_URL
+                credential.name,                                           // PROVIDER
+                if (rawCurl?.isNotBlank() == true) rawCurl else fields.getOrElse(CodingPlanFields.RAW_CURL) { "" },  // RAW_CURL
+                fields.getOrElse(CodingPlanFields.API_KEY) { "" },        // API_KEY
+                if (cookie?.isNotBlank() == true) cookie else fields.getOrElse(CodingPlanFields.COOKIE) { "" },     // COOKIE
+                if (baseUrl?.isNotBlank() == true) baseUrl else fields.getOrElse(CodingPlanFields.BASE_URL) { "" }, // BASE_URL
             )
         } else {
             // For non-CodingPlan types: parse combined value into individual fields
@@ -196,30 +197,30 @@ private fun EditCredentialForm(
                     fieldValues[i] = ""
                 }
 
-                // Set provider field (field 0) based on returned provider
+                // Set provider field based on returned provider
                 val provider = dataMap["provider"] ?: ""
                 if (provider.isNotBlank()) {
-                    fieldValues[0] = provider
+                    fieldValues[CodingPlanFields.PROVIDER] = provider
                 }
 
-                // Fill in credentials based on provider (direct assignment)
+                // Fill in credentials based on provider
                 when (provider) {
                     "qwen", "qwen_bailian" -> {
-                        fieldValues[1] = dataMap["rawCurl"] ?: ""
-                        fieldValues[2] = dataMap["apiKey"] ?: ""
-                        fieldValues[3] = dataMap["cookie"] ?: ""
-                        fieldValues[4] = dataMap["baseUrl"] ?: ""
+                        fieldValues[CodingPlanFields.RAW_CURL] = dataMap["rawCurl"] ?: ""
+                        fieldValues[CodingPlanFields.API_KEY] = dataMap["apiKey"] ?: ""
+                        fieldValues[CodingPlanFields.COOKIE] = dataMap["cookie"] ?: ""
+                        fieldValues[CodingPlanFields.BASE_URL] = dataMap["baseUrl"] ?: ""
                         android.util.Log.d("EditCredential", "Bailian: apiKey=${if (dataMap["apiKey"]?.isNotBlank() == true) "OK" else "EMPTY"}")
-                        android.util.Log.d("EditCredential", "fieldValues after fill: provider=${fieldValues[0]}")
+                        android.util.Log.d("EditCredential", "fieldValues after fill: provider=${fieldValues[CodingPlanFields.PROVIDER]}")
                     }
                     "openai", "chatgpt" -> {
-                        fieldValues[2] = dataMap["apiKey"] ?: ""
-                        fieldValues[4] = dataMap["baseUrl"] ?: ""
+                        fieldValues[CodingPlanFields.API_KEY] = dataMap["apiKey"] ?: ""
+                        fieldValues[CodingPlanFields.BASE_URL] = dataMap["baseUrl"] ?: ""
                         android.util.Log.d("EditCredential", "ChatGPT: apiKey=${if (dataMap["apiKey"]?.isNotBlank() == true) "OK" else "EMPTY"}")
                     }
                     "anthropic", "claude" -> {
-                        fieldValues[2] = dataMap["apiKey"] ?: ""
-                        fieldValues[4] = dataMap["baseUrl"] ?: ""
+                        fieldValues[CodingPlanFields.API_KEY] = dataMap["apiKey"] ?: ""
+                        fieldValues[CodingPlanFields.BASE_URL] = dataMap["baseUrl"] ?: ""
                         android.util.Log.d("EditCredential", "Claude: apiKey=${if (dataMap["apiKey"]?.isNotBlank() == true) "OK" else "EMPTY"}")
                     }
                 }
@@ -283,11 +284,11 @@ private fun EditCredentialForm(
 
     /** Auto-extract cookie from RAW_CURL and fill COOKIE field for CodingPlan */
     fun handleRawCurlChange(value: String) {
-        fieldValues[1] = value
+        fieldValues[CodingPlanFields.RAW_CURL] = value
         if (selectedType == CredentialType.CodingPlan) {
             val extractedCookie = extractCookieFromCurl(value)
             if (!userEditedCookie && extractedCookie.isNotBlank()) {
-                fieldValues[3] = extractedCookie
+                fieldValues[CodingPlanFields.COOKIE] = extractedCookie
             }
         }
     }
@@ -396,8 +397,8 @@ private fun EditCredentialForm(
                         editable = field.editable,
                     )
                 } else {
-                    val isRawCurlField = selectedType == CredentialType.CodingPlan && index == 1
-                    val isCookieField = selectedType == CredentialType.CodingPlan && index == 3
+                    val isRawCurlField = selectedType == CredentialType.CodingPlan && index == CodingPlanFields.RAW_CURL
+                    val isCookieField = selectedType == CredentialType.CodingPlan && index == CodingPlanFields.COOKIE
                     val isMultiline = isRawCurlField || isCookieField
                     BrutalistTextField(
                         value = getField(index),
