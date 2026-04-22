@@ -320,6 +320,9 @@
     <string name="action_credential_deleted">凭据已删除</string>
     <string name="action_credential_viewed">凭据已查看</string>
     <string name="action_credential_copied">凭据已复制</string>
+    <string name="action_team_created">团队已创建</string>
+    <string name="action_team_joined">已加入团队</string>
+    <string name="action_team_left">已离开团队</string>
 
     <!-- Quota Gauge Labels -->
     <string name="quota_5h">5小时</string>
@@ -357,4 +360,30 @@
 
     <!-- Widget -->
     <string name="widget_coding_plan_description">显示 Coding Plan 用量进度条，实时查看配额</string>
+
+    <!-- Team Sharing -->
+    <string name="team_title">团队共享</string>
+    <string name="team_create_title">创建团队</string>
+    <string name="team_join_title">加入团队</string>
+    <string name="team_name_label">团队名称</string>
+    <string name="team_name_placeholder">输入团队名称</string>
+    <string name="team_create_btn">创建</string>
+    <string name="team_join_btn">加入团队</string>
+    <string name="team_invite_label">邀请码</string>
+    <string name="team_invite_placeholder">粘贴邀请码或扫描二维码</string>
+    <string name="team_invite_qr">扫描二维码</string>
+    <string name="team_invite_copy">复制邀请</string>
+    <string name="team_leave_btn">离开团队</string>
+    <string name="team_no_teams">暂无团队</string>
+    <string name="team_members">成员</string>
+    <string name="team_role_admin">管理员</string>
+    <string name="team_role_member">成员</string>
+    <string name="team_role_viewer">观察者</string>
+    <string name="team_created_success">团队已创建</string>
+    <string name="team_joined_success">已加入团队</string>
+    <string name="team_leave_success">已离开团队</string>
+    <string name="team_invite_invalid">邀请码无效</string>
+    <string name="team_already_member">已是团队成员</string>
+    <string name="team_invite_share_title">分享团队邀请</string>
+    <string name="team_invite_share_desc">让对方扫描二维码或复制邀请码加入团队</string>
 </resources>
