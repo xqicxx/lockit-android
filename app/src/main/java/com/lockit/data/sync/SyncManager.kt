@@ -126,13 +126,18 @@ class SyncManager(
                 // Check for conflict
                 val cloudManifest = backend.getManifest().getOrNull()
                 val lastSyncChecksum = prefs.getString(KEY_LAST_SYNC_CHECKSUM, null)
+                val localChecksum = computeLocalChecksum()
 
-                if (cloudManifest != null && lastSyncChecksum != null &&
-                    cloudManifest.vaultChecksum != lastSyncChecksum) {
+                // Conflict detection: cloud modified since our last sync OR first sync with different data
+                val isConflict = cloudManifest != null && (lastSyncChecksum?.let {
+                    cloudManifest.vaultChecksum != it
+                } ?: (cloudManifest.vaultChecksum != localChecksum))
+
+                if (isConflict) {
                     // Cloud has been modified since our last sync - conflict!
                     Result.failure(SyncConflictException(
-                        localChecksum = computeLocalChecksum(),
-                        cloudChecksum = cloudManifest.vaultChecksum,
+                        localChecksum = localChecksum,
+                        cloudChecksum = cloudManifest!!.vaultChecksum,
                         localUpdated = Instant.now(),
                         cloudUpdated = cloudManifest.updatedAt,
                         localDevice = getDeviceId(),
@@ -184,7 +189,15 @@ class SyncManager(
                     val lastSyncChecksum = prefs.getString(KEY_LAST_SYNC_CHECKSUM, null)
                     val localChecksum = computeLocalChecksum()
 
-                    if (lastSyncChecksum != null && localChecksum != lastSyncChecksum) {
+                    // Conflict detection: local modified since our last sync OR first sync with non-empty local different from cloud
+                    val isConflict = if (lastSyncChecksum != null) {
+                        localChecksum != lastSyncChecksum
+                    } else {
+                        // First sync: conflict if local is non-empty and differs from cloud
+                        localChecksum != "sha256:empty" && localChecksum != cloudManifest.vaultChecksum
+                    }
+
+                    if (isConflict) {
                         // Local has been modified since our last sync - conflict!
                         Result.failure(SyncConflictException(
                             localChecksum = localChecksum,
@@ -199,7 +212,9 @@ class SyncManager(
                         val encrypted = backend.downloadVault().getOrThrow()
                         val plaintext = SyncCrypto.decrypt(encrypted, syncKey)
 
-                        // Backup current vault before replacing
+                        // Close database before replacing file to avoid corruption
+                        LockitDatabase.closeAndReset(context)
+
                         val dbFile = getDatabaseFile()
                         val backupFile = File(dbFile.parent, "vault.db.backup")
                         if (dbFile.exists()) {
@@ -273,7 +288,15 @@ class SyncManager(
         if (!dbFile.exists()) return "sha256:empty"
 
         val digest = MessageDigest.getInstance("SHA-256")
-        val hash = digest.digest(dbFile.readBytes())
+        // Use stream to avoid OOM for large databases
+        val hash = dbFile.inputStream().use { input ->
+            val buffer = ByteArray(8192)
+            var bytesRead: Int
+            while (input.read(buffer).also { bytesRead = it } != -1) {
+                digest.update(buffer, 0, bytesRead)
+            }
+            digest.digest()
+        }
         return "sha256:" + hash.joinToString("") { "%02x".format(it) }
     }
 }
