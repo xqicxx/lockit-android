@@ -45,8 +45,17 @@ class BiometricPinStorage(private val sharedPreferences: SharedPreferences) {
 
     fun canAuthenticate(activity: FragmentActivity): Boolean {
         val biometricManager = BiometricManager.from(activity)
+        // Check for biometric OR device credential (password/PIN/pattern)
         return biometricManager.canAuthenticate(
-            BiometricManager.Authenticators.BIOMETRIC_STRONG
+            BiometricManager.Authenticators.BIOMETRIC_STRONG or
+            BiometricManager.Authenticators.DEVICE_CREDENTIAL
+        ) == BiometricManager.BIOMETRIC_SUCCESS
+    }
+
+    fun canAuthenticateWithDeviceCredential(activity: FragmentActivity): Boolean {
+        val biometricManager = BiometricManager.from(activity)
+        return biometricManager.canAuthenticate(
+            BiometricManager.Authenticators.DEVICE_CREDENTIAL
         ) == BiometricManager.BIOMETRIC_SUCCESS
     }
 
@@ -59,7 +68,8 @@ class BiometricPinStorage(private val sharedPreferences: SharedPreferences) {
             .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
             .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
             .setUserAuthenticationRequired(true)
-            .setUserAuthenticationParameters(0, KeyProperties.AUTH_BIOMETRIC_STRONG)
+            // Allow both biometric strong and device credential for fallback
+            .setUserAuthenticationParameters(0, KeyProperties.AUTH_BIOMETRIC_STRONG or KeyProperties.AUTH_DEVICE_CREDENTIAL)
             .build()
     }
 
@@ -173,8 +183,12 @@ class BiometricPinStorage(private val sharedPreferences: SharedPreferences) {
         val promptInfo = BiometricPrompt.PromptInfo.Builder()
             .setTitle(title)
             .setSubtitle(subtitle)
-            .setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_STRONG)
-            .setNegativeButtonText("取消")
+            .setAllowedAuthenticators(
+                BiometricManager.Authenticators.BIOMETRIC_STRONG or
+                BiometricManager.Authenticators.DEVICE_CREDENTIAL
+            )
+            // Note: Cannot set negative button text when DEVICE_CREDENTIAL is enabled
+            // Android automatically shows "Use device credential" option
             .build()
 
         biometricPrompt.authenticate(promptInfo, BiometricPrompt.CryptoObject(cipher))
@@ -247,8 +261,12 @@ class BiometricPinStorage(private val sharedPreferences: SharedPreferences) {
         val promptInfo = BiometricPrompt.PromptInfo.Builder()
             .setTitle(title)
             .setSubtitle(subtitle)
-            .setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_STRONG)
-            .setNegativeButtonText("取消")
+            .setAllowedAuthenticators(
+                BiometricManager.Authenticators.BIOMETRIC_STRONG or
+                BiometricManager.Authenticators.DEVICE_CREDENTIAL
+            )
+            // Note: Cannot set negative button text when DEVICE_CREDENTIAL is enabled
+            // Android automatically shows "Use device credential" option
             .build()
 
         biometricPrompt.authenticate(promptInfo, BiometricPrompt.CryptoObject(cipher))
