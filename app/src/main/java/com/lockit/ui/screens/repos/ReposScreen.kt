@@ -231,6 +231,8 @@ class ReposViewModel(app: LockitApp) : ViewModel() {
         if (CodingPlanPrefetchState.isLoading.value) {
             _isQuotaLoading.value = true
             hasAutoFetchedQuota = true
+            // Show cached quota during background refresh (instant display)
+            _codingPlanQuota.value = CodingPlanPrefetchState.quota.value
             return
         }
 
@@ -328,6 +330,14 @@ fun ReposScreen(
     val prefetchLoading by CodingPlanPrefetchState.isLoading.collectAsStateWithLifecycle()
     val prefetchQuota by CodingPlanPrefetchState.quota.collectAsStateWithLifecycle()
     val prefetchError by CodingPlanPrefetchState.error.collectAsStateWithLifecycle()
+    val prefetchCacheTimestamp by CodingPlanPrefetchState.cacheTimestamp.collectAsStateWithLifecycle()
+
+    // Calculate cache age in minutes (how old is the cached data)
+    val cacheAgeMinutes = remember(prefetchCacheTimestamp) {
+        if (prefetchCacheTimestamp > 0) {
+            ((System.currentTimeMillis() - prefetchCacheTimestamp) / 60000).toInt()
+        } else 0
+    }
 
     // When prefetch completes (success or failure), update ViewModel quota
     LaunchedEffect(prefetchLoading, prefetchQuota, prefetchError) {
@@ -451,6 +461,7 @@ fun ReposScreen(
                         isLoading = isQuotaLoading,
                         error = quotaError,
                         selectedProvider = selectedProvider,
+                        cacheAgeMinutes = cacheAgeMinutes,
                         onRefresh = { viewModel.fetchCodingPlanQuota(force = true) },
                     )
                     // Provider switcher cards - only show if 2+ providers exist
@@ -1020,6 +1031,7 @@ private fun CodingPlanBoard(
     isLoading: Boolean,
     error: String?,
     selectedProvider: String,
+    cacheAgeMinutes: Int, // How old is the cached data (minutes)
     onRefresh: () -> Unit,
 ) {
     Column(
@@ -1035,13 +1047,25 @@ private fun CodingPlanBoard(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             // Title: instance name or default
-            Text(
-                text = if (quota?.instanceName?.isNotBlank() == true) quota.instanceName.uppercase() else stringResource(R.string.repos_coding_plan),
-                fontFamily = JetBrainsMonoFamily,
-                fontWeight = FontWeight.Bold,
-                fontSize = 12.sp,
-                color = Primary,
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = if (quota?.instanceName?.isNotBlank() == true) quota.instanceName.uppercase() else stringResource(R.string.repos_coding_plan),
+                    fontFamily = JetBrainsMonoFamily,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 12.sp,
+                    color = Primary,
+                )
+                // Show cache age indicator if data is cached (not fresh)
+                if (cacheAgeMinutes > 0 && !isLoading) {
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "${cacheAgeMinutes}m",
+                        fontFamily = JetBrainsMonoFamily,
+                        fontSize = 9.sp,
+                        color = if (cacheAgeMinutes > 60) TacticalRed else IndustrialOrange,
+                    )
+                }
+            }
             // REFRESH button - prominent color
             if (isLoading) {
                 Text(

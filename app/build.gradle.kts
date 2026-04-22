@@ -114,6 +114,9 @@ dependencies {
     // Coroutines
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
 
+    // OkHttp for WebDAV
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+
     // Glance (Jetpack Compose for Widgets)
     implementation("androidx.glance:glance:1.1.1")
     implementation("androidx.glance:glance-appwidget:1.1.1")

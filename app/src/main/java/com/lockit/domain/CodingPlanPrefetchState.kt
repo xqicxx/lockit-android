@@ -18,6 +18,10 @@ object CodingPlanPrefetchState {
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
 
+    // Cache timestamp (epoch millis) - shows how old cached data is
+    private val _cacheTimestamp = MutableStateFlow(0L)
+    val cacheTimestamp: StateFlow<Long> = _cacheTimestamp.asStateFlow()
+
     var hasPrefetched: Boolean = false
 
     // Setter functions for updating state
@@ -33,11 +37,16 @@ object CodingPlanPrefetchState {
         _error.value = value
     }
 
+    fun setCacheTimestamp(value: Long) {
+        _cacheTimestamp.value = value
+    }
+
     // Convenience function to reset all state
     fun reset() {
         _isLoading.value = false
         _quota.value = null
         _error.value = null
+        _cacheTimestamp.value = 0L
         hasPrefetched = false
     }
 }
