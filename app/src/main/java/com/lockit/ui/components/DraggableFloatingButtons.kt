@@ -36,7 +36,7 @@ import com.lockit.ui.theme.TacticalRed
 import kotlin.math.roundToInt
 
 /**
- * Draggable floating button container with visible styling.
+ * Draggable floating button container with left/right snap toggle.
  * Used in WebViewAuthActivity for overlay controls.
  */
 class DraggableFloatingButtons(
@@ -69,12 +69,21 @@ private fun FloatingButtonsContent(
     val screenHeightPx = with(density) {
         androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp.dp.toPx()
     }
-    val buttonWidthPx = with(density) { 140.dp.toPx() }
+    val buttonWidthPx = with(density) { 180.dp.toPx() } // Increased for 4 buttons
     val buttonHeightPx = with(density) { 56.dp.toPx() }
 
-    // Initial position: top-right corner with margin
-    val offsetX = remember { mutableStateOf(screenWidthPx - buttonWidthPx - 32f) }
-    val offsetY = remember { mutableStateOf(80f) }
+    // Left/right side toggle state
+    val isOnRight = remember { mutableStateOf(true) }
+
+    // Position: initially right-middle
+    val offsetX = remember { mutableStateOf(screenWidthPx - buttonWidthPx - 16f) }
+    val offsetY = remember { mutableStateOf(screenHeightPx / 2 - buttonHeightPx / 2) }
+
+    // Snap to side function
+    fun snapToSide(right: Boolean) {
+        isOnRight.value = right
+        offsetX.value = if (right) screenWidthPx - buttonWidthPx - 16f else 16f
+    }
 
     // Full-screen transparent container for touch capture
     Box(
@@ -98,6 +107,14 @@ private fun FloatingButtonsContent(
                 .padding(8.dp)
         ) {
             Row {
+                // Toggle position button (left/right snap)
+                VisibleButton(
+                    iconRes = R.drawable.ic_swap_horiz,
+                    contentDescription = "切换位置",
+                    onClick = { snapToSide(!isOnRight.value) },
+                    backgroundColor = Color(0x80B34700),
+                    iconColor = Color.White
+                )
                 VisibleButton(
                     iconRes = R.drawable.ic_arrow_back,
                     contentDescription = "返回",
