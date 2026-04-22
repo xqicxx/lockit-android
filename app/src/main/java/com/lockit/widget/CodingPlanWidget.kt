@@ -24,11 +24,18 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 
+// Suppress lint: Glance ColorProvider accepts Int colors, not R.color references
+@Suppress("ResourceType")
 private val ColorDarkBg = ColorProvider(android.graphics.Color.parseColor("#1A1A1A"))
+@Suppress("ResourceType")
 private val ColorWhite = ColorProvider(android.graphics.Color.WHITE)
+@Suppress("ResourceType")
 private val ColorBlack = ColorProvider(android.graphics.Color.BLACK)
+@Suppress("ResourceType")
 private val ColorGray = ColorProvider(android.graphics.Color.GRAY)
+@Suppress("ResourceType")
 private val ColorOrange = ColorProvider(android.graphics.Color.parseColor("#B34700"))
+@Suppress("ResourceType")
 private val ColorRed = ColorProvider(android.graphics.Color.parseColor("#A30000"))
 
 /**
