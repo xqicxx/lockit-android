@@ -1,10 +1,10 @@
 package com.lockit.data.team
 
+import android.util.Base64
 import java.security.SecureRandom
 import javax.crypto.Cipher
 import javax.crypto.spec.GCMParameterSpec
 import javax.crypto.spec.SecretKeySpec
-import java.util.Base64
 
 /**
  * Team crypto operations for shared credentials.
@@ -34,7 +34,7 @@ object TeamCrypto {
     fun generateInviteCode(): String {
         val code = ByteArray(INVITE_CODE_LENGTH)
         secureRandom.nextBytes(code)
-        return Base64.getUrlEncoder().withoutPadding().encodeToString(code)
+        return Base64.encodeToString(code, Base64.URL_SAFE or Base64.NO_PADDING or Base64.NO_WRAP)
     }
 
     /**
@@ -42,7 +42,7 @@ object TeamCrypto {
      * Format: base64(teamKey) + ":" + inviteCode
      */
     fun encodeTeamInvite(teamKey: ByteArray, inviteCode: String): String {
-        val keyBase64 = Base64.getUrlEncoder().withoutPadding().encodeToString(teamKey)
+        val keyBase64 = Base64.encodeToString(teamKey, Base64.URL_SAFE or Base64.NO_PADDING or Base64.NO_WRAP)
         return "$keyBase64:$inviteCode"
     }
 
@@ -53,7 +53,7 @@ object TeamCrypto {
         val parts = inviteString.split(":")
         if (parts.size != 2) return null
         return try {
-            val key = Base64.getUrlDecoder().decode(parts[0])
+            val key = Base64.decode(parts[0], Base64.URL_SAFE or Base64.NO_PADDING or Base64.NO_WRAP)
             val code = parts[1]
             if (key.size != KEY_LENGTH) null else Pair(key, code)
         } catch (e: Exception) {

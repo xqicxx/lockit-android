@@ -1,5 +1,6 @@
 package com.lockit.data.team
 
+import android.util.Base64
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 import androidx.room.ForeignKey
@@ -22,8 +23,8 @@ data class TeamEntity(
     val myRole: String,          // ADMIN, MEMBER, VIEWER
 ) {
     fun toTeam(): Team {
-        val teamKey = java.util.Base64.getUrlDecoder().decode(teamKeyEncoded)
-        val role = TeamRole.valueOf(myRole)
+        val teamKey = Base64.decode(teamKeyEncoded, Base64.URL_SAFE or Base64.NO_PADDING or Base64.NO_WRAP)
+        val role = try { TeamRole.valueOf(myRole) } catch (_: Exception) { TeamRole.MEMBER }
         val member = TeamMember(
             id = myMemberId,
             name = android.os.Build.MODEL,
@@ -43,9 +44,10 @@ data class TeamEntity(
 
     companion object {
         fun fromTeam(team: Team, myMemberId: String): TeamEntity {
-            val keyEncoded = java.util.Base64.getUrlEncoder()
-                .withoutPadding()
-                .encodeToString(team.teamKey)
+            val keyEncoded = Base64.encodeToString(
+                team.teamKey,
+                Base64.URL_SAFE or Base64.NO_PADDING or Base64.NO_WRAP
+            )
             val myMember = team.members.find { it.id == myMemberId }
             return TeamEntity(
                 id = team.id,

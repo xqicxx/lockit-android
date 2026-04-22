@@ -23,14 +23,16 @@ class TeamManager(
     /**
      * Create a new team.
      * Generates team key, invite code, and adds this device as admin.
+     * Team ID is derived from inviteCode for consistent joining.
      * @return The created team with invite string for sharing.
      */
     suspend fun createTeam(name: String): Result<Team> = withContext(Dispatchers.IO) {
         try {
-            val teamId = UUID.randomUUID().toString()
-            val memberId = "${android.os.Build.MODEL}-${UUID.randomUUID().toString().take(8)}"
             val teamKey = TeamCrypto.generateTeamKey()
             val inviteCode = TeamCrypto.generateInviteCode()
+            // Team ID derived from inviteCode for consistent joining across devices
+            val teamId = UUID.nameUUIDFromBytes(inviteCode.toByteArray(Charsets.UTF_8)).toString()
+            val memberId = "${android.os.Build.MODEL}-${UUID.randomUUID().toString().take(8)}"
             val now = Instant.now()
 
             val team = Team(
@@ -79,7 +81,7 @@ class TeamManager(
             val now = Instant.now()
 
             // Generate a team ID from invite code hash (all members use same ID)
-            val teamId = UUID.nameUUIDFromBytes(inviteCode.toByteArray()).toString()
+            val teamId = UUID.nameUUIDFromBytes(inviteCode.toByteArray(Charsets.UTF_8)).toString()
 
             // Check if already joined this team
             val existing = teamDao.getTeamById(teamId)
