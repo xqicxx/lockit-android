@@ -31,6 +31,19 @@
             android:name=".ui.screens.auth.WebViewAuthActivity"
             android:exported="false"
             android:theme="@style/Theme.Lockit" />
+
+        <!-- Coding Plan Widget -->
+        <receiver
+            android:name=".widget.CodingPlanWidgetReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/coding_plan_widget_info" />
+        </receiver>
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"

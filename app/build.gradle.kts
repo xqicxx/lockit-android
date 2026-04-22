@@ -114,6 +114,10 @@ dependencies {
     // Coroutines
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
 
+    // Glance (Jetpack Compose for Widgets)
+    implementation("androidx.glance:glance:1.1.1")
+    implementation("androidx.glance:glance-appwidget:1.1.1")
+
     // Serialization
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
 
