@@ -64,6 +64,7 @@ import com.lockit.R
 import com.lockit.domain.CodingPlanQuota
 import com.lockit.domain.CodingPlanFetchers
 import com.lockit.domain.CodingPlanPrefetchState
+import com.lockit.data.vault.CodingPlanPrefs
 import com.lockit.domain.model.Credential
 import com.lockit.domain.model.CredentialType
 import com.lockit.ui.components.BackButtonRow
@@ -186,7 +187,7 @@ class ReposViewModel(app: LockitApp) : ViewModel() {
         }
         hasAutoFetchedQuota = true
         _isQuotaLoading.value = true
-        CodingPlanPrefetchState.isLoading = true
+        CodingPlanPrefetchState.setLoading(true)
         _codingPlanQuotaError.value = null
 
         val targetProvider = _selectedProvider.value
@@ -206,15 +207,19 @@ class ReposViewModel(app: LockitApp) : ViewModel() {
                 quota
             }
             _codingPlanQuota.value = result
-            CodingPlanPrefetchState.quota = result
+            CodingPlanPrefetchState.setQuota(result)
             if (result == null && codingPlanCreds.isNotEmpty()) {
                 _codingPlanQuotaError.value = "NO_QUOTA_DATA"
-                CodingPlanPrefetchState.error = "NO_QUOTA_DATA"
+                CodingPlanPrefetchState.setError("NO_QUOTA_DATA")
             } else {
-                CodingPlanPrefetchState.error = null
+                CodingPlanPrefetchState.setError(null)
+                // Save to cache for next startup
+                if (result != null) {
+                    currentApp?.let { CodingPlanPrefs.saveQuotaCache(it, result, targetProvider) }
+                }
             }
             _isQuotaLoading.value = false
-            CodingPlanPrefetchState.isLoading = false
+            CodingPlanPrefetchState.setLoading(false)
         }
     }
 
@@ -222,18 +227,18 @@ class ReposViewModel(app: LockitApp) : ViewModel() {
     fun autoFetchIfNeeded() {
         if (hasAutoFetchedQuota) return
 
-        // Check if prefetch is still running - wait for it to complete
-        if (CodingPlanPrefetchState.isLoading) {
+        // Check if prefetch is still running - will be observed via StateFlow
+        if (CodingPlanPrefetchState.isLoading.value) {
             _isQuotaLoading.value = true
-            hasAutoFetchedQuota = true  // Mark as handled to prevent duplicate fetch
+            hasAutoFetchedQuota = true
             return
         }
 
         // First check if we have prefetched quota from app startup
-        val prefetched = CodingPlanPrefetchState.quota
+        val prefetched = CodingPlanPrefetchState.quota.value
         if (prefetched != null) {
             _codingPlanQuota.value = prefetched
-            _codingPlanQuotaError.value = CodingPlanPrefetchState.error
+            _codingPlanQuotaError.value = CodingPlanPrefetchState.error.value
             _isQuotaLoading.value = false
             hasAutoFetchedQuota = true
             return
@@ -245,7 +250,7 @@ class ReposViewModel(app: LockitApp) : ViewModel() {
         }
     }
 
-    // Update quota when prefetch completes (called from LaunchedEffect observer)
+    // Update quota when prefetch completes (called from StateFlow observer)
     fun updateQuotaFromPrefetch(quota: CodingPlanQuota?, error: String?) {
         _codingPlanQuota.value = quota
         _codingPlanQuotaError.value = error
@@ -319,15 +324,15 @@ fun ReposScreen(
         viewModel.autoFetchIfNeeded()
     }
 
-    // Poll prefetch state until loading completes (handles race condition)
-    LaunchedEffect(CodingPlanPrefetchState.isLoading) {
-        if (CodingPlanPrefetchState.isLoading && viewModel.hasAutoFetchedQuota) {
-            // Wait for prefetch to complete
-            while (CodingPlanPrefetchState.isLoading) {
-                kotlinx.coroutines.delay(100)
-            }
-            // Update ViewModel with prefetch result (always call to clear loading state)
-            viewModel.updateQuotaFromPrefetch(CodingPlanPrefetchState.quota, CodingPlanPrefetchState.error)
+    // Observe prefetch state changes via StateFlow (no polling loop needed)
+    val prefetchLoading by CodingPlanPrefetchState.isLoading.collectAsStateWithLifecycle()
+    val prefetchQuota by CodingPlanPrefetchState.quota.collectAsStateWithLifecycle()
+    val prefetchError by CodingPlanPrefetchState.error.collectAsStateWithLifecycle()
+
+    // When prefetch completes (success or failure), update ViewModel quota
+    LaunchedEffect(prefetchLoading, prefetchQuota, prefetchError) {
+        if (!prefetchLoading && viewModel.hasAutoFetchedQuota) {
+            viewModel.updateQuotaFromPrefetch(prefetchQuota, prefetchError)
         }
     }
 

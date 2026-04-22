@@ -116,9 +116,19 @@ class MainActivity : FragmentActivity() {
 
         // Prefetch coding plan quota IMMEDIATELY on app startup - runs during lock screen
         // Uses EncryptedSharedPreferences (no vault unlock needed)
+        // Strategy: Load cache first (instant display), then refresh in background
         if (!CodingPlanPrefetchState.hasPrefetched && CodingPlanPrefs.hasData(app)) {
-            CodingPlanPrefetchState.isLoading = true
             CodingPlanPrefetchState.hasPrefetched = true
+
+            // Step 1: Load cached quota immediately (instant display, no loading spinner)
+            val cachedQuota = CodingPlanPrefs.loadQuotaCache(app)
+            if (cachedQuota != null) {
+                CodingPlanPrefetchState.setQuota(cachedQuota)
+                CodingPlanPrefetchState.setError(null)
+            }
+
+            // Step 2: Start background refresh (update with fresh data)
+            CodingPlanPrefetchState.setLoading(true)
             lifecycleScope.launch {
                 try {
                     val metadata = CodingPlanPrefs.getMetadata(app)
@@ -129,12 +139,19 @@ class MainActivity : FragmentActivity() {
                             val quota = withContext(Dispatchers.IO) {
                                 fetcher.fetchQuota(metadata)
                             }
-                            CodingPlanPrefetchState.quota = quota
-                            CodingPlanPrefetchState.error = if (quota == null) "NO_QUOTA_DATA" else null
+                            CodingPlanPrefetchState.setQuota(quota)
+                            CodingPlanPrefetchState.setError(if (quota == null) "NO_QUOTA_DATA" else null)
+                            // Save to cache for next startup
+                            if (quota != null) {
+                                CodingPlanPrefs.saveQuotaCache(app, quota, provider)
+                            }
                         }
                     }
+                } catch (e: Exception) {
+                    android.util.Log.e("LockitPrefetch", "Prefetch failed: ${e.message}")
+                    CodingPlanPrefetchState.setError("FETCH_ERROR")
                 } finally {
-                    CodingPlanPrefetchState.isLoading = false
+                    CodingPlanPrefetchState.setLoading(false)
                 }
             }
         }
