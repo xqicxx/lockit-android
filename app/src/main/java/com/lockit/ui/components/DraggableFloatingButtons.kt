@@ -7,7 +7,6 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -16,12 +15,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.ViewCompositionStrategy
@@ -30,9 +29,6 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import com.lockit.R
-import com.lockit.ui.theme.Primary
-import com.lockit.ui.theme.IndustrialOrange
-import com.lockit.ui.theme.TacticalRed
 import kotlin.math.roundToInt
 
 /**
@@ -61,82 +57,84 @@ private fun FloatingButtonsContent(
     onReset: () -> Unit,
     onClose: () -> Unit,
 ) {
-    // Get screen bounds for clamping
+    // Get screen bounds for clamping (recalculated on config change)
     val density = LocalDensity.current
-    val screenWidthPx = with(density) {
-        androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp.dp.toPx()
-    }
-    val screenHeightPx = with(density) {
-        androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp.dp.toPx()
-    }
-    val buttonWidthPx = with(density) { 180.dp.toPx() } // Increased for 4 buttons
+    val configuration = androidx.compose.ui.platform.LocalConfiguration.current
+    val screenWidthPx = with(density) { configuration.screenWidthDp.dp.toPx() }
+    val screenHeightPx = with(density) { configuration.screenHeightDp.dp.toPx() }
+    val buttonWidthPx = with(density) { 180.dp.toPx() }
     val buttonHeightPx = with(density) { 56.dp.toPx() }
 
     // Left/right side toggle state
     val isOnRight = remember { mutableStateOf(true) }
 
-    // Position: initially right-middle
-    val offsetX = remember { mutableStateOf(screenWidthPx - buttonWidthPx - 16f) }
-    val offsetY = remember { mutableStateOf(screenHeightPx / 2 - buttonHeightPx / 2) }
+    // Position: relative offset from gravity anchor (TOP|RIGHT)
+    // offsetX: 0 = right edge, negative = moves left
+    // offsetY: 0 = top margin (100dp), positive = moves down
+    val offsetX = remember { mutableStateOf(0f) }
+    val offsetY = remember { mutableStateOf(screenHeightPx / 2 - 100f - buttonHeightPx / 2) }
+
+    // Recalculate Y position on screen rotation
+    LaunchedEffect(configuration.screenHeightDp) {
+        if (offsetY.value > screenHeightPx - buttonHeightPx - 100f) {
+            offsetY.value = screenHeightPx - buttonHeightPx - 100f
+        }
+    }
 
     // Snap to side function
     fun snapToSide(right: Boolean) {
         isOnRight.value = right
-        offsetX.value = if (right) screenWidthPx - buttonWidthPx - 16f else 16f
+        // offsetX: 0 = right, -(screenWidth - buttonWidth) = left
+        offsetX.value = if (right) 0f else -(screenWidthPx - buttonWidthPx - 32f)
     }
 
-    // Full-screen transparent container for touch capture
+    // Button container - positioned relative to gravity anchor
     Box(
-        modifier = Modifier.fillMaxSize()
-    ) {
-        // Positioned button container (draggable anywhere)
-        Box(
-            modifier = Modifier
-                .offset { IntOffset(offsetX.value.roundToInt(), offsetY.value.roundToInt()) }
-                .pointerInput(Unit) {
-                    detectDragGestures { change, dragAmount ->
-                        change.consume()
-                        val newX = offsetX.value + dragAmount.x
-                        val newY = offsetY.value + dragAmount.y
-                        // Clamp to keep buttons visible
-                        offsetX.value = newX.coerceIn(0f, screenWidthPx - buttonWidthPx)
-                        offsetY.value = newY.coerceIn(0f, screenHeightPx - buttonHeightPx)
-                    }
+        modifier = Modifier
+            .offset { IntOffset(offsetX.value.roundToInt(), offsetY.value.roundToInt()) }
+            .pointerInput(Unit) {
+                detectDragGestures { change, dragAmount ->
+                    change.consume()
+                    val newX = offsetX.value + dragAmount.x
+                    val newY = offsetY.value + dragAmount.y
+                    // Clamp: can move from right (0) to left (-screenWidth+buttonWidth+32)
+                    // Y: 0 to screenHeight - buttonHeight - 100
+                    offsetX.value = newX.coerceIn(-(screenWidthPx - buttonWidthPx - 32f), 0f)
+                    offsetY.value = newY.coerceIn(0f, screenHeightPx - buttonHeightPx - 100f)
                 }
-                .visibleBackground()
-                .padding(8.dp)
-        ) {
-            Row {
-                // Toggle position button (left/right snap)
-                VisibleButton(
-                    iconRes = R.drawable.ic_swap_horiz,
-                    contentDescription = "切换位置",
-                    onClick = { snapToSide(!isOnRight.value) },
-                    backgroundColor = Color(0x80B34700),
-                    iconColor = Color.White
-                )
-                VisibleButton(
-                    iconRes = R.drawable.ic_arrow_back,
-                    contentDescription = "返回",
-                    onClick = onBack,
-                    backgroundColor = Color(0x80111111),
-                    iconColor = Color.White
-                )
-                VisibleButton(
-                    iconRes = R.drawable.ic_refresh,
-                    contentDescription = "重新登录",
-                    onClick = onReset,
-                    backgroundColor = Color(0x80B34700),
-                    iconColor = Color.White
-                )
-                VisibleButton(
-                    iconRes = R.drawable.ic_close,
-                    contentDescription = "关闭",
-                    onClick = onClose,
-                    backgroundColor = Color(0x80A30000),
-                    iconColor = Color.White
-                )
             }
+            .visibleBackground()
+            .padding(8.dp)
+    ) {
+        Row {
+            VisibleButton(
+                iconRes = R.drawable.ic_swap_horiz,
+                contentDescription = "切换位置",
+                onClick = { snapToSide(!isOnRight.value) },
+                backgroundColor = Color(0x80B34700),
+                iconColor = Color.White
+            )
+            VisibleButton(
+                iconRes = R.drawable.ic_arrow_back,
+                contentDescription = "返回",
+                onClick = onBack,
+                backgroundColor = Color(0x80111111),
+                iconColor = Color.White
+            )
+            VisibleButton(
+                iconRes = R.drawable.ic_refresh,
+                contentDescription = "重新登录",
+                onClick = onReset,
+                backgroundColor = Color(0x80B34700),
+                iconColor = Color.White
+            )
+            VisibleButton(
+                iconRes = R.drawable.ic_close,
+                contentDescription = "关闭",
+                onClick = onClose,
+                backgroundColor = Color(0x80A30000),
+                iconColor = Color.White
+            )
         }
     }
 }
@@ -170,16 +168,15 @@ private fun VisibleButton(
 
 @Composable
 private fun Modifier.visibleBackground(): Modifier {
-    // Dark background with white border - visible on any page color
     return this
         .shadow(8.dp, RoundedCornerShape(24.dp))
         .background(
-            color = Color(0x90111111), // Dark semi-transparent (visible on white)
+            color = Color(0x90111111),
             shape = RoundedCornerShape(24.dp)
         )
         .border(
             width = 1.5.dp,
-            color = Color.White.copy(alpha = 0.5f), // White border for contrast
+            color = Color.White.copy(alpha = 0.5f),
             shape = RoundedCornerShape(24.dp)
         )
 }

@@ -112,11 +112,15 @@ class WebViewAuthActivity : ComponentActivity() {
             }
         ).createView(this)
 
-        // No gravity anchoring - let Compose handle absolute positioning
+        // WRAP_CONTENT - buttons overlay, doesn't block WebView touch
+        // Gravity anchors to top-right, Compose handles drag offset
         val buttonLayout = FrameLayout.LayoutParams(
-            FrameLayout.LayoutParams.MATCH_PARENT,
-            FrameLayout.LayoutParams.MATCH_PARENT
-        )
+            FrameLayout.LayoutParams.WRAP_CONTENT,
+            FrameLayout.LayoutParams.WRAP_CONTENT
+        ).apply {
+            gravity = android.view.Gravity.TOP or android.view.Gravity.RIGHT
+            setMargins(16, 100, 16, 0)
+        }
 
         val webViewLayout = FrameLayout.LayoutParams(
             FrameLayout.LayoutParams.MATCH_PARENT,
