@@ -1,5 +1,6 @@
 package com.lockit.ui.screens.auth
 
+import androidx.activity.ComponentActivity
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
@@ -39,7 +40,7 @@ import java.net.URL
  * 4. Activity detects login success and extracts tokens/cookies
  * 5. Returns extracted credentials via Intent result (JSON serialized)
  */
-class WebViewAuthActivity : Activity() {
+class WebViewAuthActivity : ComponentActivity() {
 
     companion object {
         const val EXTRA_PROVIDER = "provider"
