@@ -829,55 +829,54 @@ fun ConfigScreen(
                             onClick = {
                                 isCheckingUpdate = true
                                 scope.launch {
-                                    // Use Dispatchers.IO to move CPU-intensive decryption off main thread
-                                    val credentials: List<Credential> = withContext(Dispatchers.IO) {
-                                        // Use firstOrNull() to avoid infinite hang on empty Flow
-                                        // Vault could be locked between isUnlocked() check and Flow emission
-                                        // Use try-catch that re-throws CancellationException for proper structured concurrency
-                                        try {
-                                            app.vaultManager.getAllCredentials().firstOrNull() ?: emptyList()
-                                        } catch (e: CancellationException) {
-                                            throw e  // Re-throw to maintain coroutine cancellation
-                                        } catch (e: Exception) {
-                                            emptyList()  // Return empty on error, handled below
+                                    try {
+                                        // Use Dispatchers.IO to move CPU-intensive decryption off main thread
+                                        val credentials: List<Credential> = withContext(Dispatchers.IO) {
+                                            // Use firstOrNull() to avoid infinite hang on empty Flow
+                                            // Vault could be locked between isUnlocked() check and Flow emission
+                                            // Use try-catch that re-throws CancellationException for proper structured concurrency
+                                            try {
+                                                app.vaultManager.getAllCredentials().firstOrNull() ?: emptyList()
+                                            } catch (e: CancellationException) {
+                                                throw e  // Re-throw to maintain coroutine cancellation
+                                            } catch (e: Exception) {
+                                                emptyList()  // Return empty on error, handled below
+                                            }
                                         }
-                                    }
-                                    if (credentials.isEmpty()) {
-                                        // Could be vault locked or genuinely empty
-                                        if (!app.vaultManager.isUnlocked()) {
-                                            toastMessage = context.getString(R.string.toast_vault_locked)
-                                        }
-                                        isCheckingUpdate = false
-                                        return@launch
-                                    }
-                                    // Read GitHub Token from vault (optional - public repos don't need it)
-                                    val tokenCredential = credentials.find { it.name == githubTokenCredentialName }
+                                        if (credentials.isEmpty()) {
+                                            // Could be vault locked or genuinely empty
+                                            if (!app.vaultManager.isUnlocked()) {
+                                                toastMessage = context.getString(R.string.toast_vault_locked)
+                                            }
+                                            // Don't proceed with update check, let finally reset state
+                                        } else {
+                                            // Read GitHub Token from vault (optional - public repos don't need it)
+                                            val tokenCredential = credentials.find { it.name == githubTokenCredentialName }
 
-                                    // Token is optional - public repos work without it
-                                    // Show diagnostic toast if configured token has issues (non-blocking)
-                                    var tokenDiagnostic: String? = null
-                                    val token: String? = if (tokenCredential != null) {
-                                        val fields = tokenCredential.value?.let { parseCredentialFields(it) }
-                                        val parsedToken = fields?.getOrNull(3)?.takeIf { it.isNotBlank() }
-                                        if (parsedToken == null) {
-                                            // Credential exists but token field is empty/blank
-                                            tokenDiagnostic = context.getString(R.string.toast_token_empty)
-                                        }
-                                        parsedToken
-                                    } else {
-                                        // Token credential not found in vault
-                                        tokenDiagnostic = context.getString(R.string.toast_token_not_found)
-                                        null
-                                    }
+                                            // Token is optional - public repos work without it
+                                            // Show diagnostic toast if configured token has issues (non-blocking)
+                                            var tokenDiagnostic: String? = null
+                                            val token: String? = if (tokenCredential != null) {
+                                                val fields = tokenCredential.value?.let { parseCredentialFields(it) }
+                                                val parsedToken = fields?.getOrNull(3)?.takeIf { it.isNotBlank() }
+                                                if (parsedToken == null) {
+                                                    // Credential exists but token field is empty/blank
+                                                    tokenDiagnostic = context.getString(R.string.toast_token_empty)
+                                                }
+                                                parsedToken
+                                            } else {
+                                                // Token credential not found in vault
+                                                tokenDiagnostic = context.getString(R.string.toast_token_not_found)
+                                                null
+                                            }
 
-                                    // Show diagnostic toast if token has issues (non-blocking, just info)
-                                    if (tokenDiagnostic != null) {
-                                        Toast.makeText(context, tokenDiagnostic, Toast.LENGTH_SHORT).show()
-                                    }
+                                            // Show diagnostic toast if token has issues (non-blocking, just info)
+                                            if (tokenDiagnostic != null) {
+                                                Toast.makeText(context, tokenDiagnostic, Toast.LENGTH_SHORT).show()
+                                            }
 
-                                    lastCheckedToken = token // Store for download (null if public repo)
-                                    val result = appUpdater.checkForUpdate(currentVersionCode, token)
-                                    isCheckingUpdate = false
+                                            lastCheckedToken = token // Store for download (null if public repo)
+                                            val result = appUpdater.checkForUpdate(currentVersionCode, token)
                                     if (result.isFailure) {
                                         val errorMsg = result.exceptionOrNull()?.message ?: "Unknown error"
                                         // AppUpdater returns descriptive messages for common errors:
@@ -896,13 +895,17 @@ fun ConfigScreen(
                                                 }
                                             }
                                             else -> "${context.getString(R.string.toast_check_failed)} $errorMsg"
+                                            }
+                                            toastMessage = detailedMessage
+                                        } else if (result.getOrNull() == null) {
+                                            toastMessage = context.getString(R.string.toast_already_latest)
+                                        } else {
+                                            availableUpdate = result.getOrNull()
+                                            showUpdateDialog = true
                                         }
-                                        toastMessage = detailedMessage
-                                    } else if (result.getOrNull() == null) {
-                                        toastMessage = context.getString(R.string.toast_already_latest)
-                                    } else {
-                                        availableUpdate = result.getOrNull()
-                                        showUpdateDialog = true
+                                        }
+                                    } finally {
+                                        isCheckingUpdate = false  // Always reset loading state
                                     }
                                 }
                             },
