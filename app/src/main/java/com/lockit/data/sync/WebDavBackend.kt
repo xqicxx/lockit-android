@@ -96,16 +96,20 @@ class WebDavBackend(private val context: Context) : SyncBackend {
         val normalizedUrl = url.trimEnd('/')
 
         synchronized(this) {
-            client = OkHttpClient.Builder()
+            val newClient = OkHttpClient.Builder()
                 .connectTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
                 .readTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
                 .writeTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
                 .build()
+            client = newClient
             serverUrl = normalizedUrl
             username = user
             password = pass
             basePath = path
         }
+
+        // Capture client in local variable to prevent NPE from concurrent disconnect()
+        val httpClient = client!!
 
         return withContext(Dispatchers.IO) {
             try {
@@ -117,7 +121,7 @@ class WebDavBackend(private val context: Context) : SyncBackend {
                     .header("Depth", "0")
                     .build()
 
-                client!!.newCall(request).execute().use { response ->
+                httpClient.newCall(request).execute().use { response ->
                     if (response.isSuccessful || response.code == 207) {
                         saveCredentials(normalizedUrl, user, pass, path)
                         Log.i(TAG, "WebDAV configured: $normalizedUrl$path")
@@ -223,7 +227,14 @@ class WebDavBackend(private val context: Context) : SyncBackend {
 
                             httpClient.newCall(manifestRequest).execute().use { manifestResponse ->
                                 if (!manifestResponse.isSuccessful) {
-                                    Result.failure(IOException("Upload manifest failed: HTTP ${manifestResponse.code}"))
+                                    // Manifest failed: delete vault to maintain consistency
+                                    val deleteRequest = Request.Builder()
+                                        .url(vaultUrl)
+                                        .delete()
+                                        .header("Authorization", Credentials.basic(user, pass))
+                                        .build()
+                                    httpClient.newCall(deleteRequest).execute().use { }
+                                    Result.failure(IOException("Upload manifest failed (vault cleaned): HTTP ${manifestResponse.code}"))
                                 } else {
                                     Log.i(TAG, "Uploaded vault (${encryptedData.size} bytes) + manifest")
                                     Result.success(Unit)
@@ -265,8 +276,10 @@ class WebDavBackend(private val context: Context) : SyncBackend {
                             val body = response.body
                             // OOM protection: check content length before loading into memory
                             val contentLength = body?.contentLength() ?: -1
-                            if (contentLength > 50 * 1024 * 1024) {
-                                Result.failure(IOException("Vault too large ($contentLength bytes), max 50MB"))
+                            val MAX_VAULT_SIZE = 50 * 1024 * 1024 // 50MB
+                            if (contentLength > MAX_VAULT_SIZE || contentLength == -1L) {
+                                // Reject large files or unknown size (missing Content-Length header)
+                                Result.failure(IOException("Vault size unknown or too large ($contentLength bytes), max $MAX_VAULT_SIZE"))
                             } else {
                                 val data = body?.bytes()
                                 if (data != null) {
