@@ -39,6 +39,7 @@ import androidx.compose.ui.unit.sp
 import com.lockit.LockitApp
 import com.lockit.R
 import com.lockit.domain.model.CredentialType
+import com.lockit.domain.model.CodingPlanFields
 import com.lockit.domain.model.requiredFieldIndices
 import com.lockit.ui.components.BackButtonRow
 import com.lockit.ui.components.BrutalistButton
@@ -228,42 +229,42 @@ fun AddCredentialScreen(
                     fieldValues[i] = ""
                 }
 
-                // Fill in provider name (field 0)
+                // Fill in provider name
                 val provider = dataMap["provider"] ?: selectedAuthProvider
-                fieldValues[0] = provider
+                fieldValues[CodingPlanFields.PROVIDER] = provider
                 userEditedName = true
 
                 // Fill in credentials based on provider
                 when (provider) {
                     "qwen", "qwen_bailian" -> {
                         // Fill RAW_CURL
-                        fieldValues[1] = dataMap["rawCurl"] ?: ""
-                        // Fill API_KEY (direct assignment, not ?.let)
-                        fieldValues[2] = dataMap["apiKey"] ?: ""
+                        fieldValues[CodingPlanFields.RAW_CURL] = dataMap["rawCurl"] ?: ""
+                        // Fill API_KEY
+                        fieldValues[CodingPlanFields.API_KEY] = dataMap["apiKey"] ?: ""
                         // Fill COOKIE
-                        fieldValues[3] = dataMap["cookie"] ?: ""
+                        fieldValues[CodingPlanFields.COOKIE] = dataMap["cookie"] ?: ""
                         // Fill BASE_URL
-                        fieldValues[4] = dataMap["baseUrl"] ?: ""
+                        fieldValues[CodingPlanFields.BASE_URL] = dataMap["baseUrl"] ?: ""
                         // Store extra fields for metadata
                         authExtraData = dataMap
                         android.util.Log.d("AddCredential", "Bailian: apiKey=${if (dataMap["apiKey"]?.isNotBlank() == true) "OK" else "EMPTY"}")
-                        android.util.Log.d("AddCredential", "fieldValues after fill: provider=${fieldValues[0]}")
+                        android.util.Log.d("AddCredential", "fieldValues after fill: provider=${fieldValues[CodingPlanFields.PROVIDER]}")
                     }
                     "openai", "chatgpt" -> {
-                        // apiKey (accessToken) fills API_KEY field
-                        fieldValues[2] = dataMap["apiKey"] ?: ""
+                        // apiKey fills API_KEY field
+                        fieldValues[CodingPlanFields.API_KEY] = dataMap["apiKey"] ?: ""
                         // Fill BASE_URL
-                        fieldValues[4] = dataMap["baseUrl"] ?: ""
-                        // Store extra fields (accountId) for metadata
+                        fieldValues[CodingPlanFields.BASE_URL] = dataMap["baseUrl"] ?: ""
+                        // Store extra fields for metadata
                         authExtraData = dataMap
                         android.util.Log.d("AddCredential", "ChatGPT: apiKey=${if (dataMap["apiKey"]?.isNotBlank() == true) "OK" else "EMPTY"}")
                     }
                     "anthropic", "claude" -> {
-                        // apiKey (sessionKey) fills API_KEY field
-                        fieldValues[2] = dataMap["apiKey"] ?: ""
+                        // apiKey fills API_KEY field
+                        fieldValues[CodingPlanFields.API_KEY] = dataMap["apiKey"] ?: ""
                         // Fill BASE_URL
-                        fieldValues[4] = dataMap["baseUrl"] ?: ""
-                        // Store extra fields (orgId) for metadata
+                        fieldValues[CodingPlanFields.BASE_URL] = dataMap["baseUrl"] ?: ""
+                        // Store extra fields for metadata
                         authExtraData = dataMap
                         android.util.Log.d("AddCredential", "Claude: apiKey=${if (dataMap["apiKey"]?.isNotBlank() == true) "OK" else "EMPTY"}")
                     }
@@ -354,22 +355,22 @@ fun AddCredentialScreen(
 
     /** Auto-extract all fields from RAW_CURL for CodingPlan */
     fun handleRawCurlChange(value: String) {
-        fieldValues[1] = value
+        fieldValues[CodingPlanFields.RAW_CURL] = value
         if (selectedType == CredentialType.CodingPlan) {
-            // Extract cookie (index 3)
+            // Extract cookie
             val extractedCookie = extractCookieFromCurl(value)
             if (!userEditedCookie && extractedCookie.isNotBlank()) {
-                fieldValues[3] = extractedCookie
+                fieldValues[CodingPlanFields.COOKIE] = extractedCookie
             }
-            // Extract API key (index 2)
+            // Extract API key
             val extractedApiKey = extractApiKeyFromCurl(value)
             if (extractedApiKey.isNotBlank()) {
-                fieldValues[2] = extractedApiKey
+                fieldValues[CodingPlanFields.API_KEY] = extractedApiKey
             }
-            // Extract base URL (index 4)
+            // Extract base URL
             val extractedBaseUrl = extractBaseUrlFromCurl(value)
             if (extractedBaseUrl.isNotBlank()) {
-                fieldValues[4] = extractedBaseUrl
+                fieldValues[CodingPlanFields.BASE_URL] = extractedBaseUrl
             }
         }
     }

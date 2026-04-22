@@ -42,6 +42,7 @@ import androidx.compose.ui.platform.ClipboardManager
 import androidx.compose.ui.platform.LocalClipboardManager
 import com.lockit.domain.model.Credential
 import com.lockit.domain.model.CredentialType
+import com.lockit.domain.model.CodingPlanFields
 import com.lockit.ui.theme.IndustrialOrange
 import com.lockit.ui.theme.JetBrainsMonoFamily
 import com.lockit.ui.theme.Primary
@@ -148,7 +149,7 @@ fun extractSecretValue(type: CredentialType, value: String): String {
         CredentialType.IdCard, CredentialType.Note -> value
         CredentialType.CodingPlan -> {
             val fields = parseCredentialFields(value)
-            fields.getNotBlank(1) ?: fields.getNotBlank(2) ?: value
+            fields.getNotBlank(CodingPlanFields.RAW_CURL) ?: fields.getNotBlank(CodingPlanFields.API_KEY) ?: value
         }
         CredentialType.GitHub -> {
             val fields = parseCredentialFields(value)
@@ -450,8 +451,8 @@ private fun CredentialContent(
 
         CredentialType.CodingPlan -> {
             // CodingPlan: BASE_URL first, then API_KEY below
-            val apiKey = fields.getNotBlank(2) ?: CredentialDefaults.FIELD_NOT_SET
-            val baseUrl = fields.getNotBlank(4) ?: CredentialDefaults.FIELD_NOT_SET
+            val apiKey = fields.getNotBlank(CodingPlanFields.API_KEY) ?: CredentialDefaults.FIELD_NOT_SET
+            val baseUrl = fields.getNotBlank(CodingPlanFields.BASE_URL) ?: CredentialDefaults.FIELD_NOT_SET
 
             // BASE_URL - always visible, shown first at top
             FieldLabel("BASE_URL")
