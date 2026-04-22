@@ -17,6 +17,7 @@ import androidx.core.view.WindowInsetsCompat
 import com.lockit.domain.qwen.BailianAuthClient
 import com.lockit.domain.chatgpt.ChatGptAuthClient
 import com.lockit.domain.claude.ClaudeAuthClient
+import com.lockit.ui.components.DraggableFloatingButtons
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -85,30 +86,10 @@ class WebViewAuthActivity : Activity() {
             loadUrl(loginUrl)
         }
 
-        val backButton = android.widget.Button(this).apply {
-            text = "返回"
-            setBackgroundColor(android.graphics.Color.parseColor("#333333"))
-            setTextColor(android.graphics.Color.WHITE)
-            setOnClickListener {
-                webView?.goBack()
-            }
-        }
-
-        val closeButton = android.widget.Button(this).apply {
-            text = "关闭"
-            setBackgroundColor(android.graphics.Color.parseColor("#A30000"))
-            setTextColor(android.graphics.Color.WHITE)
-            setOnClickListener {
-                setResult(RESULT_CANCELED)
-                finish()
-            }
-        }
-
-        val resetButton = android.widget.Button(this).apply {
-            text = "重新登录"
-            setBackgroundColor(android.graphics.Color.parseColor("#666666"))
-            setTextColor(android.graphics.Color.WHITE)
-            setOnClickListener {
+        // Glassmorphism floating buttons - draggable overlay
+        val floatingButtons = DraggableFloatingButtons(
+            onBack = { webView?.goBack() },
+            onReset = {
                 CookieManager.getInstance().removeAllCookies(null)
                 CookieManager.getInstance().flush()
                 webView?.clearCache(true)
@@ -123,30 +104,20 @@ class WebViewAuthActivity : Activity() {
                 }
                 webView?.loadUrl(loginUrl)
                 android.widget.Toast.makeText(this@WebViewAuthActivity, "已清除登录数据", android.widget.Toast.LENGTH_SHORT).show()
+            },
+            onClose = {
+                setResult(RESULT_CANCELED)
+                finish()
             }
-        }
-
-        // Button container - vertical layout on right side center
-        val buttonContainer = android.widget.LinearLayout(this).apply {
-            orientation = android.widget.LinearLayout.VERTICAL
-            setPadding(8, 8, 8, 8)
-        }
-        buttonContainer.addView(backButton, android.widget.LinearLayout.LayoutParams(
-            android.widget.LinearLayout.LayoutParams.WRAP_CONTENT,
-            android.widget.LinearLayout.LayoutParams.WRAP_CONTENT
-        ).apply { setMargins(0, 0, 0, 8) })
-        buttonContainer.addView(resetButton, android.widget.LinearLayout.LayoutParams(
-            android.widget.LinearLayout.LayoutParams.WRAP_CONTENT,
-            android.widget.LinearLayout.LayoutParams.WRAP_CONTENT
-        ).apply { setMargins(0, 0, 0, 8) })
-        buttonContainer.addView(closeButton)
+        ).createView(this)
 
         val buttonLayout = FrameLayout.LayoutParams(
             FrameLayout.LayoutParams.WRAP_CONTENT,
             FrameLayout.LayoutParams.WRAP_CONTENT
         ).apply {
-            gravity = android.view.Gravity.RIGHT or android.view.Gravity.CENTER_VERTICAL
-            setMargins(0, 0, 16, 0)
+            // Default position: top-right with safe margin
+            gravity = android.view.Gravity.TOP or android.view.Gravity.RIGHT
+            setMargins(16, 80, 16, 0)
         }
 
         val webViewLayout = FrameLayout.LayoutParams(
@@ -155,7 +126,7 @@ class WebViewAuthActivity : Activity() {
         )
 
         rootView.addView(webView, webViewLayout)
-        rootView.addView(buttonContainer, buttonLayout)
+        rootView.addView(floatingButtons, buttonLayout)
 
         // Apply window insets - WebView needs to avoid status bar and navigation bar
         ViewCompat.setOnApplyWindowInsetsListener(rootView) { view, insets ->
