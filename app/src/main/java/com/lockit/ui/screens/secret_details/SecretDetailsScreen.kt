@@ -109,18 +109,28 @@ fun SecretDetailsScreen(
                 }
                 // Update credential with new auth data
                 scope.launch {
-                    app.vaultManager.updateCredential(
-                        id = credential!!.id,
-                        name = credential!!.name,
-                        type = credential!!.type,
-                        service = credential!!.service,
-                        key = credential!!.key,
-                        value = credential!!.value,
-                        metadata = newMetadata.toString(),
-                    )
-                    // Reload credential
-                    credential = app.vaultManager.getCredentialById(credentialId)
-                    toastMessage = "AUTH_REFRESHED: ${credential!!.name}"
+                    val currentCred = credential
+                    if (currentCred != null) {
+                        // Serialize metadata as proper JSON (not Map.toString())
+                        val metadataJson = JSONObject(newMetadata as Map<*, *>).toString()
+                        // Reconstruct value string to keep UI in sync with metadata
+                        val provider = newMetadata["provider"] ?: ""
+                        val apiKey = newMetadata["apiKey"] ?: ""
+                        val baseUrl = newMetadata["baseUrl"] ?: ""
+                        val newValue = "$provider // $apiKey // ${currentCred.key} // $baseUrl"
+                        app.vaultManager.updateCredential(
+                            id = currentCred.id,
+                            name = currentCred.name,
+                            type = currentCred.type,
+                            service = currentCred.service,
+                            key = currentCred.key,
+                            value = newValue,
+                            metadata = metadataJson,
+                        )
+                        // Reload credential
+                        credential = app.vaultManager.getCredentialById(credentialId)
+                        toastMessage = "AUTH_REFRESHED: ${credential?.name ?: "UNKNOWN"}"
+                    }
                 }
             }
         } else if (result.resultCode == WebViewAuthActivity.RESULT_FAILED) {
