@@ -76,6 +76,7 @@ interface TeamDao {
     @Transaction
     suspend fun clearAllTeamData(teamId: String) {
         deleteAllSharedCredentials(teamId)
+        clearMembers(teamId)
         deleteTeamById(teamId)
     }
 }

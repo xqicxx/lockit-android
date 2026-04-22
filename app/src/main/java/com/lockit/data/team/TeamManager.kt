@@ -56,6 +56,16 @@ class TeamManager(
             val entity = TeamEntity.fromTeam(team, memberId)
             teamDao.insertTeam(entity)
 
+            // Persist the local member into team_members table
+            val memberEntity = TeamMemberEntity(
+                id = memberId,
+                teamId = teamId,
+                name = android.os.Build.MODEL,
+                role = TeamRole.ADMIN.name,
+                joinedAt = now.toEpochMilli()
+            )
+            teamDao.insertMember(memberEntity)
+
             // Audit log
             auditLogger.logTeamCreated(teamId, name)
 
@@ -108,6 +118,16 @@ class TeamManager(
 
             val entity = TeamEntity.fromTeam(team, memberId)
             teamDao.insertTeam(entity)
+
+            // Persist the local member into team_members table
+            val memberEntity = TeamMemberEntity(
+                id = memberId,
+                teamId = teamId,
+                name = android.os.Build.MODEL,
+                role = TeamRole.MEMBER.name,
+                joinedAt = now.toEpochMilli()
+            )
+            teamDao.insertMember(memberEntity)
 
             auditLogger.logTeamJoined(teamId)
 
