@@ -353,4 +353,5 @@
     <string name="auth_qwen_bailian">百炼千问</string>
     <string name="auth_chatgpt">ChatGPT</string>
     <string name="auth_claude">Claude</string>
+    <string name="toast_credential_error">凭证获取失败</string>
 </resources>
