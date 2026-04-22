@@ -159,7 +159,7 @@ class VaultManager(
         }
 
         // Use SQL LIKE for reactive filtering, then apply fuzzy matching
-        return dao.search(query).map { candidates ->
+        return dao.search(normalizedQuery).map { candidates ->
             val masterKey = requireMasterKey()
 
             // Apply fuzzy matching on LIKE candidates
