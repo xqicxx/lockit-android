@@ -18,7 +18,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
@@ -36,8 +35,9 @@ import com.lockit.R
 import kotlin.math.roundToInt
 
 /**
- * Draggable floating button container with left/right snap toggle.
- * Uses MATCH_PARENT with touch passthrough for proper drag support.
+ * Draggable floating button container.
+ * Uses MATCH_PARENT to cover full screen for drag support.
+ * Initial position: right side, middle of screen.
  */
 class DraggableFloatingButtons(
     private val onBack: () -> Unit,
@@ -66,103 +66,90 @@ private fun FloatingButtonsContent(
     val screenWidthPx = with(density) { configuration.screenWidthDp.dp.toPx() }
     val screenHeightPx = with(density) { configuration.screenHeightDp.dp.toPx() }
 
-    // Button size estimates
-    val buttonWidthPx = remember { mutableStateOf(100f) }
-    val buttonHeightPx = remember { mutableStateOf(104f) }
+    // Button dimensions (measured after layout)
+    val buttonWidthPx = remember { mutableStateOf(200f) }
+    val buttonHeightPx = remember { mutableStateOf(120f) }
 
-    // Initialization flag
-    val isInitialized = remember { mutableStateOf(false) }
+    // Initial position: right edge, middle of screen
+    val offsetX = remember { mutableStateOf(screenWidthPx - buttonWidthPx.value - 32f) }
+    val offsetY = remember { mutableStateOf(screenHeightPx / 2f) }
 
-    // Left/right side toggle
+    // Left/right snap toggle
     val isOnRight = remember { mutableStateOf(true) }
-
-    // Position: relative offset from gravity anchor (TOP|END)
-    // offsetX: 0 = right edge, negative = moves left
-    // offsetY: 0 = top margin, positive = moves down
-    // Initialize near gravity anchor position so onGloballyPositioned fires
-    val offsetX = remember { mutableStateOf(0f) }
-    val offsetY = remember { mutableStateOf(0f) }  // Start at top margin position
-
-    fun safeCoerceIn(value: Float, min: Float, max: Float): Float {
-        return if (min <= max) value.coerceIn(min, max) else value
-    }
 
     fun snapToSide(right: Boolean) {
         isOnRight.value = right
         val btnW = buttonWidthPx.value
-        offsetX.value = if (right) 0f else -(screenWidthPx - btnW - 32f)
+        offsetX.value = if (right) screenWidthPx - btnW - 32f else 32f
     }
 
-    // Button container - positioned relative to gravity anchor
+    // Transparent full-screen container for touch passthrough
     Box(
         modifier = Modifier
-            .onGloballyPositioned { coordinates ->
-                buttonWidthPx.value = coordinates.size.width.toFloat()
-                buttonHeightPx.value = coordinates.size.height.toFloat()
-                if (!isInitialized.value) {
-                    isInitialized.value = true
-                    // Center Y position after measurement
-                    offsetY.value = screenHeightPx / 2 - coordinates.size.height / 2 - 100f
-                }
-            }
-            // Only apply offset after initialization to ensure onGloballyPositioned fires
-            .offset {
-                if (isInitialized.value) {
-                    IntOffset(offsetX.value.roundToInt(), offsetY.value.roundToInt())
-                } else {
-                    IntOffset.Zero  // Start at gravity anchor position
-                }
-            }
-            .pointerInput(configuration.screenWidthDp, configuration.screenHeightDp) {
-                detectDragGestures { change, dragAmount ->
-                    change.consume()
-                    val btnW = buttonWidthPx.value
-                    val btnH = buttonHeightPx.value
-                    val newX = offsetX.value + dragAmount.x
-                    val newY = offsetY.value + dragAmount.y
-                    // Clamp: X from 0 (right) to -(screenWidth-btnW-32) (left)
-                    offsetX.value = safeCoerceIn(newX, -(screenWidthPx - btnW - 32f), 0f)
-                    offsetY.value = safeCoerceIn(newY, 0f, screenHeightPx - btnH - 100f)
-                }
-            }
-            .visibleBackground()
-            .padding(8.dp)
+            .fillMaxSize()
+            .background(Color.Transparent)
     ) {
-        Column {
-            Row {
-                VisibleButton(
-                    iconRes = R.drawable.ic_swap_horiz,
-                    contentDescription = "切换位置",
-                    onClick = { snapToSide(!isOnRight.value) },
-                    backgroundColor = Color(0x80B34700),
-                    iconColor = Color.White
-                )
-                Spacer(modifier = Modifier.width(4.dp))
-                VisibleButton(
-                    iconRes = R.drawable.ic_arrow_back,
-                    contentDescription = "返回",
-                    onClick = onBack,
-                    backgroundColor = Color(0x80111111),
-                    iconColor = Color.White
-                )
-            }
-            Spacer(modifier = Modifier.padding(4.dp))
-            Row {
-                VisibleButton(
-                    iconRes = R.drawable.ic_refresh,
-                    contentDescription = "重新登录",
-                    onClick = onReset,
-                    backgroundColor = Color(0x80B34700),
-                    iconColor = Color.White
-                )
-                Spacer(modifier = Modifier.width(4.dp))
-                VisibleButton(
-                    iconRes = R.drawable.ic_close,
-                    contentDescription = "关闭",
-                    onClick = onClose,
-                    backgroundColor = Color(0x80A30000),
-                    iconColor = Color.White
-                )
+        // Button container - positioned inside the full-screen overlay
+        Box(
+            modifier = Modifier
+                .onGloballyPositioned { coordinates ->
+                    buttonWidthPx.value = coordinates.size.width.toFloat()
+                    buttonHeightPx.value = coordinates.size.height.toFloat()
+                    // Adjust initial position after first measurement
+                    if (offsetX.value > screenWidthPx - coordinates.size.width - 32f) {
+                        offsetX.value = screenWidthPx - coordinates.size.width - 32f
+                    }
+                }
+                .offset { IntOffset(offsetX.value.roundToInt(), offsetY.value.roundToInt()) }
+                .pointerInput(Unit) {
+                    detectDragGestures { change, dragAmount ->
+                        change.consume()
+                        val newX = offsetX.value + dragAmount.x
+                        val newY = offsetY.value + dragAmount.y
+                        // Clamp to screen bounds
+                        offsetX.value = newX.coerceIn(0f, screenWidthPx - buttonWidthPx.value)
+                        offsetY.value = newY.coerceIn(0f, screenHeightPx - buttonHeightPx.value)
+                    }
+                }
+                .visibleBackground()
+                .padding(8.dp)
+        ) {
+            Column {
+                Row {
+                    VisibleButton(
+                        iconRes = R.drawable.ic_swap_horiz,
+                        contentDescription = "切换位置",
+                        onClick = { snapToSide(!isOnRight.value) },
+                        backgroundColor = Color(0x80B34700),
+                        iconColor = Color.White
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    VisibleButton(
+                        iconRes = R.drawable.ic_arrow_back,
+                        contentDescription = "返回",
+                        onClick = onBack,
+                        backgroundColor = Color(0x80111111),
+                        iconColor = Color.White
+                    )
+                }
+                Spacer(modifier = Modifier.padding(4.dp))
+                Row {
+                    VisibleButton(
+                        iconRes = R.drawable.ic_refresh,
+                        contentDescription = "重新登录",
+                        onClick = onReset,
+                        backgroundColor = Color(0x80B34700),
+                        iconColor = Color.White
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    VisibleButton(
+                        iconRes = R.drawable.ic_close,
+                        contentDescription = "关闭",
+                        onClick = onClose,
+                        backgroundColor = Color(0x80A30000),
+                        iconColor = Color.White
+                    )
+                }
             }
         }
     }

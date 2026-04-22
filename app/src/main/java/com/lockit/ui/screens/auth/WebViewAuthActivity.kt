@@ -112,14 +112,11 @@ class WebViewAuthActivity : ComponentActivity() {
             }
         ).createView(this)
 
-        // WRAP_CONTENT with gravity - simpler and works
+        // MATCH_PARENT to allow full-screen drag
         val buttonLayout = FrameLayout.LayoutParams(
-            FrameLayout.LayoutParams.WRAP_CONTENT,
-            FrameLayout.LayoutParams.WRAP_CONTENT
-        ).apply {
-            gravity = android.view.Gravity.TOP or android.view.Gravity.END
-            setMargins(16, 100, 16, 0)
-        }
+            FrameLayout.LayoutParams.MATCH_PARENT,
+            FrameLayout.LayoutParams.MATCH_PARENT
+        )
 
         val webViewLayout = FrameLayout.LayoutParams(
             FrameLayout.LayoutParams.MATCH_PARENT,

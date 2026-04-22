@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import com.lockit.utils.SearchMatcher
 import java.time.Instant
 
@@ -144,11 +145,15 @@ class VaultManager(
     }
 
     suspend fun getCredentialById(id: String): Credential? {
-        val masterKey = requireMasterKey()
-        val entity = dao.getById(id) ?: return null
-        val credential = decryptCredential(entity, masterKey)
-        auditLogger.log("CREDENTIAL_VIEWED", "${credential.name} - details accessed", AuditSeverity.Info)
-        return credential
+        return withContext(Dispatchers.IO) {
+            val masterKey = requireMasterKey()
+            val entity = dao.getById(id)
+            if (entity == null) null else {
+                val credential = decryptCredential(entity, masterKey)
+                auditLogger.log("CREDENTIAL_VIEWED", "${credential.name} - details accessed", AuditSeverity.Info)
+                credential
+            }
+        }
     }
 
     fun searchCredentials(query: String): Flow<List<Credential>> {
