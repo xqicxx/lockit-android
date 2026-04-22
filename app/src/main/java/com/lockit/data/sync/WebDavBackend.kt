@@ -88,6 +88,11 @@ class WebDavBackend(private val context: Context) : SyncBackend {
             return Result.failure(IllegalArgumentException("Missing required credentials: serverUrl, username, password"))
         }
 
+        // Security: Enforce HTTPS to protect credentials
+        if (!url.startsWith("https://", ignoreCase = true)) {
+            return Result.failure(SecurityException("HTTPS is required for WebDAV sync to protect credentials"))
+        }
+
         val normalizedUrl = url.trimEnd('/')
 
         synchronized(this) {
@@ -257,12 +262,19 @@ class WebDavBackend(private val context: Context) : SyncBackend {
 
                     httpClient.newCall(request).execute().use { response ->
                         if (response.isSuccessful) {
-                            val data = response.body?.bytes()
-                            if (data != null) {
-                                Log.i(TAG, "Downloaded vault: ${data.size} bytes")
-                                Result.success(data)
+                            val body = response.body
+                            // OOM protection: check content length before loading into memory
+                            val contentLength = body?.contentLength() ?: -1
+                            if (contentLength > 50 * 1024 * 1024) {
+                                Result.failure(IOException("Vault too large ($contentLength bytes), max 50MB"))
                             } else {
-                                Result.failure(IOException("Empty response body"))
+                                val data = body?.bytes()
+                                if (data != null) {
+                                    Log.i(TAG, "Downloaded vault: ${data.size} bytes")
+                                    Result.success(data)
+                                } else {
+                                    Result.failure(IOException("Empty response body"))
+                                }
                             }
                         } else if (response.code == 404) {
                             Result.failure(IOException("No vault.enc in cloud"))
@@ -435,7 +447,8 @@ class WebDavBackend(private val context: Context) : SyncBackend {
     }
 
     private fun parseETag(xmlResponse: String): String? {
-        val etagPattern = Regex("<getetag>([^<]+)</getetag>", RegexOption.IGNORE_CASE)
+        // Handle XML namespaces like <d:getetag> (Nextcloud, Seafile, etc.)
+        val etagPattern = Regex("<(?:\\w+:)?getetag>([^<]+)</(?:\\w+:)?getetag>", RegexOption.IGNORE_CASE)
         return etagPattern.find(xmlResponse)?.groupValues?.getOrNull(1)?.trim('"')
     }
 
