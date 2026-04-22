@@ -66,99 +66,103 @@ private fun FloatingButtonsContent(
     val screenWidthPx = with(density) { configuration.screenWidthDp.dp.toPx() }
     val screenHeightPx = with(density) { configuration.screenHeightDp.dp.toPx() }
 
-    // Actual measured button size
-    val buttonWidthPx = remember { mutableStateOf(100f) } // Default estimate
-    val buttonHeightPx = remember { mutableStateOf(104f) } // Default estimate (40+40+4+8+8)
+    // Button size estimates
+    val buttonWidthPx = remember { mutableStateOf(100f) }
+    val buttonHeightPx = remember { mutableStateOf(104f) }
 
     // Initialization flag
     val isInitialized = remember { mutableStateOf(false) }
 
-    // Left/right side toggle state
+    // Left/right side toggle
     val isOnRight = remember { mutableStateOf(true) }
 
-    // Position: absolute screen coordinates (start with estimated visible position)
-    val offsetX = remember { mutableStateOf(screenWidthPx - 120f) }
-    val offsetY = remember { mutableStateOf(screenHeightPx / 2 - 60f) }
+    // Position: relative offset from gravity anchor (TOP|END)
+    // offsetX: 0 = right edge, negative = moves left
+    // offsetY: 0 = top margin, positive = moves down
+    // Initialize near gravity anchor position so onGloballyPositioned fires
+    val offsetX = remember { mutableStateOf(0f) }
+    val offsetY = remember { mutableStateOf(0f) }  // Start at top margin position
 
-    // Safe coerceIn
     fun safeCoerceIn(value: Float, min: Float, max: Float): Float {
         return if (min <= max) value.coerceIn(min, max) else value
     }
 
-    // Snap to side function
     fun snapToSide(right: Boolean) {
         isOnRight.value = right
         val btnW = buttonWidthPx.value
-        offsetX.value = if (right) safeCoerceIn(screenWidthPx - btnW - 16f, 0f, screenWidthPx) else 16f
+        offsetX.value = if (right) 0f else -(screenWidthPx - btnW - 32f)
     }
 
-    // Full-screen container
-    Box(modifier = Modifier.fillMaxSize()) {
-        Box(
-            modifier = Modifier
-                .onGloballyPositioned { coordinates ->
-                    val w = coordinates.size.width.toFloat()
-                    val h = coordinates.size.height.toFloat()
-                    buttonWidthPx.value = w
-                    buttonHeightPx.value = h
-                    // Initialize position on first measure
-                    if (!isInitialized.value) {
-                        isInitialized.value = true
-                        offsetX.value = screenWidthPx - w - 16f
-                        offsetY.value = screenHeightPx / 2 - h / 2
-                    }
+    // Button container - positioned relative to gravity anchor
+    Box(
+        modifier = Modifier
+            .onGloballyPositioned { coordinates ->
+                buttonWidthPx.value = coordinates.size.width.toFloat()
+                buttonHeightPx.value = coordinates.size.height.toFloat()
+                if (!isInitialized.value) {
+                    isInitialized.value = true
+                    // Center Y position after measurement
+                    offsetY.value = screenHeightPx / 2 - coordinates.size.height / 2 - 100f
                 }
-                .offset { IntOffset(offsetX.value.roundToInt(), offsetY.value.roundToInt()) }
-                .pointerInput(configuration.screenWidthDp, configuration.screenHeightDp) {
-                    detectDragGestures { change, dragAmount ->
-                        change.consume()
-                        val btnW = buttonWidthPx.value
-                        val btnH = buttonHeightPx.value
-                        val newX = offsetX.value + dragAmount.x
-                        val newY = offsetY.value + dragAmount.y
-                        offsetX.value = safeCoerceIn(newX, 0f, screenWidthPx - btnW)
-                        offsetY.value = safeCoerceIn(newY, 50f, screenHeightPx - btnH - 50f)
-                    }
+            }
+            // Only apply offset after initialization to ensure onGloballyPositioned fires
+            .offset {
+                if (isInitialized.value) {
+                    IntOffset(offsetX.value.roundToInt(), offsetY.value.roundToInt())
+                } else {
+                    IntOffset.Zero  // Start at gravity anchor position
                 }
-                .visibleBackground()
-                .padding(8.dp)
-        ) {
-            Column {
-                Row {
-                    VisibleButton(
-                        iconRes = R.drawable.ic_swap_horiz,
-                        contentDescription = "切换位置",
-                        onClick = { snapToSide(!isOnRight.value) },
-                        backgroundColor = Color(0x80B34700),
-                        iconColor = Color.White
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    VisibleButton(
-                        iconRes = R.drawable.ic_arrow_back,
-                        contentDescription = "返回",
-                        onClick = onBack,
-                        backgroundColor = Color(0x80111111),
-                        iconColor = Color.White
-                    )
+            }
+            .pointerInput(configuration.screenWidthDp, configuration.screenHeightDp) {
+                detectDragGestures { change, dragAmount ->
+                    change.consume()
+                    val btnW = buttonWidthPx.value
+                    val btnH = buttonHeightPx.value
+                    val newX = offsetX.value + dragAmount.x
+                    val newY = offsetY.value + dragAmount.y
+                    // Clamp: X from 0 (right) to -(screenWidth-btnW-32) (left)
+                    offsetX.value = safeCoerceIn(newX, -(screenWidthPx - btnW - 32f), 0f)
+                    offsetY.value = safeCoerceIn(newY, 0f, screenHeightPx - btnH - 100f)
                 }
-                Spacer(modifier = Modifier.padding(4.dp))
-                Row {
-                    VisibleButton(
-                        iconRes = R.drawable.ic_refresh,
-                        contentDescription = "重新登录",
-                        onClick = onReset,
-                        backgroundColor = Color(0x80B34700),
-                        iconColor = Color.White
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    VisibleButton(
-                        iconRes = R.drawable.ic_close,
-                        contentDescription = "关闭",
-                        onClick = onClose,
-                        backgroundColor = Color(0x80A30000),
-                        iconColor = Color.White
-                    )
-                }
+            }
+            .visibleBackground()
+            .padding(8.dp)
+    ) {
+        Column {
+            Row {
+                VisibleButton(
+                    iconRes = R.drawable.ic_swap_horiz,
+                    contentDescription = "切换位置",
+                    onClick = { snapToSide(!isOnRight.value) },
+                    backgroundColor = Color(0x80B34700),
+                    iconColor = Color.White
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                VisibleButton(
+                    iconRes = R.drawable.ic_arrow_back,
+                    contentDescription = "返回",
+                    onClick = onBack,
+                    backgroundColor = Color(0x80111111),
+                    iconColor = Color.White
+                )
+            }
+            Spacer(modifier = Modifier.padding(4.dp))
+            Row {
+                VisibleButton(
+                    iconRes = R.drawable.ic_refresh,
+                    contentDescription = "重新登录",
+                    onClick = onReset,
+                    backgroundColor = Color(0x80B34700),
+                    iconColor = Color.White
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                VisibleButton(
+                    iconRes = R.drawable.ic_close,
+                    contentDescription = "关闭",
+                    onClick = onClose,
+                    backgroundColor = Color(0x80A30000),
+                    iconColor = Color.White
+                )
             }
         }
     }
