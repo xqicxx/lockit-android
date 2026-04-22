@@ -843,14 +843,12 @@ fun ConfigScreen(
                                                 emptyList()  // Return empty on error, handled below
                                             }
                                         }
-                                        if (credentials.isEmpty()) {
-                                            // Could be vault locked or genuinely empty
-                                            if (!app.vaultManager.isUnlocked()) {
-                                                toastMessage = context.getString(R.string.toast_vault_locked)
-                                            }
-                                            // Don't proceed with update check, let finally reset state
+                                        // Empty vault is OK - GitHub token is optional for public repos
+                                        // Only block if vault is actually locked
+                                        if (!app.vaultManager.isUnlocked()) {
+                                            toastMessage = context.getString(R.string.toast_vault_locked)
                                         } else {
-                                            // Read GitHub Token from vault (optional - public repos don't need it)
+                                            // Proceed with update check (token will be null for empty vault)
                                             val tokenCredential = credentials.find { it.name == githubTokenCredentialName }
 
                                             // Token is optional - public repos work without it
@@ -865,8 +863,10 @@ fun ConfigScreen(
                                                 }
                                                 parsedToken
                                             } else {
-                                                // Token credential not found in vault
-                                                tokenDiagnostic = context.getString(R.string.toast_token_not_found)
+                                                // Token credential not found in vault - OK for public repos
+                                                if (credentials.isNotEmpty()) {
+                                                    tokenDiagnostic = context.getString(R.string.toast_token_not_found)
+                                                }
                                                 null
                                             }
 
