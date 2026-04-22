@@ -650,12 +650,28 @@ fun AddCredentialScreen(
                                     val baseUrl = getField(4).takeIf { it.isNotBlank() }
                                         ?: extractBaseUrlFromCurl(rawCurl)
 
-                                    // Save to SharedPreferences for immediate prefetch
-                                    com.lockit.data.vault.CodingPlanPrefs.save(
+                                    // Save to SharedPreferences for immediate prefetch with correct fields per provider
+                                    // Note: cookie field stores user's manual edits for accountId/orgId
+                                    // We prioritize manual edits over WebView-extracted data
+                                    val prefsData: Map<String, String> = when (provider) {
+                                        "qwen", "qwen_bailian" -> mapOf(
+                                            "cookie" to cookie,
+                                            "api_key" to (apiKey ?: ""),
+                                        )
+                                        "openai", "chatgpt" -> mapOf(
+                                            "accessToken" to (apiKey ?: ""),
+                                            "accountId" to (cookie.ifBlank { authExtraData["accountId"] ?: "" }),
+                                        )
+                                        "anthropic", "claude" -> mapOf(
+                                            "sessionKey" to (apiKey ?: ""),
+                                            "orgId" to (cookie.ifBlank { authExtraData["orgId"] ?: "" }),
+                                        )
+                                        else -> mapOf("api_key" to (apiKey ?: ""))
+                                    }
+                                    com.lockit.data.vault.CodingPlanPrefs.saveProviderData(
                                         context = app,
                                         provider = provider,
-                                        cookie = cookie,
-                                        apiKey = apiKey ?: "",
+                                        data = prefsData,
                                     )
 
                                     // Build metadata based on provider type (include authExtraData)
