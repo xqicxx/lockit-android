@@ -2,6 +2,8 @@ package com.lockit.data.sync
 
 import android.content.Context
 import android.util.Log
+import androidx.security.crypto.EncryptedSharedPreferences
+import androidx.security.crypto.MasterKey
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.Credentials
@@ -22,6 +24,7 @@ import java.time.Instant
  * - /lockit-sync/manifest.json ← sync metadata
  *
  * Uses optimistic locking with ETag/If-Match for conflict detection.
+ * Credentials stored in EncryptedSharedPreferences for security.
  */
 class WebDavBackend(private val context: Context) : SyncBackend {
 
@@ -43,14 +46,31 @@ class WebDavBackend(private val context: Context) : SyncBackend {
         private val BINARY_MEDIA = "application/octet-stream".toMediaType()
     }
 
+    @Volatile
     private var client: OkHttpClient? = null
+    @Volatile
     private var serverUrl: String? = null
+    @Volatile
     private var username: String? = null
+    @Volatile
     private var password: String? = null
+    @Volatile
     private var basePath: String? = null
 
+    private val masterKey by lazy {
+        MasterKey.Builder(context)
+            .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+            .build()
+    }
+
     private val prefs by lazy {
-        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        EncryptedSharedPreferences.create(
+            context,
+            PREFS_NAME,
+            masterKey,
+            EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+            EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+        )
     }
 
     override suspend fun isConfigured(): Boolean {
@@ -70,16 +90,17 @@ class WebDavBackend(private val context: Context) : SyncBackend {
 
         val normalizedUrl = url.trimEnd('/')
 
-        client = OkHttpClient.Builder()
-            .connectTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
-            .readTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
-            .writeTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
-            .build()
-
-        serverUrl = normalizedUrl
-        username = user
-        password = pass
-        basePath = path
+        synchronized(this) {
+            client = OkHttpClient.Builder()
+                .connectTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+                .readTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
+                .writeTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
+                .build()
+            serverUrl = normalizedUrl
+            username = user
+            password = pass
+            basePath = path
+        }
 
         return withContext(Dispatchers.IO) {
             try {
@@ -91,24 +112,24 @@ class WebDavBackend(private val context: Context) : SyncBackend {
                     .header("Depth", "0")
                     .build()
 
-                val response = client!!.newCall(request).execute()
-
-                if (response.isSuccessful || response.code == 207) {
-                    saveCredentials(normalizedUrl, user, pass, path)
-                    Log.i(TAG, "WebDAV configured: $normalizedUrl$path")
-                    Result.success(Unit)
-                } else if (response.code == 404) {
-                    val createResult = createBaseFolderInternal()
-                    if (createResult.isSuccess) {
+                client!!.newCall(request).execute().use { response ->
+                    if (response.isSuccessful || response.code == 207) {
                         saveCredentials(normalizedUrl, user, pass, path)
+                        Log.i(TAG, "WebDAV configured: $normalizedUrl$path")
                         Result.success(Unit)
+                    } else if (response.code == 404) {
+                        val createResult = createBaseFolderInternal()
+                        if (createResult.isSuccess) {
+                            saveCredentials(normalizedUrl, user, pass, path)
+                            Result.success(Unit)
+                        } else {
+                            Result.failure(IOException("Failed to create folder: ${createResult.exceptionOrNull()?.message}"))
+                        }
+                    } else if (response.code == 401) {
+                        Result.failure(IOException("Authentication failed: invalid username or password"))
                     } else {
-                        Result.failure(IOException("Failed to create folder: ${createResult.exceptionOrNull()?.message}"))
+                        Result.failure(IOException("WebDAV connection failed: HTTP ${response.code}"))
                     }
-                } else if (response.code == 401) {
-                    Result.failure(IOException("Authentication failed: invalid username or password"))
-                } else {
-                    Result.failure(IOException("WebDAV connection failed: HTTP ${response.code}"))
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "WebDAV configure failed: ${e.message}")
@@ -129,20 +150,29 @@ class WebDavBackend(private val context: Context) : SyncBackend {
     private suspend fun createBaseFolderInternal(): Result<Unit> {
         return withContext(Dispatchers.IO) {
             try {
-                val url = "$serverUrl$basePath"
-                val request = Request.Builder()
-                    .url(url)
-                    .method("MKCOL", null)
-                    .header("Authorization", Credentials.basic(username!!, password!!))
-                    .build()
+                val url = serverUrl
+                val path = basePath ?: DEFAULT_BASE_PATH
+                val user = username
+                val pass = password
+                val httpClient = client
 
-                val response = client!!.newCall(request).execute()
-
-                if (response.isSuccessful || response.code == 201) {
-                    Log.i(TAG, "Created WebDAV folder: $url")
-                    Result.success(Unit)
+                if (url == null || user == null || pass == null || httpClient == null) {
+                    Result.failure(IOException("Credentials not configured"))
                 } else {
-                    Result.failure(IOException("MKCOL failed: HTTP ${response.code}"))
+                    val request = Request.Builder()
+                        .url("$url$path")
+                        .method("MKCOL", null)
+                        .header("Authorization", Credentials.basic(user, pass))
+                        .build()
+
+                    httpClient.newCall(request).execute().use { response ->
+                        if (response.isSuccessful || response.code == 201) {
+                            Log.i(TAG, "Created WebDAV folder: $url$path")
+                            Result.success(Unit)
+                        } else {
+                            Result.failure(IOException("MKCOL failed: HTTP ${response.code}"))
+                        }
+                    }
                 }
             } catch (e: Exception) {
                 Result.failure(e)
@@ -158,31 +188,43 @@ class WebDavBackend(private val context: Context) : SyncBackend {
 
         return withContext(Dispatchers.IO) {
             try {
-                val vaultUrl = "$serverUrl$basePath/$VAULT_FILE"
-                val vaultRequest = Request.Builder()
-                    .url(vaultUrl)
-                    .put(encryptedData.toRequestBody(BINARY_MEDIA))
-                    .header("Authorization", Credentials.basic(username!!, password!!))
-                    .build()
+                val url = serverUrl
+                val path = basePath ?: DEFAULT_BASE_PATH
+                val user = username
+                val pass = password
+                val httpClient = client
 
-                val vaultResponse = client!!.newCall(vaultRequest).execute()
-                if (!vaultResponse.isSuccessful) {
-                    Result.failure(IOException("Upload vault failed: HTTP ${vaultResponse.code}"))
+                if (url == null || user == null || pass == null || httpClient == null) {
+                    Result.failure(IOException("Credentials not configured"))
                 } else {
-                    val manifestUrl = "$serverUrl$basePath/$MANIFEST_FILE"
-                    val manifestJson = manifest.toJson()
-                    val manifestRequest = Request.Builder()
-                        .url(manifestUrl)
-                        .put(manifestJson.toByteArray(Charsets.UTF_8).toRequestBody(JSON_MEDIA))
-                        .header("Authorization", Credentials.basic(username!!, password!!))
+                    val vaultUrl = "$url$path/$VAULT_FILE"
+                    val vaultRequest = Request.Builder()
+                        .url(vaultUrl)
+                        .put(encryptedData.toRequestBody(BINARY_MEDIA))
+                        .header("Authorization", Credentials.basic(user, pass))
                         .build()
 
-                    val manifestResponse = client!!.newCall(manifestRequest).execute()
-                    if (!manifestResponse.isSuccessful) {
-                        Result.failure(IOException("Upload manifest failed: HTTP ${manifestResponse.code}"))
-                    } else {
-                        Log.i(TAG, "Uploaded vault ($encryptedData.size bytes) + manifest")
-                        Result.success(Unit)
+                    httpClient.newCall(vaultRequest).execute().use { vaultResponse ->
+                        if (!vaultResponse.isSuccessful) {
+                            Result.failure(IOException("Upload vault failed: HTTP ${vaultResponse.code}"))
+                        } else {
+                            val manifestUrl = "$url$path/$MANIFEST_FILE"
+                            val manifestJson = manifest.toJson()
+                            val manifestRequest = Request.Builder()
+                                .url(manifestUrl)
+                                .put(manifestJson.toByteArray(Charsets.UTF_8).toRequestBody(JSON_MEDIA))
+                                .header("Authorization", Credentials.basic(user, pass))
+                                .build()
+
+                            httpClient.newCall(manifestRequest).execute().use { manifestResponse ->
+                                if (!manifestResponse.isSuccessful) {
+                                    Result.failure(IOException("Upload manifest failed: HTTP ${manifestResponse.code}"))
+                                } else {
+                                    Log.i(TAG, "Uploaded vault (${encryptedData.size} bytes) + manifest")
+                                    Result.success(Unit)
+                                }
+                            }
+                        }
                     }
                 }
             } catch (e: Exception) {
@@ -197,27 +239,37 @@ class WebDavBackend(private val context: Context) : SyncBackend {
 
         return withContext(Dispatchers.IO) {
             try {
-                val vaultUrl = "$serverUrl$basePath/$VAULT_FILE"
-                val request = Request.Builder()
-                    .url(vaultUrl)
-                    .get()
-                    .header("Authorization", Credentials.basic(username!!, password!!))
-                    .build()
+                val url = serverUrl
+                val path = basePath ?: DEFAULT_BASE_PATH
+                val user = username
+                val pass = password
+                val httpClient = client
 
-                val response = client!!.newCall(request).execute()
-
-                if (response.isSuccessful) {
-                    val data = response.body?.bytes()
-                    if (data != null) {
-                        Log.i(TAG, "Downloaded vault: ${data.size} bytes")
-                        Result.success(data)
-                    } else {
-                        Result.failure(IOException("Empty response body"))
-                    }
-                } else if (response.code == 404) {
-                    Result.failure(IOException("No vault.enc in cloud"))
+                if (url == null || user == null || pass == null || httpClient == null) {
+                    Result.failure(IOException("Credentials not configured"))
                 } else {
-                    Result.failure(IOException("Download failed: HTTP ${response.code}"))
+                    val vaultUrl = "$url$path/$VAULT_FILE"
+                    val request = Request.Builder()
+                        .url(vaultUrl)
+                        .get()
+                        .header("Authorization", Credentials.basic(user, pass))
+                        .build()
+
+                    httpClient.newCall(request).execute().use { response ->
+                        if (response.isSuccessful) {
+                            val data = response.body?.bytes()
+                            if (data != null) {
+                                Log.i(TAG, "Downloaded vault: ${data.size} bytes")
+                                Result.success(data)
+                            } else {
+                                Result.failure(IOException("Empty response body"))
+                            }
+                        } else if (response.code == 404) {
+                            Result.failure(IOException("No vault.enc in cloud"))
+                        } else {
+                            Result.failure(IOException("Download failed: HTTP ${response.code}"))
+                        }
+                    }
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Download failed: ${e.message}")
@@ -231,28 +283,38 @@ class WebDavBackend(private val context: Context) : SyncBackend {
 
         return withContext(Dispatchers.IO) {
             try {
-                val manifestUrl = "$serverUrl$basePath/$MANIFEST_FILE"
-                val request = Request.Builder()
-                    .url(manifestUrl)
-                    .get()
-                    .header("Authorization", Credentials.basic(username!!, password!!))
-                    .build()
+                val url = serverUrl
+                val path = basePath ?: DEFAULT_BASE_PATH
+                val user = username
+                val pass = password
+                val httpClient = client
 
-                val response = client!!.newCall(request).execute()
-
-                if (response.isSuccessful) {
-                    val json = response.body?.string()
-                    if (json != null) {
-                        val manifest = SyncManifest.fromJson(json)
-                        Log.i(TAG, "Got manifest: checksum=${manifest.vaultChecksum}")
-                        Result.success(manifest)
-                    } else {
-                        Result.success(null)
-                    }
-                } else if (response.code == 404) {
-                    Result.success(null)
+                if (url == null || user == null || pass == null || httpClient == null) {
+                    Result.failure(IOException("Credentials not configured"))
                 } else {
-                    Result.failure(IOException("Get manifest failed: HTTP ${response.code}"))
+                    val manifestUrl = "$url$path/$MANIFEST_FILE"
+                    val request = Request.Builder()
+                        .url(manifestUrl)
+                        .get()
+                        .header("Authorization", Credentials.basic(user, pass))
+                        .build()
+
+                    httpClient.newCall(request).execute().use { response ->
+                        if (response.isSuccessful) {
+                            val json = response.body?.string()
+                            if (json != null) {
+                                val manifest = SyncManifest.fromJson(json)
+                                Log.i(TAG, "Got manifest: checksum=${manifest.vaultChecksum}")
+                                Result.success(manifest)
+                            } else {
+                                Result.success(null)
+                            }
+                        } else if (response.code == 404) {
+                            Result.success(null)
+                        } else {
+                            Result.failure(IOException("Get manifest failed: HTTP ${response.code}"))
+                        }
+                    }
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Get manifest failed: ${e.message}")
@@ -266,32 +328,42 @@ class WebDavBackend(private val context: Context) : SyncBackend {
 
         return withContext(Dispatchers.IO) {
             try {
-                val vaultUrl = "$serverUrl$basePath/$VAULT_FILE"
-                val vaultRequest = Request.Builder()
-                    .url(vaultUrl)
-                    .delete()
-                    .header("Authorization", Credentials.basic(username!!, password!!))
-                    .build()
-                client!!.newCall(vaultRequest).execute()
+                val url = serverUrl
+                val path = basePath ?: DEFAULT_BASE_PATH
+                val user = username
+                val pass = password
+                val httpClient = client
 
-                val manifestUrl = "$serverUrl$basePath/$MANIFEST_FILE"
-                val manifestRequest = Request.Builder()
-                    .url(manifestUrl)
-                    .delete()
-                    .header("Authorization", Credentials.basic(username!!, password!!))
-                    .build()
-                client!!.newCall(manifestRequest).execute()
+                if (url == null || user == null || pass == null || httpClient == null) {
+                    Result.failure(IOException("Credentials not configured"))
+                } else {
+                    // Delete vault.enc
+                    val vaultRequest = Request.Builder()
+                        .url("$url$path/$VAULT_FILE")
+                        .delete()
+                        .header("Authorization", Credentials.basic(user, pass))
+                        .build()
+                    httpClient.newCall(vaultRequest).execute().use { }
 
-                val folderUrl = "$serverUrl$basePath"
-                val folderRequest = Request.Builder()
-                    .url(folderUrl)
-                    .delete()
-                    .header("Authorization", Credentials.basic(username!!, password!!))
-                    .build()
-                client!!.newCall(folderRequest).execute()
+                    // Delete manifest.json
+                    val manifestRequest = Request.Builder()
+                        .url("$url$path/$MANIFEST_FILE")
+                        .delete()
+                        .header("Authorization", Credentials.basic(user, pass))
+                        .build()
+                    httpClient.newCall(manifestRequest).execute().use { }
 
-                Log.i(TAG, "Deleted all sync data")
-                Result.success(Unit)
+                    // Delete folder
+                    val folderRequest = Request.Builder()
+                        .url("$url$path")
+                        .delete()
+                        .header("Authorization", Credentials.basic(user, pass))
+                        .build()
+                    httpClient.newCall(folderRequest).execute().use { }
+
+                    Log.i(TAG, "Deleted all sync data")
+                    Result.success(Unit)
+                }
             } catch (e: Exception) {
                 Log.e(TAG, "Delete failed: ${e.message}")
                 Result.failure(e)
@@ -301,27 +373,31 @@ class WebDavBackend(private val context: Context) : SyncBackend {
 
     override suspend fun disconnect() {
         prefs.edit().clear().apply()
-        client = null
-        serverUrl = null
-        username = null
-        password = null
-        basePath = null
+        synchronized(this) {
+            client = null
+            serverUrl = null
+            username = null
+            password = null
+            basePath = null
+        }
         Log.i(TAG, "WebDAV disconnected")
     }
 
     private fun loadCredentials() {
-        if (serverUrl == null) {
-            serverUrl = prefs.getString(KEY_SERVER_URL, null)
-            username = prefs.getString(KEY_USERNAME, null)
-            password = prefs.getString(KEY_PASSWORD, null)
-            basePath = prefs.getString(KEY_BASE_PATH, DEFAULT_BASE_PATH)
+        synchronized(this) {
+            if (serverUrl == null) {
+                serverUrl = prefs.getString(KEY_SERVER_URL, null)
+                username = prefs.getString(KEY_USERNAME, null)
+                password = prefs.getString(KEY_PASSWORD, null)
+                basePath = prefs.getString(KEY_BASE_PATH, DEFAULT_BASE_PATH)
 
-            if (serverUrl != null && username != null && password != null) {
-                client = OkHttpClient.Builder()
-                    .connectTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
-                    .readTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
-                    .writeTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
-                    .build()
+                if (serverUrl != null && username != null && password != null) {
+                    client = OkHttpClient.Builder()
+                        .connectTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+                        .readTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
+                        .writeTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
+                        .build()
+                }
             }
         }
     }
@@ -331,17 +407,27 @@ class WebDavBackend(private val context: Context) : SyncBackend {
 
         return withContext(Dispatchers.IO) {
             try {
-                val vaultUrl = "$serverUrl$basePath/$VAULT_FILE"
-                val request = Request.Builder()
-                    .url(vaultUrl)
-                    .method("PROPFIND", null)
-                    .header("Authorization", Credentials.basic(username!!, password!!))
-                    .header("Depth", "0")
-                    .build()
+                val url = serverUrl
+                val path = basePath ?: DEFAULT_BASE_PATH
+                val user = username
+                val pass = password
+                val httpClient = client
 
-                val response = client!!.newCall(request).execute()
-                val body = response.body?.string()
-                body?.let { parseETag(it) }
+                if (url == null || user == null || pass == null || httpClient == null) {
+                    null
+                } else {
+                    val request = Request.Builder()
+                        .url("$url$path/$VAULT_FILE")
+                        .method("PROPFIND", null)
+                        .header("Authorization", Credentials.basic(user, pass))
+                        .header("Depth", "0")
+                        .build()
+
+                    httpClient.newCall(request).execute().use { response ->
+                        val body = response.body?.string()
+                        body?.let { parseETag(it) }
+                    }
+                }
             } catch (e: Exception) {
                 null
             }
@@ -362,25 +448,51 @@ class WebDavBackend(private val context: Context) : SyncBackend {
 
         return withContext(Dispatchers.IO) {
             try {
-                val vaultUrl = "$serverUrl$basePath/$VAULT_FILE"
+                val url = serverUrl
+                val path = basePath ?: DEFAULT_BASE_PATH
+                val user = username
+                val pass = password
+                val httpClient = client
 
-                val builder = Request.Builder()
-                    .url(vaultUrl)
-                    .put(encryptedData.toRequestBody(BINARY_MEDIA))
-                    .header("Authorization", Credentials.basic(username!!, password!!))
-
-                if (expectedETag != null) {
-                    builder.header("If-Match", "\"$expectedETag\"")
-                }
-
-                val response = client!!.newCall(builder.build()).execute()
-
-                if (response.isSuccessful) {
-                    uploadVault(encryptedData, manifest)
-                } else if (response.code == 412) {
-                    Result.failure(IOException("CONFLICT: ETag mismatch, another device modified the vault"))
+                if (url == null || user == null || pass == null || httpClient == null) {
+                    Result.failure(IOException("Credentials not configured"))
                 } else {
-                    Result.failure(IOException("Upload failed: HTTP ${response.code}"))
+                    val vaultUrl = "$url$path/$VAULT_FILE"
+
+                    val builder = Request.Builder()
+                        .url(vaultUrl)
+                        .put(encryptedData.toRequestBody(BINARY_MEDIA))
+                        .header("Authorization", Credentials.basic(user, pass))
+
+                    if (expectedETag != null) {
+                        builder.header("If-Match", "\"$expectedETag\"")
+                    }
+
+                    httpClient.newCall(builder.build()).execute().use { response ->
+                        if (response.isSuccessful) {
+                            // Vault uploaded with locking, now upload manifest separately
+                            val manifestUrl = "$url$path/$MANIFEST_FILE"
+                            val manifestJson = manifest.toJson()
+                            val manifestRequest = Request.Builder()
+                                .url(manifestUrl)
+                                .put(manifestJson.toByteArray(Charsets.UTF_8).toRequestBody(JSON_MEDIA))
+                                .header("Authorization", Credentials.basic(user, pass))
+                                .build()
+
+                            httpClient.newCall(manifestRequest).execute().use { manifestResponse ->
+                                if (manifestResponse.isSuccessful) {
+                                    Log.i(TAG, "Uploaded vault with locking (${encryptedData.size} bytes)")
+                                    Result.success(Unit)
+                                } else {
+                                    Result.failure(IOException("Upload manifest failed: HTTP ${manifestResponse.code}"))
+                                }
+                            }
+                        } else if (response.code == 412) {
+                            Result.failure(IOException("CONFLICT: ETag mismatch, another device modified the vault"))
+                        } else {
+                            Result.failure(IOException("Upload failed: HTTP ${response.code}"))
+                        }
+                    }
                 }
             } catch (e: Exception) {
                 Result.failure(e)

@@ -122,9 +122,11 @@ class MainActivity : FragmentActivity() {
 
             // Step 1: Load cached quota immediately (instant display, no loading spinner)
             val cachedQuota = CodingPlanPrefs.loadQuotaCache(app)
+            val cacheTime = CodingPlanPrefs.getCacheTimestamp(app)
             if (cachedQuota != null) {
                 CodingPlanPrefetchState.setQuota(cachedQuota)
                 CodingPlanPrefetchState.setError(null)
+                CodingPlanPrefetchState.setCacheTimestamp(cacheTime)
             }
 
             // Step 2: Start background refresh (update with fresh data)
@@ -141,6 +143,7 @@ class MainActivity : FragmentActivity() {
                             }
                             CodingPlanPrefetchState.setQuota(quota)
                             CodingPlanPrefetchState.setError(if (quota == null) "NO_QUOTA_DATA" else null)
+                            CodingPlanPrefetchState.setCacheTimestamp(System.currentTimeMillis())
                             // Save to cache for next startup
                             if (quota != null) {
                                 CodingPlanPrefs.saveQuotaCache(app, quota, provider)

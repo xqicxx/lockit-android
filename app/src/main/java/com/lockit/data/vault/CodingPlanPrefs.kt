@@ -171,6 +171,9 @@ object CodingPlanPrefs {
     fun getCachedProvider(context: Context): String? =
         getPrefs(context).getString(KEY_QUOTA_CACHE_PROVIDER, null)
 
+    fun getCacheTimestamp(context: Context): Long =
+        getPrefs(context).getLong(KEY_QUOTA_CACHE_TIME, 0)
+
     fun clearQuotaCache(context: Context) {
         getPrefs(context).edit()
             .remove(KEY_QUOTA_CACHE)
