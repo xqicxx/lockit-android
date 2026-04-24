@@ -1,5 +1,6 @@
 package com.lockit.utils
 
+import android.os.Build
 import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
 import androidx.core.content.ContextCompat
@@ -55,10 +56,13 @@ object BiometricUtils {
 
     fun canAuthenticate(activity: FragmentActivity): Boolean {
         val biometricManager = BiometricManager.from(activity)
-        return biometricManager.canAuthenticate(
+        // DEVICE_CREDENTIAL requires API 30+, fall back to BIOMETRIC_STRONG only on older devices
+        val authenticators = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            BiometricManager.Authenticators.BIOMETRIC_STRONG or BiometricManager.Authenticators.DEVICE_CREDENTIAL
+        } else {
             BiometricManager.Authenticators.BIOMETRIC_STRONG
-                or BiometricManager.Authenticators.DEVICE_CREDENTIAL
-        ) == BiometricManager.BIOMETRIC_SUCCESS
+        }
+        return biometricManager.canAuthenticate(authenticators) == BiometricManager.BIOMETRIC_SUCCESS
     }
 
     /**
@@ -101,10 +105,20 @@ object BiometricUtils {
         val promptInfo = BiometricPrompt.PromptInfo.Builder()
             .setTitle(title)
             .setSubtitle(subtitle)
-            .setAllowedAuthenticators(
-                BiometricManager.Authenticators.BIOMETRIC_STRONG
-                    or BiometricManager.Authenticators.DEVICE_CREDENTIAL
-            )
+            .apply {
+                // DEVICE_CREDENTIAL requires API 30+ (Android R)
+                // On API 30+: allow device credential fallback, no negative button needed (system handles)
+                // On API < 30: only BIOMETRIC_STRONG, cannot use device credential
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    setAllowedAuthenticators(
+                        BiometricManager.Authenticators.BIOMETRIC_STRONG or
+                        BiometricManager.Authenticators.DEVICE_CREDENTIAL
+                    )
+                } else {
+                    setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_STRONG)
+                    setNegativeButtonText("取消")
+                }
+            }
             .build()
 
         biometricPrompt.authenticate(promptInfo)
