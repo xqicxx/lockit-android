@@ -142,6 +142,7 @@ class ReposViewModel(app: LockitApp) : ViewModel() {
 
     var hasAutoFetchedQuota = false  // Public for LaunchedEffect observation
     private var currentApp: LockitApp? = null
+    private var previousService: String? = null  // Track service transitions
 
     init {
         // Will be set when app is passed in
@@ -156,6 +157,11 @@ class ReposViewModel(app: LockitApp) : ViewModel() {
     }
 
     fun selectService(service: String?) {
+        // Reset auto-fetch flag only when transitioning FROM CODING_PLAN (leaving the board)
+        if (previousService == "CODING_PLAN" && service != "CODING_PLAN") {
+            hasAutoFetchedQuota = false
+        }
+        previousService = _selectedService.value
         _selectedService.value = service
     }
 
@@ -416,6 +422,10 @@ fun ReposScreen(
         searchQuery = ""
         // Reset scroll position when switching services
         serviceDetailListState.scrollToItem(0)
+        // Force quota refresh when entering CODING_PLAN board
+        if (selectedService == "CODING_PLAN") {
+            viewModel.fetchCodingPlanQuota(force = true)
+        }
     }
 
     fun onServiceRowClick(serviceName: String) {
