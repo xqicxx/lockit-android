@@ -63,6 +63,65 @@ class VaultManager(
     }
 
     /**
+     * Unlock vault with a recovered master key (bypassing password verification).
+     * Used for account recovery flow when user verifies via Google email.
+     */
+    fun unlockVaultWithRecoveredKey(masterKey: ByteArray): Result<Unit> = runCatching {
+        if (!keyManager.isVaultInitialized()) {
+            throw IllegalStateException("Vault not initialized")
+        }
+        keyManager.updateMasterKey(masterKey)
+        auditLogger.log("VAULT_RECOVERED_UNLOCK", "Vault unlocked via account recovery", AuditSeverity.Warning)
+    }
+
+    /**
+     * Reset PIN after account recovery verification.
+     * Re-encrypts all credentials with new key derived from new PIN.
+     * Vault must already be unlocked (via unlockVaultWithRecoveredKey).
+     *
+     * Security: Accepts CharArray to allow caller to zero out PIN after use.
+     */
+    suspend fun resetPin(newPin: CharArray): Result<Unit> = runCatching {
+        if (!keyManager.isUnlocked()) {
+            throw IllegalStateException("Vault must be unlocked before resetting PIN")
+        }
+        if (newPin.size < 4) {
+            throw IllegalArgumentException("PIN must be at least 4 digits")
+        }
+
+        val salt = keyManager.getSalt() ?: throw IllegalStateException("Vault not initialized")
+        val (memory, iterations, parallelism) = keyManager.getArgon2Params()
+        val oldKey = keyManager.getMasterKey() ?: throw IllegalStateException("Vault not unlocked")
+
+        // Convert CharArray PIN to String for deriveKey (LockitCrypto requires String)
+        val pinString = String(newPin)
+        val newKey = crypto.deriveKey(pinString, salt, memory, iterations, parallelism)
+        // Zero out the intermediate string representation
+        pinString.toByteArray().fill(0)
+
+        // Re-encrypt all credentials with new key
+        LockitDatabase.getInstance(context).withTransaction {
+            val allEntities = dao.getAllEntities()
+            for (entity in allEntities) {
+                val decrypted = crypto.decrypt(entity.value, oldKey)
+                val reEncrypted = crypto.encrypt(decrypted, newKey)
+                dao.update(entity.copy(value = reEncrypted, updatedAt = Instant.now().toEpochMilli()))
+                // Zero out sensitive data after use
+                decrypted.fill(0)
+            }
+        }
+
+        // Update stored key hash and in-memory master key
+        keyManager.updateMasterKey(newKey)
+
+        // Zero out sensitive keys
+        oldKey.fill(0)
+        newKey.fill(0)
+
+        auditLogger.log("PIN_RESET", "PIN reset via account recovery", AuditSeverity.Danger)
+    }
+
+    /**
      * Lock the vault (clear master key from memory).
      */
     fun lockVault() {

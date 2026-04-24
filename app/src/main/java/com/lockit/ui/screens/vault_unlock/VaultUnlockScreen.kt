@@ -292,6 +292,9 @@ fun VaultUnlockScreen(
     val view = LocalView.current
     val colorScheme = MaterialTheme.colorScheme
 
+    // Recovery screen state
+    var showRecoveryScreen by remember { mutableStateOf(false) }
+
     // Clear PIN whenever screen is shown (key = isVaultLocked to re-trigger after lock)
     LaunchedEffect(app.vaultManager.isUnlocked()) {
         viewModel.setAppState(app.vaultManager.isInitialized())
@@ -303,6 +306,21 @@ fun VaultUnlockScreen(
             onUnlocked()
             viewModel.resetNavigated()
         }
+    }
+
+    // Account recovery overlay
+    if (showRecoveryScreen) {
+        AccountRecoveryScreen(
+            onRecoveryComplete = {
+                showRecoveryScreen = false
+                // After successful recovery, vault is unlocked - navigate
+                onUnlocked()
+            },
+            onDismiss = {
+                showRecoveryScreen = false
+            },
+        )
+        return  // Don't render main unlock screen while recovery is shown
     }
 
     Scaffold(
@@ -444,7 +462,7 @@ fun VaultUnlockScreen(
                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                     BrutalistSmallButton(
                                         text = stringResource(R.string.vault_recover_id),
-                                        onClick = { /* Post-MVP: account recovery flow */ },
+                                        onClick = { showRecoveryScreen = true },
                                         modifier = Modifier.weight(1f),
                                     )
                                     if (viewModel.isInitialized && viewModel.isBiometricLinked) {
