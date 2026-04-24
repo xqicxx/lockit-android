@@ -140,7 +140,10 @@ class ReposViewModel(app: LockitApp) : ViewModel() {
     private val _selectedProvider = MutableStateFlow<String>("qwen_bailian")
     val selectedProvider: StateFlow<String> = _selectedProvider.asStateFlow()
 
-    var hasAutoFetchedQuota = false  // Public for LaunchedEffect observation
+    // Cache freshness threshold (5 minutes) - replaces permanent lock
+    private val CACHE_FRESHNESS_MS = 5 * 60 * 1000L
+
+    var lastAutoFetchTime = 0L  // Timestamp-based instead of permanent lock
     private var currentApp: LockitApp? = null
     private var previousService: String? = null  // Track service transitions
 
@@ -157,9 +160,9 @@ class ReposViewModel(app: LockitApp) : ViewModel() {
     }
 
     fun selectService(service: String?) {
-        // Reset auto-fetch flag only when transitioning FROM CODING_PLAN (leaving the board)
+        // Reset auto-fetch timestamp when leaving CODING_PLAN board
         if (previousService == "CODING_PLAN" && service != "CODING_PLAN") {
-            hasAutoFetchedQuota = false
+            lastAutoFetchTime = 0L  // Allow fresh fetch on next board entry
         }
         previousService = _selectedService.value
         _selectedService.value = service
@@ -186,13 +189,22 @@ class ReposViewModel(app: LockitApp) : ViewModel() {
     }
 
     fun fetchCodingPlanQuota(force: Boolean = false) {
-        if (!force && hasAutoFetchedQuota) return
+        // Prevent concurrent requests - skip if already loading
+        if (_isQuotaLoading.value) return
+
+        // Cache freshness check - skip if data is fresh (within 5 min) unless forced
+        if (!force) {
+            val cacheAge = System.currentTimeMillis() - lastAutoFetchTime
+            if (cacheAge < CACHE_FRESHNESS_MS && _codingPlanQuota.value != null) {
+                return  // Fresh data exists, no need to refetch
+            }
+        }
         val codingPlanCreds = _credentials.value.filter { it.type == CredentialType.CodingPlan }
         if (codingPlanCreds.isEmpty()) {
             _codingPlanQuota.value = null
             return
         }
-        hasAutoFetchedQuota = true
+        lastAutoFetchTime = System.currentTimeMillis()  // Mark fetch time
         _isQuotaLoading.value = true
         CodingPlanPrefetchState.setLoading(true)
         _codingPlanQuotaError.value = null
@@ -232,12 +244,16 @@ class ReposViewModel(app: LockitApp) : ViewModel() {
 
     // Auto-fetch when credentials become available (call from UI once)
     fun autoFetchIfNeeded() {
-        if (hasAutoFetchedQuota) return
+        // Cache freshness check - skip if data is fresh (within 5 min)
+        val cacheAge = System.currentTimeMillis() - lastAutoFetchTime
+        if (cacheAge < CACHE_FRESHNESS_MS && _codingPlanQuota.value != null) {
+            return  // Fresh data exists
+        }
 
         // Check if prefetch is still running - will be observed via StateFlow
         if (CodingPlanPrefetchState.isLoading.value) {
             _isQuotaLoading.value = true
-            hasAutoFetchedQuota = true
+            lastAutoFetchTime = System.currentTimeMillis()
             // Show cached quota during background refresh (instant display)
             _codingPlanQuota.value = CodingPlanPrefetchState.quota.value
             return
@@ -249,7 +265,7 @@ class ReposViewModel(app: LockitApp) : ViewModel() {
             _codingPlanQuota.value = prefetched
             _codingPlanQuotaError.value = CodingPlanPrefetchState.error.value
             _isQuotaLoading.value = false
-            hasAutoFetchedQuota = true
+            lastAutoFetchTime = System.currentTimeMillis()
             return
         }
 
@@ -348,7 +364,7 @@ fun ReposScreen(
 
     // When prefetch completes (success or failure), update ViewModel quota
     LaunchedEffect(prefetchLoading, prefetchQuota, prefetchError) {
-        if (!prefetchLoading && viewModel.hasAutoFetchedQuota) {
+        if (!prefetchLoading && (prefetchQuota != null || prefetchError != null)) {
             viewModel.updateQuotaFromPrefetch(prefetchQuota, prefetchError)
         }
     }
