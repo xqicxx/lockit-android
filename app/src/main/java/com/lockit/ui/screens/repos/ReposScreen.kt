@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -407,10 +408,14 @@ fun ReposScreen(
     val revealedEmailPasswordMap = remember { mutableMapOf<String, String?>() }
     val revealedCredentialIds = remember { mutableStateListOf<String>() }
     var reposToastMessage by remember { mutableStateOf<String?>(null) }
+    // LazyColumn scroll state for service detail view - preserve position on modal close
+    val serviceDetailListState = rememberLazyListState()
 
     LaunchedEffect(selectedService) {
         viewModel.selectService(selectedService)
         searchQuery = ""
+        // Reset scroll position when switching services
+        serviceDetailListState.scrollToItem(0)
     }
 
     fun onServiceRowClick(serviceName: String) {
@@ -721,9 +726,10 @@ fun ReposScreen(
                 }
                 Spacer(modifier = Modifier.height(8.dp))
 
-                // Compact credential rows
+                // Compact credential rows - scroll state preserved via stable parent scope
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
+                    state = serviceDetailListState,
                     contentPadding = PaddingValues(bottom = 140.dp),
                 ) {
                     items(list) { credential ->
