@@ -311,8 +311,10 @@ class AuthWebViewClient(
                 val baseDomainUrl = when (provider) {
                     "chatgpt" -> "https://chatgpt.com"
                     "claude" -> "https://claude.ai"
-                    else -> "https://claude.ai"
+                    else -> ""  // Unknown provider - skip polling
                 }
+                if (baseDomainUrl.isEmpty()) return@launch  // Early exit for unknown providers
+
                 val cookieManager = CookieManager.getInstance()
                 val cookies = cookieManager.getCookie(baseDomainUrl) ?: ""
 
@@ -320,10 +322,13 @@ class AuthWebViewClient(
                 android.util.Log.d("WebViewAuth", "Cookie length: ${cookies.length}")
 
                 // Check login status based on provider
+                val currentUrl = view?.url ?: ""
                 val isLoggedIn = when (provider) {
-                    "claude" -> cookies.contains("sessionKey=")
+                    "claude" -> {
+                        // Guard against stale sessionKey from previous session
+                        !currentUrl.contains("/login") && cookies.contains("sessionKey=")
+                    }
                     "chatgpt" -> {
-                        val currentUrl = view?.url ?: ""
                         !currentUrl.contains("/auth") &&
                         (cookies.contains("__Secure-") || cookies.contains("session"))
                     }
