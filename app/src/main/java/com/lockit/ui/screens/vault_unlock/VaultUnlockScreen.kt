@@ -1,5 +1,6 @@
 package com.lockit.ui.screens.vault_unlock
 
+import android.provider.Settings
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -69,6 +70,9 @@ class VaultUnlockViewModel(private val app: LockitApp) : ViewModel() {
     private val biometricStorage = com.lockit.data.biometric.BiometricPinStorage(
         app.getSharedPreferences("lockit_biometric_prefs", android.content.Context.MODE_PRIVATE)
     )
+
+    // Node ID - generated from Android ID, persisted in SharedPreferences
+    val nodeId: String = getOrCreateNodeId(app)
 
     private val _uiState = MutableStateFlow(VaultUnlockUiState())
     val uiState: StateFlow<VaultUnlockUiState> = _uiState.asStateFlow()
@@ -257,6 +261,23 @@ class VaultUnlockViewModel(private val app: LockitApp) : ViewModel() {
 data class VaultUnlockUiState(
     val navigated: Boolean = false,
 )
+
+/**
+ * Generate or retrieve node ID from Android ID.
+ * First generation is persisted in SharedPreferences for consistency.
+ */
+private fun getOrCreateNodeId(app: LockitApp): String {
+    val prefs = app.getSharedPreferences("lockit_device", android.content.Context.MODE_PRIVATE)
+    val existing = prefs.getString("node_id", null)
+    if (existing != null) return existing
+
+    val androidId = Settings.Secure.getString(
+        app.contentResolver, Settings.Secure.ANDROID_ID
+    ) ?: "000000"
+    val newNodeId = "LX-${androidId.take(6).uppercase()}"
+    prefs.edit().putString("node_id", newNodeId).apply()
+    return newNodeId
+}
 
 @Composable
 fun VaultUnlockScreen(
@@ -612,11 +633,11 @@ fun VaultUnlockScreen(
                 )
             }
             Text(
-                text = stringResource(R.string.vault_node_id),
-                fontFamily = JetBrainsMonoFamily,
-                fontSize = 9.sp,
-                color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.4f),
-            )
+                    text = stringResource(R.string.vault_node_id_label, viewModel.nodeId),
+                    fontFamily = JetBrainsMonoFamily,
+                    fontSize = 9.sp,
+                    color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.4f),
+                )
         }
     }
     }

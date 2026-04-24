@@ -28,7 +28,7 @@
     <string name="vault_enable">启用</string>
     <string name="vault_enc_link">加密链: 活动</string>
     <string name="vault_os_ver">系统版本: 4.1.0_锁定</string>
-    <string name="vault_node_id">节点ID: LX-88</string>
+    <string name="vault_node_id_label">节点ID: %s</string>
 
     <!-- Error Messages -->
     <string name="error_pin_too_short">PIN太短</string>

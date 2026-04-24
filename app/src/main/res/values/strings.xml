@@ -28,7 +28,7 @@
     <string name="vault_enable">ENABLE</string>
     <string name="vault_enc_link">ENC_LINK: ACTIVE</string>
     <string name="vault_os_ver">OS_VER: 4.1.0_LOCKED</string>
-    <string name="vault_node_id">NODE_ID: LX-88</string>
+    <string name="vault_node_id_label">NODE_ID: %s</string>
 
     <!-- Error Messages -->
     <string name="error_pin_too_short">PIN_TOO_SHORT</string>
