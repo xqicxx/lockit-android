@@ -290,6 +290,9 @@ class AuthWebViewClient(
     /**
      * Poll cookies every 2 seconds for SPA login detection.
      * Claude/ChatGPT are SPA - onPageFinished fires before auth state updates.
+     *
+     * IMPORTANT: Must use CookieManager.getCookie() because HttpOnly cookies
+     * (like sessionKey, __Secure-) cannot be read via document.cookie.
      */
     private fun startCookiePolling(view: WebView?) {
         cookieCheckJob?.cancel()
@@ -301,28 +304,31 @@ class AuthWebViewClient(
                 kotlinx.coroutines.delay(2000)
                 attempts++
 
-                // Get cookies from the WebView's current URL
-                // Use provider-specific fallback URL
-                val fallbackUrl = when (provider) {
-                    "chatgpt" -> "https://chatgpt.com"
-                    "claude" -> "https://claude.ai"
-                    else -> "https://claude.ai"
-                }
-                val currentUrl = view?.url ?: fallbackUrl
-                val cookieManager = CookieManager.getInstance()
-                val cookies = cookieManager.getCookie(currentUrl) ?: ""
-
                 android.util.Log.d("WebViewAuth", "Cookie poll attempt $attempts for $provider")
 
+                // Use base domain URL for cookie retrieval - SPA redirects may change page URL
+                // but cookies are set at domain level, not page level
+                val baseDomainUrl = when (provider) {
+                    "chatgpt" -> "https://chatgpt.com"
+                    "claude" -> "https://claude.ai"
+                    else -> ""  // Unknown provider - skip polling
+                }
+                if (baseDomainUrl.isEmpty()) return@launch  // Early exit for unknown providers
+
+                val cookieManager = CookieManager.getInstance()
+                val cookies = cookieManager.getCookie(baseDomainUrl) ?: ""
+
+                // Don't log full cookies - security risk, only log length
+                android.util.Log.d("WebViewAuth", "Cookie length: ${cookies.length}")
+
                 // Check login status based on provider
+                val currentUrl = view?.url ?: ""
                 val isLoggedIn = when (provider) {
                     "claude" -> {
-                        // Claude uses sessionKey cookie after login
-                        cookies.contains("sessionKey=")
+                        // Guard against stale sessionKey from previous session
+                        !currentUrl.contains("/login") && cookies.contains("sessionKey=")
                     }
                     "chatgpt" -> {
-                        // ChatGPT: check if we're on the main page (not auth) AND have session cookies
-                        // Fix: && has higher precedence than ||, need parentheses
                         !currentUrl.contains("/auth") &&
                         (cookies.contains("__Secure-") || cookies.contains("session"))
                     }
@@ -332,7 +338,8 @@ class AuthWebViewClient(
                 if (isLoggedIn) {
                     hasExtracted = true
                     android.util.Log.d("WebViewAuth", "Login detected after $attempts polls!")
-                    extractCredentials(view, currentUrl)
+                    // Use base domain URL for credential extraction too
+                    extractCredentials(view, baseDomainUrl)
                     break
                 }
             }
@@ -560,9 +567,13 @@ class OAuthWebChromeClient(
         val popupWebView = WebView(activity).apply {
             settings.javaScriptEnabled = true
             settings.domStorageEnabled = true
+            settings.mixedContentMode = android.webkit.WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
+            settings.userAgentString = "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Mobile Safari/537.36"
             // Popups should NOT create more popups to avoid infinite loops
             settings.setSupportMultipleWindows(false)
             settings.javaScriptCanOpenWindowsAutomatically = false
+            // Critical: Enable third-party cookies for OAuth (Google, Microsoft, Apple)
+            CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
             // Use simple client that does NOT extract credentials - popups are just for OAuth
             webViewClient = OAuthPopupWebViewClient(activity)
         }
