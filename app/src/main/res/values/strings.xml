@@ -107,6 +107,20 @@
     <string name="config_sync_drive">SYNC_TO_DRIVE</string>
     <string name="config_sign_out">SIGN_OUT</string>
 
+    <!-- WebDAV Sync -->
+    <string name="config_webdav">WEBDAV_SYNC</string>
+    <string name="config_webdav_configure">CONFIGURE_WEBDAV</string>
+    <string name="config_webdav_server_url">SERVER_URL</string>
+    <string name="config_webdav_username">USERNAME</string>
+    <string name="config_webdav_password">PASSWORD</string>
+    <string name="config_webdav_base_path">BASE_PATH</string>
+    <string name="config_webdav_save">SAVE</string>
+    <string name="config_webdav_clear">CLEAR</string>
+    <string name="config_webdav_connected">WEBDAV_CONNECTED</string>
+    <string name="config_webdav_not_configured">NOT_CONFIGURED</string>
+    <string name="toast_webdav_configured">WEBDAV_CONFIGURED</string>
+    <string name="toast_webdav_error">WEBDAV_ERROR:</string>
+
     <string name="config_security">SECURITY_INFO</string>
     <string name="config_salt_length">SALT_LENGTH</string>
     <string name="config_nonce_length">NONCE_LENGTH</string>
