@@ -465,7 +465,6 @@ fun VaultUnlockScreen(
                                                 }
                                             },
                                             icon = Icons.Default.Fingerprint,
-                                            iconColor = White,
                                             modifier = Modifier.weight(1f),
                                         )
                                     } else {
@@ -804,7 +803,7 @@ private fun BrutalistSmallButton(
     modifier: Modifier = Modifier,
     isDanger: Boolean = false,
     icon: androidx.compose.ui.graphics.vector.ImageVector? = null,
-    iconColor: Color = Primary,
+    iconColor: Color = if (isDanger) White else Primary,  // Match text color based on danger state
 ) {
     Row(
         modifier = modifier
