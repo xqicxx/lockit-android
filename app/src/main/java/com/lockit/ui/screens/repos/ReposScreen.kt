@@ -189,6 +189,9 @@ class ReposViewModel(app: LockitApp) : ViewModel() {
     }
 
     fun fetchCodingPlanQuota(force: Boolean = false) {
+        // Prevent concurrent requests - skip if already loading
+        if (_isQuotaLoading.value) return
+
         // Cache freshness check - skip if data is fresh (within 5 min) unless forced
         if (!force) {
             val cacheAge = System.currentTimeMillis() - lastAutoFetchTime
@@ -361,7 +364,7 @@ fun ReposScreen(
 
     // When prefetch completes (success or failure), update ViewModel quota
     LaunchedEffect(prefetchLoading, prefetchQuota, prefetchError) {
-        if (!prefetchLoading && prefetchQuota != null) {
+        if (!prefetchLoading && (prefetchQuota != null || prefetchError != null)) {
             viewModel.updateQuotaFromPrefetch(prefetchQuota, prefetchError)
         }
     }
