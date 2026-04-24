@@ -141,6 +141,22 @@
     <string name="config_recovery_desc">Argon2升级失败后凭证仍用旧密钥加密。输入PIN恢复并重新加密。</string>
     <string name="config_recovery_btn">恢复</string>
 
+    <!-- Account Recovery (Google Email Verification) -->
+    <string name="recovery_title">账号恢复</string>
+    <string name="recovery_subtitle">验证身份 // 重置PIN</string>
+    <string name="recovery_verify_title">验证账号</string>
+    <string name="recovery_verify_desc">使用绑定到此密码库的Google账号登录以验证身份。</string>
+    <string name="recovery_sign_in">Google登录</string>
+    <string name="recovery_new_pin_title">设置新PIN</string>
+    <string name="recovery_new_pin_desc">身份验证成功。输入新的4位PIN以保护密码库。</string>
+    <string name="recovery_new_pin">新PIN</string>
+    <string name="recovery_confirm_pin">确认PIN</string>
+    <string name="recovery_success">PIN重置成功</string>
+    <string name="recovery_failed">恢复失败:</string>
+    <string name="recovery_mismatch">账号不匹配</string>
+    <string name="recovery_not_configured">恢复未配置</string>
+    <string name="recovery_vault_not_unlocked">密码库未解锁</string>
+
     <!-- Language Section -->
     <string name="config_language">语言</string>
     <string name="config_language_desc">应用显示语言</string>

@@ -140,6 +140,22 @@
     <string name="config_recovery_desc">Credentials encrypted with old key after failed Argon2 upgrade. Enter PIN to recover and re-encrypt with new key.</string>
     <string name="config_recovery_btn">RECOVER</string>
 
+    <!-- Account Recovery (Google Email Verification) -->
+    <string name="recovery_title">ACCOUNT_RECOVERY</string>
+    <string name="recovery_subtitle">VERIFY_IDENTITY // RESET_PIN</string>
+    <string name="recovery_verify_title">VERIFY_ACCOUNT</string>
+    <string name="recovery_verify_desc">Sign in with the Google account linked to this vault to verify your identity.</string>
+    <string name="recovery_sign_in">SIGN_IN_WITH_GOOGLE</string>
+    <string name="recovery_new_pin_title">SET_NEW_PIN</string>
+    <string name="recovery_new_pin_desc">Identity verified. Enter a new 4-digit PIN to secure your vault.</string>
+    <string name="recovery_new_pin">NEW_PIN</string>
+    <string name="recovery_confirm_pin">CONFIRM_PIN</string>
+    <string name="recovery_success">PIN_RESET_SUCCESS</string>
+    <string name="recovery_failed">RECOVERY_FAILED:</string>
+    <string name="recovery_mismatch">ACCOUNT_MISMATCH</string>
+    <string name="recovery_not_configured">RECOVERY_NOT_CONFIGURED</string>
+    <string name="recovery_vault_not_unlocked">VAULT_NOT_UNLOCKED</string>
+
     <!-- Language Section -->
     <string name="config_language">LANGUAGE</string>
     <string name="config_language_desc">App display language</string>
