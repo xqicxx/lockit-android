@@ -203,9 +203,11 @@ fun CredentialCard(
     }
 
     // Types that always show values (no reveal needed)
+    // Note: Email excluded because it contains password field - requires biometric verification
     val alwaysVisible = credential.type in listOf(
-        CredentialType.Phone, CredentialType.Email,
-        CredentialType.IdCard, CredentialType.Note
+        CredentialType.Phone,
+        CredentialType.IdCard,
+        CredentialType.Note
     )
 
     // Masked placeholder - computed once
