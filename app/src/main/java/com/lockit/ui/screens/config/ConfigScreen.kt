@@ -54,6 +54,7 @@ import com.lockit.R
 import com.lockit.data.database.LockitDatabase
 import com.lockit.data.biometric.BiometricPinStorage
 import com.lockit.data.sync.GoogleDriveSyncManager
+import com.lockit.data.sync.WebDavBackend
 import com.lockit.data.updater.AppUpdater
 import com.lockit.data.updater.GitHubRelease
 import com.lockit.domain.model.Credential
@@ -158,6 +159,21 @@ fun ConfigScreen(
     var isSyncing by remember { mutableStateOf(false) }
     var syncStatus by remember { mutableStateOf<String?>(null) }
     var lastBackupTime by remember { mutableStateOf<String?>(null) }
+
+    // WebDAV sync
+    val webDavBackend = remember { WebDavBackend(context) }
+    var webDavConfigured by remember { mutableStateOf(false) }
+    var webDavConfiguring by remember { mutableStateOf(false) }
+    var showWebDavDialog by remember { mutableStateOf(false) }
+    var webDavServerUrl by remember { mutableStateOf("") }
+    var webDavUsername by remember { mutableStateOf("") }
+    var webDavPassword by remember { mutableStateOf("") }
+    var webDavBasePath by remember { mutableStateOf("/lockit-sync") }
+
+    // Check WebDAV configuration status on init
+    LaunchedEffect(Unit) {
+        webDavConfigured = webDavBackend.isConfigured()
+    }
 
     // Google Sign-In launcher
     val signInLauncher = rememberLauncherForActivityResult(
@@ -532,6 +548,151 @@ fun ConfigScreen(
                     }
                 },
             )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // WebDAV Sync Section
+            ConfigSection(
+                title = stringResource(R.string.config_webdav),
+                content = {
+                    Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        // WebDAV status
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .border(1.dp, MaterialTheme.colorScheme.outline)
+                                .padding(8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                text = if (webDavConfigured) stringResource(R.string.config_webdav_connected) else stringResource(R.string.config_webdav_not_configured),
+                                fontFamily = JetBrainsMonoFamily,
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = if (webDavConfigured) IndustrialOrange else MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+
+                        // WebDAV configure button
+                        BrutalistButton(
+                            text = stringResource(R.string.config_webdav_configure),
+                            onClick = { showWebDavDialog = true },
+                            variant = ButtonVariant.Primary,
+                            modifier = Modifier.fillMaxWidth(),
+                            useMonoFont = true,
+                        )
+
+                        if (webDavConfigured) {
+                            BrutalistButton(
+                                text = stringResource(R.string.config_webdav_clear),
+                                onClick = {
+                                    // Clear WebDAV configuration
+                                    webDavBackend.clearConfig()
+                                    webDavConfigured = false
+                                    // Reset sensitive UI state variables
+                                    webDavPassword = ""
+                                    webDavServerUrl = ""
+                                    webDavUsername = ""
+                                    webDavBasePath = "/lockit-sync"
+                                    toastMessage = context.getString(R.string.toast_signed_out)
+                                },
+                                variant = ButtonVariant.Warning,
+                                modifier = Modifier.fillMaxWidth(),
+                                useMonoFont = true,
+                            )
+                        }
+                    }
+                },
+            )
+
+            // WebDAV Configuration Dialog
+            if (showWebDavDialog) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
+                        .clickable(enabled = false) {},
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth(0.9f)
+                            .background(MaterialTheme.colorScheme.surface)
+                            .border(2.dp, MaterialTheme.colorScheme.primary)
+                            .padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        Text(
+                            text = stringResource(R.string.config_webdav_configure),
+                            fontFamily = JetBrainsMonoFamily,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 14.sp,
+                            color = IndustrialOrange,
+                        )
+                        BrutalistTextField(
+                            value = webDavServerUrl,
+                            onValueChange = { webDavServerUrl = it },
+                            label = stringResource(R.string.config_webdav_server_url),
+                            placeholder = "https://dav.jianguoyun.com/dav/",
+                        )
+                        BrutalistTextField(
+                            value = webDavUsername,
+                            onValueChange = { webDavUsername = it },
+                            label = stringResource(R.string.config_webdav_username),
+                            placeholder = "user@example.com",
+                        )
+                        BrutalistTextField(
+                            value = webDavPassword,
+                            onValueChange = { webDavPassword = it },
+                            label = stringResource(R.string.config_webdav_password),
+                            placeholder = "app_password",
+                            isPassword = true,
+                        )
+                        BrutalistTextField(
+                            value = webDavBasePath,
+                            onValueChange = { webDavBasePath = it },
+                            label = stringResource(R.string.config_webdav_base_path),
+                            placeholder = "/lockit-sync",
+                        )
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            BrutalistButton(
+                                text = stringResource(R.string.btn_cancel),
+                                onClick = { showWebDavDialog = false },
+                                variant = ButtonVariant.Secondary,
+                                modifier = Modifier.weight(1f),
+                                useMonoFont = true,
+                            )
+                            BrutalistButton(
+                                text = stringResource(R.string.config_webdav_save),
+                                onClick = {
+                                    if (webDavConfiguring) return@BrutalistButton  // Prevent concurrent attempts
+                                    webDavConfiguring = true
+                                    scope.launch {
+                                        val result = webDavBackend.configure(mapOf(
+                                            "serverUrl" to webDavServerUrl,
+                                            "username" to webDavUsername,
+                                            "password" to webDavPassword,
+                                            "basePath" to webDavBasePath,
+                                        ))
+                                        webDavConfiguring = false
+                                        if (result.isSuccess) {
+                                            webDavConfigured = true
+                                            showWebDavDialog = false
+                                            toastMessage = context.getString(R.string.toast_webdav_configured)
+                                        } else {
+                                            toastMessage = "${context.getString(R.string.toast_webdav_error)} ${result.exceptionOrNull()?.message}"
+                                        }
+                                    }
+                                },
+                                variant = ButtonVariant.Primary,
+                                modifier = Modifier.weight(1f),
+                                useMonoFont = true,
+                                enabled = !webDavConfiguring,
+                            )
+                        }
+                    }
+                }
+            }
 
             Spacer(modifier = Modifier.height(24.dp))
 

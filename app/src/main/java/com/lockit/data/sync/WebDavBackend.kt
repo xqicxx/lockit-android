@@ -408,6 +408,20 @@ class WebDavBackend(private val context: Context) : SyncBackend {
         Log.i(TAG, "WebDAV disconnected")
     }
 
+    /**
+     * Clear configuration (alias for disconnect, callable from UI).
+     */
+    fun clearConfig() {
+        prefs.edit().clear().apply()
+        synchronized(this) {
+            client = null
+            serverUrl = null
+            username = null
+            password = null
+            basePath = null
+        }
+    }
+
     private fun loadCredentials() {
         synchronized(this) {
             if (serverUrl == null) {
