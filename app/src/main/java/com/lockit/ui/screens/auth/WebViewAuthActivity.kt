@@ -24,10 +24,12 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
+import kotlin.coroutines.resume
 
 /**
  * WebView authentication activity for extracting login credentials.
@@ -288,6 +290,17 @@ class AuthWebViewClient(
     }
 
     /**
+     * Suspend function to evaluate JavaScript and get result.
+     */
+    private suspend fun evaluateJavascriptSuspend(view: WebView?, script: String): String {
+        return suspendCancellableCoroutine { continuation ->
+            view?.evaluateJavascript(script) { result ->
+                continuation.resume(result)
+            } ?: continuation.resume("")
+        }
+    }
+
+    /**
      * Poll cookies every 2 seconds for SPA login detection.
      * Claude/ChatGPT are SPA - onPageFinished fires before auth state updates.
      */
@@ -301,28 +314,24 @@ class AuthWebViewClient(
                 kotlinx.coroutines.delay(2000)
                 attempts++
 
-                // Get cookies from the WebView's current URL
-                // Use provider-specific fallback URL
-                val fallbackUrl = when (provider) {
-                    "chatgpt" -> "https://chatgpt.com"
-                    "claude" -> "https://claude.ai"
-                    else -> "https://claude.ai"
-                }
-                val currentUrl = view?.url ?: fallbackUrl
-                val cookieManager = CookieManager.getInstance()
-                val cookies = cookieManager.getCookie(currentUrl) ?: ""
-
                 android.util.Log.d("WebViewAuth", "Cookie poll attempt $attempts for $provider")
+
+                // Use JavaScript to read cookies directly - more reliable than CookieManager.getCookie(url)
+                // which may return stale/missing cookies after SPA redirects
+                val jsCookieString = evaluateJavascriptSuspend(view, "document.cookie")
+                // JS returns cookies with escaped quotes, e.g., "\"sessionKey=abc\""
+                val cookies = jsCookieString
+                    .removeSurrounding("\"")
+                    .replace("\\u003d", "=")  // Unescape = character
+                    .replace("\\u003b", ";")  // Unescape ; character
+
+                android.util.Log.d("WebViewAuth", "JS cookies: ${cookies.take(100)}...")
 
                 // Check login status based on provider
                 val isLoggedIn = when (provider) {
-                    "claude" -> {
-                        // Claude uses sessionKey cookie after login
-                        cookies.contains("sessionKey=")
-                    }
+                    "claude" -> cookies.contains("sessionKey=")
                     "chatgpt" -> {
-                        // ChatGPT: check if we're on the main page (not auth) AND have session cookies
-                        // Fix: && has higher precedence than ||, need parentheses
+                        val currentUrl = view?.url ?: ""
                         !currentUrl.contains("/auth") &&
                         (cookies.contains("__Secure-") || cookies.contains("session"))
                     }
@@ -332,7 +341,8 @@ class AuthWebViewClient(
                 if (isLoggedIn) {
                     hasExtracted = true
                     android.util.Log.d("WebViewAuth", "Login detected after $attempts polls!")
-                    extractCredentials(view, currentUrl)
+                    // Use the current URL for credential extraction
+                    extractCredentials(view, view?.url)
                     break
                 }
             }
@@ -560,9 +570,13 @@ class OAuthWebChromeClient(
         val popupWebView = WebView(activity).apply {
             settings.javaScriptEnabled = true
             settings.domStorageEnabled = true
+            settings.mixedContentMode = android.webkit.WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
+            settings.userAgentString = "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Mobile Safari/537.36"
             // Popups should NOT create more popups to avoid infinite loops
             settings.setSupportMultipleWindows(false)
             settings.javaScriptCanOpenWindowsAutomatically = false
+            // Critical: Enable third-party cookies for OAuth (Google, Microsoft, Apple)
+            CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
             // Use simple client that does NOT extract credentials - popups are just for OAuth
             webViewClient = OAuthPopupWebViewClient(activity)
         }
