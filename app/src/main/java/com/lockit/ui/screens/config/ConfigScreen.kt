@@ -163,6 +163,7 @@ fun ConfigScreen(
     // WebDAV sync
     val webDavBackend = remember { WebDavBackend(context) }
     var webDavConfigured by remember { mutableStateOf(false) }
+    var webDavConfiguring by remember { mutableStateOf(false) }
     var showWebDavDialog by remember { mutableStateOf(false) }
     var webDavServerUrl by remember { mutableStateOf("") }
     var webDavUsername by remember { mutableStateOf("") }
@@ -588,6 +589,11 @@ fun ConfigScreen(
                                     // Clear WebDAV configuration
                                     webDavBackend.clearConfig()
                                     webDavConfigured = false
+                                    // Reset sensitive UI state variables
+                                    webDavPassword = ""
+                                    webDavServerUrl = ""
+                                    webDavUsername = ""
+                                    webDavBasePath = "/lockit-sync"
                                     toastMessage = context.getString(R.string.toast_signed_out)
                                 },
                                 variant = ButtonVariant.Warning,
@@ -659,6 +665,8 @@ fun ConfigScreen(
                             BrutalistButton(
                                 text = stringResource(R.string.config_webdav_save),
                                 onClick = {
+                                    if (webDavConfiguring) return@BrutalistButton  // Prevent concurrent attempts
+                                    webDavConfiguring = true
                                     scope.launch {
                                         val result = webDavBackend.configure(mapOf(
                                             "serverUrl" to webDavServerUrl,
@@ -666,6 +674,7 @@ fun ConfigScreen(
                                             "password" to webDavPassword,
                                             "basePath" to webDavBasePath,
                                         ))
+                                        webDavConfiguring = false
                                         if (result.isSuccess) {
                                             webDavConfigured = true
                                             showWebDavDialog = false
@@ -678,6 +687,7 @@ fun ConfigScreen(
                                 variant = ButtonVariant.Primary,
                                 modifier = Modifier.weight(1f),
                                 useMonoFont = true,
+                                enabled = !webDavConfiguring,
                             )
                         }
                     }
