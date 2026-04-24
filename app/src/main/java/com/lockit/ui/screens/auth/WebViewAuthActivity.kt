@@ -24,12 +24,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
-import kotlin.coroutines.resume
 
 /**
  * WebView authentication activity for extracting login credentials.
@@ -290,19 +288,11 @@ class AuthWebViewClient(
     }
 
     /**
-     * Suspend function to evaluate JavaScript and get result.
-     */
-    private suspend fun evaluateJavascriptSuspend(view: WebView?, script: String): String {
-        return suspendCancellableCoroutine { continuation ->
-            view?.evaluateJavascript(script) { result ->
-                continuation.resume(result)
-            } ?: continuation.resume("")
-        }
-    }
-
-    /**
      * Poll cookies every 2 seconds for SPA login detection.
      * Claude/ChatGPT are SPA - onPageFinished fires before auth state updates.
+     *
+     * IMPORTANT: Must use CookieManager.getCookie() because HttpOnly cookies
+     * (like sessionKey, __Secure-) cannot be read via document.cookie.
      */
     private fun startCookiePolling(view: WebView?) {
         cookieCheckJob?.cancel()
@@ -316,16 +306,18 @@ class AuthWebViewClient(
 
                 android.util.Log.d("WebViewAuth", "Cookie poll attempt $attempts for $provider")
 
-                // Use JavaScript to read cookies directly - more reliable than CookieManager.getCookie(url)
-                // which may return stale/missing cookies after SPA redirects
-                val jsCookieString = evaluateJavascriptSuspend(view, "document.cookie")
-                // JS returns cookies with escaped quotes, e.g., "\"sessionKey=abc\""
-                val cookies = jsCookieString
-                    .removeSurrounding("\"")
-                    .replace("\\u003d", "=")  // Unescape = character
-                    .replace("\\u003b", ";")  // Unescape ; character
+                // Use base domain URL for cookie retrieval - SPA redirects may change page URL
+                // but cookies are set at domain level, not page level
+                val baseDomainUrl = when (provider) {
+                    "chatgpt" -> "https://chatgpt.com"
+                    "claude" -> "https://claude.ai"
+                    else -> "https://claude.ai"
+                }
+                val cookieManager = CookieManager.getInstance()
+                val cookies = cookieManager.getCookie(baseDomainUrl) ?: ""
 
-                android.util.Log.d("WebViewAuth", "JS cookies: ${cookies.take(100)}...")
+                // Don't log full cookies - security risk, only log length
+                android.util.Log.d("WebViewAuth", "Cookie length: ${cookies.length}")
 
                 // Check login status based on provider
                 val isLoggedIn = when (provider) {
@@ -341,8 +333,8 @@ class AuthWebViewClient(
                 if (isLoggedIn) {
                     hasExtracted = true
                     android.util.Log.d("WebViewAuth", "Login detected after $attempts polls!")
-                    // Use the current URL for credential extraction
-                    extractCredentials(view, view?.url)
+                    // Use base domain URL for credential extraction too
+                    extractCredentials(view, baseDomainUrl)
                     break
                 }
             }
