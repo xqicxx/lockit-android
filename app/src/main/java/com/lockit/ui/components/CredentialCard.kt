@@ -285,12 +285,25 @@ fun CredentialCard(
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        // Action buttons
+        // Action buttons - COPY added for UX improvement
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             BrutalistButton(
                 text = "DELETE",
                 onClick = { showDeleteDialog = true },
                 variant = ButtonVariant.Danger,
+                modifier = Modifier.weight(1f).height(32.dp),
+                useMonoFont = true,
+            )
+            BrutalistButton(
+                text = "COPY",
+                onClick = {
+                    if (localRevealed || alwaysVisible) {
+                        onCopy(CopyAction.STRUCTURED)
+                    } else {
+                        onNeedReveal()
+                    }
+                },
+                variant = ButtonVariant.Secondary,
                 modifier = Modifier.weight(1f).height(32.dp),
                 useMonoFont = true,
             )
