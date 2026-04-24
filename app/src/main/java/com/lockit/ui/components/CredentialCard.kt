@@ -142,11 +142,17 @@ fun buildJsonStructured(credential: Credential, fields: List<String>): String {
 
 /**
  * Extract the secret/value field from a credential's combined value string.
+ * For sensitive types (Email, Account, GitHub), returns non-sensitive field only.
  */
 fun extractSecretValue(type: CredentialType, value: String): String {
     return when (type) {
         CredentialType.Phone, CredentialType.BankCard,
         CredentialType.IdCard, CredentialType.Note -> value
+        CredentialType.Email -> {
+            // Email: VALUE copy returns email address (field 0+1), NOT password (field 2)
+            val fields = parseCredentialFields(value)
+            buildEmailAddress(fields)
+        }
         CredentialType.CodingPlan -> {
             val fields = parseCredentialFields(value)
             fields.getNotBlank(CodingPlanFields.RAW_CURL) ?: fields.getNotBlank(CodingPlanFields.API_KEY) ?: value
@@ -358,7 +364,8 @@ private fun CardHeader(
         Row {
             // Reveal/hide button in header ONLY for types that don't have inline reveal in content
             // CodingPlan, GitHub, Email, Account have RevealableValueBox or inline reveal in content, so skip header icon
-            if (!alwaysVisible && credential.type != CredentialType.CodingPlan && credential.type != CredentialType.GitHub && credential.type != CredentialType.Account) {
+            // Email: has password reveal in content, should NOT have header copy button (bypasses biometric)
+            if (!alwaysVisible && credential.type != CredentialType.CodingPlan && credential.type != CredentialType.GitHub && credential.type != CredentialType.Account && credential.type != CredentialType.Email) {
                 IconButtonBox(
                     icon = if (isRevealed) Icons.Default.VisibilityOff else Icons.Default.Visibility,
                     description = if (isRevealed) "Hide value" else "Reveal value",
@@ -387,7 +394,8 @@ private fun CredentialContent(
     clipboardManager: androidx.compose.ui.platform.ClipboardManager,
 ) {
     // All types now use unified display logic
-    // Phone/Email/IdCard/Note: always visible, show all fields
+    // Phone/IdCard/Note: always visible, show all fields
+    // Email: requires biometric reveal for password, shows address always
     // CodingPlan: show API_KEY + BASE_URL with reveal toggle
     // Others: show single value with reveal toggle
 
