@@ -440,42 +440,36 @@ fun VaultUnlockScreen(
                                     )
                                 }
                             } else {
-                                if (viewModel.isInitialized && viewModel.isBiometricLinked) {
-                                    // Only show biometric button if biometric is linked
-                                    // "Link biometric" moved to Settings page
-                                    val unlockTitle = stringResource(R.string.biometric_unlock_title)
-                                    val unlockSubtitle = stringResource(R.string.biometric_unlock_subtitle)
-                                    BrutalistActionButton(
-                                        text = stringResource(R.string.vault_unlock_biometric),
-                                        onClick = {
-                                            val activity = view.findActivity()
-                                            if (activity != null) {
-                                                viewModel.authenticateWithBiometric(
-                                                    activity = activity,
-                                                    title = unlockTitle,
-                                                    subtitle = unlockSubtitle,
-                                                    onSuccess = { },
-                                                    onError = { viewModel.errorMessage = "BIOMETRIC_FAILED: $it" },
-                                                )
-                                            }
-                                        },
-                                        icon = Icons.Default.Fingerprint,
-                                        iconColor = White,
-                                    )
-                                    Spacer(modifier = Modifier.height(8.dp))
-                                }
+                                // Bottom row: Recovery + Biometric (if linked)
                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                     BrutalistSmallButton(
                                         text = stringResource(R.string.vault_recover_id),
                                         onClick = { /* Post-MVP: account recovery flow */ },
                                         modifier = Modifier.weight(1f),
                                     )
-                                    BrutalistSmallButton(
-                                        text = stringResource(R.string.vault_emergency_sos),
-                                        onClick = { /* Post-MVP: emergency access protocol */ },
-                                        modifier = Modifier.weight(1f),
-                                        isDanger = true,
-                                    )
+                                    if (viewModel.isInitialized && viewModel.isBiometricLinked) {
+                                        val unlockTitle = stringResource(R.string.biometric_unlock_title)
+                                        val unlockSubtitle = stringResource(R.string.biometric_unlock_subtitle)
+                                        BrutalistSmallButton(
+                                            text = stringResource(R.string.vault_unlock_biometric),
+                                            onClick = {
+                                                val activity = view.findActivity()
+                                                if (activity != null) {
+                                                    viewModel.authenticateWithBiometric(
+                                                        activity = activity,
+                                                        title = unlockTitle,
+                                                        subtitle = unlockSubtitle,
+                                                        onSuccess = { },
+                                                        onError = { viewModel.errorMessage = "BIOMETRIC_FAILED: $it" },
+                                                    )
+                                                }
+                                            },
+                                            icon = Icons.Default.Fingerprint,
+                                            modifier = Modifier.weight(1f),
+                                        )
+                                    } else {
+                                        Spacer(modifier = Modifier.weight(1f))
+                                    }
                                 }
                             }
                         }
@@ -808,15 +802,27 @@ private fun BrutalistSmallButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     isDanger: Boolean = false,
+    icon: androidx.compose.ui.graphics.vector.ImageVector? = null,
+    iconColor: Color = if (isDanger) White else Primary,  // Match text color based on danger state
 ) {
-    Box(
+    Row(
         modifier = modifier
             .height(32.dp)
             .border(1.dp, if (isDanger) TacticalRed else Primary)
             .clickable(onClick = onClick)
             .background(if (isDanger) TacticalRed else White),
-        contentAlignment = Alignment.Center,
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically,
     ) {
+        if (icon != null) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = iconColor,
+                modifier = Modifier.size(14.dp),
+            )
+            Spacer(modifier = Modifier.width(4.dp))
+        }
         Text(
             text = text,
             fontFamily = JetBrainsMonoFamily,
