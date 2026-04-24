@@ -474,8 +474,17 @@ private fun CredentialContent(
 
         CredentialType.CodingPlan -> {
             // CodingPlan: BASE_URL first, then API_KEY below
+            val provider = fields.getNotBlank(CodingPlanFields.PROVIDER) ?: "qwen_bailian"
             val apiKey = fields.getNotBlank(CodingPlanFields.API_KEY) ?: CredentialDefaults.FIELD_NOT_SET
             val baseUrl = fields.getNotBlank(CodingPlanFields.BASE_URL) ?: CredentialDefaults.FIELD_NOT_SET
+
+            // Dynamic label based on provider
+            val authFieldLabel = when (provider) {
+                "openai" -> "ACCESS_TOKEN"
+                "anthropic" -> "SESSION_KEY"
+                "qwen_bailian", "deepseek", "google", "minimax", "glm", "moonshot", "volcengine", "tencent" -> "API_KEY"
+                else -> "API_KEY"  // Fallback for unknown providers
+            }
 
             // BASE_URL - always visible, shown first at top
             FieldLabel("BASE_URL")
@@ -509,9 +518,9 @@ private fun CredentialContent(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // API_KEY - revealable
+            // API_KEY / ACCESS_TOKEN / SESSION_KEY - revealable, dynamic label
             RevealableValueBox(
-                label = "API_KEY",
+                label = authFieldLabel,
                 value = apiKey,
                 isRevealed = isRevealed,
                 maskPlaceholder = maskPlaceholder,
