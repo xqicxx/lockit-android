@@ -10,10 +10,12 @@ import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.lockit.domain.model.RecoveryConfig
 import com.lockit.domain.model.RecoveryMethod
 import com.lockit.LockitApp
+import com.lockit.data.crypto.Argon2Params
 import com.lockit.data.crypto.LockitCrypto
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.security.MessageDigest
+import java.util.Base64
 
 /**
  * Manages account recovery flow using Google email verification.
@@ -67,14 +69,17 @@ class AccountRecoveryManager(private val context: Context) {
     }
 
     /**
-     * Derive recovery key from email + device salt.
+     * Derive recovery key from email + device salt + stored random salt.
+     * Uses Argon2id (memory-hard) for secure key derivation.
      * This key is used to encrypt/decrypt the stored master key.
      */
-    private fun deriveRecoveryKey(email: String): ByteArray {
+    private fun deriveRecoveryKey(email: String, salt: ByteArray): ByteArray {
         val deviceSalt = getDeviceSalt()
+        // Combine email + device salt to form the "password" for Argon2id
         val combined = "${email.lowercase()}:${deviceSalt}"
-        val hash = MessageDigest.getInstance("SHA-256").digest(combined.toByteArray())
-        return hash
+        // Use OWASP Argon2id parameters for memory-hard key derivation
+        val (memory, iterations, parallelism) = Argon2Params.DEFAULT
+        return crypto.deriveKey(combined, salt, memory, iterations, parallelism)
     }
 
     /**
@@ -117,14 +122,17 @@ class AccountRecoveryManager(private val context: Context) {
         // Store email hash
         val emailHash = RecoveryConfig.hashEmail(email)
 
-        // Generate recovery salt
+        // Generate recovery salt for Argon2id
         val recoverySalt = crypto.generateSalt()
 
-        // Derive recovery key
-        val recoveryKey = deriveRecoveryKey(email)
+        // Derive recovery key using Argon2id with the random salt
+        val recoveryKey = deriveRecoveryKey(email, recoverySalt)
 
         // Encrypt master key with recovery key
         val encryptedMasterKey = crypto.encrypt(masterKey, recoveryKey)
+
+        // Zero out recovery key after use
+        recoveryKey.fill(0)
 
         // Store encrypted master key and salt
         prefs.edit()
@@ -157,19 +165,30 @@ class AccountRecoveryManager(private val context: Context) {
             return RecoveryVerificationResult.Mismatch
         }
 
-        // Derive recovery key
-        val recoveryKey = deriveRecoveryKey(email)
+        // Get stored recovery salt
+        val recoverySaltStr = prefs.getString(KEY_RECOVERY_SALT, null)
+        if (recoverySaltStr == null) {
+            return RecoveryVerificationResult.Failure("No stored recovery salt")
+        }
+        val recoverySalt = java.util.Base64.getDecoder().decode(recoverySaltStr)
+
+        // Derive recovery key using Argon2id with stored salt
+        val recoveryKey = deriveRecoveryKey(email, recoverySalt)
 
         // Decrypt stored master key
         try {
             val encryptedMasterKeyStr = prefs.getString(KEY_ENCRYPTED_MASTER_KEY, null)
             if (encryptedMasterKeyStr == null) {
+                recoveryKey.fill(0)
                 return RecoveryVerificationResult.Failure("No stored master key")
             }
             val encryptedMasterKey = java.util.Base64.getDecoder().decode(encryptedMasterKeyStr)
             val decryptedMasterKey = crypto.decrypt(encryptedMasterKey, recoveryKey)
+            // Zero out recovery key after use
+            recoveryKey.fill(0)
             return RecoveryVerificationResult.VerifiedWithKey(account, decryptedMasterKey)
         } catch (e: Exception) {
+            recoveryKey.fill(0)
             return RecoveryVerificationResult.Failure("Failed to decrypt: ${e.message}")
         }
     }

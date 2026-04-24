@@ -269,11 +269,13 @@ fun AccountRecoveryScreen(
                                         scope.launch {
                                             var success = false
                                             var error: String? = null
+                                            var keyToZero: ByteArray? = null
                                             try {
                                                 val key = recoveredMasterKey
                                                 if (key == null) {
                                                     error = strVaultNotUnlocked
                                                 } else {
+                                                    keyToZero = key
                                                     // Unlock vault with recovered key
                                                     val unlockResult = withContext(Dispatchers.IO) {
                                                         app.vaultManager.unlockVaultWithRecoveredKey(key)
@@ -281,10 +283,14 @@ fun AccountRecoveryScreen(
                                                     if (unlockResult.isFailure) {
                                                         error = "$strRecoveryFailed ${unlockResult.exceptionOrNull()?.message}"
                                                     } else {
+                                                        // Convert PIN to CharArray for secure handling
+                                                        val pinChars = newPin.toCharArray()
                                                         // Reset PIN
                                                         val resetResult = withContext(Dispatchers.IO) {
-                                                            app.vaultManager.resetPin(newPin)
+                                                            app.vaultManager.resetPin(pinChars)
                                                         }
+                                                        // Zero out PIN chars immediately after use
+                                                        pinChars.fill(' ')
                                                         if (resetResult.isSuccess) {
                                                             success = true
                                                         } else {
@@ -295,6 +301,12 @@ fun AccountRecoveryScreen(
                                             } catch (e: Exception) {
                                                 error = "$strRecoveryFailed ${e.message}"
                                             }
+                                            // Zero out master key after use
+                                            keyToZero?.fill(0)
+                                            recoveredMasterKey = null
+                                            // Clear PIN strings from UI state
+                                            newPin = ""
+                                            confirmPin = ""
                                             isProcessing = false
                                             if (success) {
                                                 recoveryState = RecoveryState.SUCCESS
