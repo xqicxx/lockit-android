@@ -99,7 +99,7 @@ fun BrutalistBottomNav(
                     modifier = Modifier
                         .width(1.dp)
                         .fillMaxHeight()
-                        .background(borderColor),
+                        .background(colorScheme.outlineVariant.copy(alpha = 0.2f)),
                 )
             }
         }

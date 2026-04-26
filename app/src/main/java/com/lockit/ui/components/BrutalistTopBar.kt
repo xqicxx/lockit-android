@@ -91,7 +91,7 @@ fun BrutalistTopBar(
                     fontSize = 10.sp,
                     color = colorScheme.onSurface,
                     modifier = Modifier
-                        .border(1.dp, colorScheme.onSurface)
+                        .border(1.dp, colorScheme.outlineVariant.copy(alpha = 0.2f))
                         .padding(horizontal = 8.dp, vertical = 4.dp),
                 )
             }
