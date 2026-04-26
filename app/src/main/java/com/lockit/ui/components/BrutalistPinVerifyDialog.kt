@@ -104,7 +104,7 @@ fun BrutalistPinVerifyDialog(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(colorScheme.onSurface.copy(alpha = 0.5f))
+            .background(colorScheme.surface.copy(alpha = 0.8f))
             .clickable(onClick = onDismiss),
         contentAlignment = Alignment.Center,
     ) {
@@ -203,7 +203,7 @@ fun BrutalistPinVerifyDialog(
                         Box(
                             modifier = Modifier
                                 .size(96.dp)
-                                .border(1.dp, colorScheme.onSurface.copy(alpha = 0.4f))
+                                .border(1.dp, colorScheme.outlineVariant.copy(alpha = 0.2f))
                                 .background(colorScheme.surfaceContainerHigh),
                             contentAlignment = Alignment.Center,
                         ) {
@@ -298,7 +298,7 @@ fun BrutalistPinVerifyDialog(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .border(1.dp, colorScheme.onSurface.copy(alpha = 0.4f))
+                                .border(1.dp, colorScheme.outlineVariant.copy(alpha = 0.2f))
                                 .clickable(onClick = onDismiss)
                                 .padding(vertical = 12.dp),
                             horizontalArrangement = Arrangement.Center,
@@ -391,10 +391,10 @@ private fun PinKey(
             .drawBehind {
                 val sw = 1.dp.toPx()
                 if (hasRightBorder) {
-                    drawLine(colorScheme.onSurface.copy(alpha = 0.3f), Offset(size.width, 0f), Offset(size.width, size.height), sw)
+                    drawLine(colorScheme.outlineVariant.copy(alpha = 0.2f), Offset(size.width, 0f), Offset(size.width, size.height), sw)
                 }
                 if (hasBottomBorder) {
-                    drawLine(colorScheme.onSurface.copy(alpha = 0.3f), Offset(0f, size.height), Offset(size.width, size.height), sw)
+                    drawLine(colorScheme.outlineVariant.copy(alpha = 0.2f), Offset(0f, size.height), Offset(size.width, size.height), sw)
                 }
             }
             .clickable {

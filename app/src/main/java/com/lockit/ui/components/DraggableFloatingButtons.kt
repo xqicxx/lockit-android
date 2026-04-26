@@ -196,7 +196,7 @@ private fun VisibleButton(
                 color = backgroundColor,
                 shape = RectangleShape
             )
-            .border(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f), RectangleShape)
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f), RectangleShape)
     ) {
         Icon(
             painter = painterResource(id = iconRes),
@@ -219,7 +219,7 @@ private fun Modifier.visibleBackground(): Modifier {
         )
         .border(
             width = 1.dp,
-            color = colorScheme.onSurface.copy(alpha = 0.4f),
+            color = colorScheme.outlineVariant.copy(alpha = 0.4f),
             shape = RectangleShape
         )
 }

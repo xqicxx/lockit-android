@@ -707,7 +707,7 @@ private fun SecretValueSection(
 
                     Box(
                         modifier = Modifier.fillMaxWidth()
-                            .background(MaterialTheme.colorScheme.surfaceContainerLow).border(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f)).padding(16.dp),
+                            .background(MaterialTheme.colorScheme.surfaceContainerLow).border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f)).padding(16.dp),
                     ) {
                         Text(
                             text = displayValue,
@@ -909,7 +909,7 @@ private fun AuditLogSection(app: LockitApp, credential: Credential) {
                         )
                     }
                     if (index < logs.size - 1) {
-                        HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.15f), thickness = 1.dp)
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f), thickness = 1.dp)
                     }
                 }
             }
