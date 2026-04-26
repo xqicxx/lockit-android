@@ -1742,7 +1742,7 @@ private fun ConfigSection(
                 modifier = Modifier
                     .height(1.dp)
                     .weight(1f)
-                    .background(colorScheme.outlineVariant.copy(alpha = 0.2f)),
+                    .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f)),
             )
         }
 

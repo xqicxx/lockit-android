@@ -493,7 +493,7 @@ private fun CredentialContent(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(MaterialTheme.colorScheme.surfaceContainerLow)
-                    .border(1.dp, colorScheme.outlineVariant.copy(alpha = 0.2f))
+                    .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f))
                     .padding(12.dp)
                     .pointerInput(Unit) {
                         detectTapGestures(

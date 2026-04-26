@@ -309,6 +309,14 @@
     <string name="repos_quota_cookie_expired">COOKIE已过期</string>
     <string name="repos_quota_no_data">暂无数据</string>
     <string name="repos_quota_retry_hint">请检查凭据或点击刷新重试</string>
+    <string name="repos_quota_plan">套餐</string>
+    <string name="repos_quota_account">账号</string>
+    <string name="repos_quota_remaining_label">剩余</string>
+    <string name="repos_quota_days_value">%1$d天</string>
+    <string name="repos_quota_cost_label">费用</string>
+    <string name="repos_quota_models">模型额度</string>
+    <string name="repos_quota_credits">余额</string>
+    <string name="repos_quota_extra_usage">额外用量</string>
 
     <!-- Logs Screen -->
     <string name="logs_title">审计日志</string>
@@ -340,6 +348,7 @@
 
     <!-- Quota Gauge Labels -->
     <string name="quota_5h">5小时</string>
+    <string name="quota_day">日</string>
     <string name="quota_week">周</string>
     <string name="quota_month">月</string>
 

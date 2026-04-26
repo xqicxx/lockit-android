@@ -309,6 +309,14 @@
     <string name="repos_quota_cookie_expired">Cookie expired</string>
     <string name="repos_quota_no_data">No data available</string>
     <string name="repos_quota_retry_hint">Please check credential or tap REFRESH to retry</string>
+    <string name="repos_quota_plan">PLAN</string>
+    <string name="repos_quota_account">ACCOUNT</string>
+    <string name="repos_quota_remaining_label">REMAINING</string>
+    <string name="repos_quota_days_value">%1$d days</string>
+    <string name="repos_quota_cost_label">COST</string>
+    <string name="repos_quota_models">MODEL_QUOTAS</string>
+    <string name="repos_quota_credits">CREDITS</string>
+    <string name="repos_quota_extra_usage">EXTRA_USAGE</string>
 
     <!-- Logs Screen -->
     <string name="logs_title">Audit Log</string>
@@ -340,6 +348,7 @@
 
     <!-- Quota Gauge Labels -->
     <string name="quota_5h">5H</string>
+    <string name="quota_day">DAY</string>
     <string name="quota_week">WEEK</string>
     <string name="quota_month">MONTH</string>
 

@@ -38,6 +38,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lockit.LockitApp
 import com.lockit.R
+import com.lockit.domain.CodingPlanProviders
 import com.lockit.domain.model.CredentialType
 import com.lockit.domain.model.CodingPlanFields
 import com.lockit.domain.model.requiredFieldIndices
@@ -642,12 +643,7 @@ fun AddCredentialScreen(
                                 val metadata = if (selectedType == CredentialType.CodingPlan) {
                                     val rawProvider = getField(0)
                                     // Normalize provider key for fetcher registry
-                                    val provider = when (rawProvider) {
-                                        "qwen" -> "qwen_bailian"
-                                        "anthropic" -> "claude"
-                                        "openai" -> "chatgpt"
-                                        else -> rawProvider
-                                    }
+                                    val provider = CodingPlanProviders.normalize(rawProvider)
                                     val rawCurl = getField(1)
                                     val apiKey = getField(2).takeIf { it.isNotBlank() }
                                         ?: extractApiKeyFromCurl(rawCurl)
@@ -710,8 +706,7 @@ fun AddCredentialScreen(
 
                                 // CodingPlan: use provider name as service, apiKey as key
                                 val (serviceVal, keyVal) = if (selectedType == CredentialType.CodingPlan) {
-                                    (getField(0).takeIf { it.isNotBlank() }
-                                        ?: selectedType.displayName) to getField(2)
+                                    CodingPlanProviders.normalize(getField(0)) to getField(2)
                                 } else {
                                     getField(1) to getField(2)
                                 }

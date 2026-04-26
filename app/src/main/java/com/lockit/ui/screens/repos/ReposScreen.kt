@@ -65,6 +65,7 @@ import com.lockit.R
 import com.lockit.domain.CodingPlanQuota
 import com.lockit.domain.CodingPlanFetchers
 import com.lockit.domain.CodingPlanPrefetchState
+import com.lockit.domain.CodingPlanProviders
 import com.lockit.data.vault.CodingPlanPrefs
 import com.lockit.domain.model.Credential
 import com.lockit.domain.model.CredentialType
@@ -94,7 +95,6 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
-import org.json.JSONObject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -145,8 +145,6 @@ class ReposViewModel(app: LockitApp) : ViewModel() {
 
     var lastAutoFetchTime = 0L  // Timestamp-based instead of permanent lock
     private var currentApp: LockitApp? = null
-    private var previousService: String? = null  // Track service transitions
-
     init {
         // Will be set when app is passed in
     }
@@ -160,18 +158,37 @@ class ReposViewModel(app: LockitApp) : ViewModel() {
     }
 
     fun selectService(service: String?) {
-        // Reset auto-fetch timestamp when leaving CODING_PLAN board
-        if (previousService == "CODING_PLAN" && service != "CODING_PLAN") {
+        if (_selectedService.value == "CODING_PLAN" && service != "CODING_PLAN") {
             lastAutoFetchTime = 0L  // Allow fresh fetch on next board entry
         }
-        previousService = _selectedService.value
         _selectedService.value = service
     }
 
     fun selectProvider(provider: String) {
-        _selectedProvider.value = provider
+        val normalized = CodingPlanProviders.normalize(provider)
+        if (_selectedProvider.value == normalized) return
+        _selectedProvider.value = normalized
+        _codingPlanQuota.value = null
+        _codingPlanQuotaError.value = null
+        lastAutoFetchTime = 0L
         // Re-fetch quota for new provider
         fetchCodingPlanQuota(force = true)
+    }
+
+    fun syncCodingPlanProviders(credentials: List<Credential>) {
+        val providers = availableCodingPlanProviders(credentials)
+        if (providers.isEmpty()) {
+            _codingPlanQuota.value = null
+            _codingPlanQuotaError.value = null
+            return
+        }
+
+        if (_selectedProvider.value !in providers) {
+            _selectedProvider.value = providers.first()
+            _codingPlanQuota.value = null
+            _codingPlanQuotaError.value = null
+            lastAutoFetchTime = 0L
+        }
     }
 
     suspend fun getCredentialById(id: String): Credential? {
@@ -210,16 +227,32 @@ class ReposViewModel(app: LockitApp) : ViewModel() {
         _codingPlanQuotaError.value = null
 
         val targetProvider = _selectedProvider.value
+        val providerCreds = codingPlanCreds.filter { CodingPlanProviders.fromCredential(it) == targetProvider }
+        val effectiveProvider = if (providerCreds.isNotEmpty()) {
+            targetProvider
+        } else {
+            CodingPlanProviders.fromCredential(codingPlanCreds.first())
+        }
+        val effectiveProviderCreds = if (providerCreds.isNotEmpty()) {
+            providerCreds
+        } else {
+            codingPlanCreds.filter { CodingPlanProviders.fromCredential(it) == effectiveProvider }
+        }
+        if (_selectedProvider.value != effectiveProvider) {
+            _selectedProvider.value = effectiveProvider
+        }
         viewModelScope.launch {
             val result = withContext(Dispatchers.IO) {
-                // Filter credentials by selected provider
-                val providerCreds = codingPlanCreds.filter {
-                    it.metadata["provider"] == targetProvider
-                }
+                val prefsMetadata = currentApp?.let {
+                    CodingPlanPrefs.getProviderData(it, effectiveProvider) + ("provider" to effectiveProvider)
+                } ?: emptyMap()
+                val metadataCandidates = effectiveProviderCreds.map { cred ->
+                    prefsMetadata + cred.metadata + ("provider" to effectiveProvider)
+                } + listOf(prefsMetadata).filter { it.size > 1 }
+
                 var quota: CodingPlanQuota? = null
-                for (cred in providerCreds) {
-                    val metadata = cred.metadata.takeIf { it.isNotEmpty() } ?: continue
-                    val fetcher = CodingPlanFetchers.forProvider(targetProvider) ?: continue
+                for (metadata in metadataCandidates) {
+                    val fetcher = CodingPlanFetchers.forProvider(effectiveProvider) ?: continue
                     quota = fetcher.fetchQuota(metadata)
                     if (quota != null) break
                 }
@@ -234,7 +267,7 @@ class ReposViewModel(app: LockitApp) : ViewModel() {
                 CodingPlanPrefetchState.setError(null)
                 // Save to cache for next startup
                 if (result != null) {
-                    currentApp?.let { CodingPlanPrefs.saveQuotaCache(it, result, targetProvider) }
+                    currentApp?.let { CodingPlanPrefs.saveQuotaCache(it, result, effectiveProvider) }
                 }
             }
             _isQuotaLoading.value = false
@@ -276,10 +309,21 @@ class ReposViewModel(app: LockitApp) : ViewModel() {
     }
 
     // Update quota when prefetch completes (called from StateFlow observer)
-    fun updateQuotaFromPrefetch(quota: CodingPlanQuota?, error: String?) {
+    fun updateQuotaFromPrefetch(quota: CodingPlanQuota?, error: String?, provider: String?) {
+        val normalizedProvider = provider?.let { CodingPlanProviders.normalize(it) }
+        if (normalizedProvider != null && normalizedProvider != _selectedProvider.value) {
+            return
+        }
         _codingPlanQuota.value = quota
         _codingPlanQuotaError.value = error
         _isQuotaLoading.value = false
+    }
+
+    private fun availableCodingPlanProviders(credentials: List<Credential>): List<String> {
+        return credentials
+            .filter { it.type == CredentialType.CodingPlan }
+            .map { CodingPlanProviders.fromCredential(it) }
+            .distinct()
     }
 }
 
@@ -345,7 +389,8 @@ fun ReposScreen(
     val selectedProvider by viewModel.selectedProvider.collectAsStateWithLifecycle()
 
     // Auto-fetch once when credentials become available
-    LaunchedEffect(credentialList) {
+    LaunchedEffect(codingPlanCredentials) {
+        viewModel.syncCodingPlanProviders(codingPlanCredentials)
         viewModel.autoFetchIfNeeded()
     }
 
@@ -354,18 +399,21 @@ fun ReposScreen(
     val prefetchQuota by CodingPlanPrefetchState.quota.collectAsStateWithLifecycle()
     val prefetchError by CodingPlanPrefetchState.error.collectAsStateWithLifecycle()
     val prefetchCacheTimestamp by CodingPlanPrefetchState.cacheTimestamp.collectAsStateWithLifecycle()
+    val prefetchProvider = remember(prefetchCacheTimestamp, prefetchQuota) {
+        CodingPlanPrefs.getCachedProvider(app)
+    }
 
     // Calculate cache age in minutes (how old is the cached data)
-    val cacheAgeMinutes = remember(prefetchCacheTimestamp) {
-        if (prefetchCacheTimestamp > 0) {
+    val cacheAgeMinutes = remember(prefetchCacheTimestamp, prefetchProvider, selectedProvider) {
+        if (prefetchCacheTimestamp > 0 && CodingPlanProviders.normalize(prefetchProvider) == selectedProvider) {
             ((System.currentTimeMillis() - prefetchCacheTimestamp) / 60000).toInt()
         } else 0
     }
 
     // When prefetch completes (success or failure), update ViewModel quota
-    LaunchedEffect(prefetchLoading, prefetchQuota, prefetchError) {
+    LaunchedEffect(prefetchLoading, prefetchQuota, prefetchError, prefetchProvider) {
         if (!prefetchLoading && (prefetchQuota != null || prefetchError != null)) {
-            viewModel.updateQuotaFromPrefetch(prefetchQuota, prefetchError)
+            viewModel.updateQuotaFromPrefetch(prefetchQuota, prefetchError, prefetchProvider)
         }
     }
 
@@ -498,11 +546,9 @@ fun ReposScreen(
                     // Provider switcher cards - only show if 2+ providers exist
                     Spacer(modifier = Modifier.height(8.dp))
                     // Get unique providers from existing CodingPlan credentials
-                    val existingProviders = codingPlanCredentials.mapNotNull { cred ->
-                        runCatching {
-                            JSONObject(cred.metadata).optString("provider")
-                        }.getOrNull()?.takeIf { it.isNotBlank() }
-                    }.distinct()
+                    val existingProviders = codingPlanCredentials
+                        .map { CodingPlanProviders.fromCredential(it) }
+                        .distinct()
                     if (existingProviders.size >= 2) {
                         ProviderCardsRow(
                             selectedProvider = selectedProvider,
@@ -1022,7 +1068,7 @@ internal fun CredentialCardModal(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(colorScheme.surface.copy(alpha = 0.8f))
+            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.8f))
             .clickable(onClick = onDismiss),
         contentAlignment = Alignment.Center,
     ) {
@@ -1076,33 +1122,31 @@ private fun CodingPlanBoard(
             .border(1.dp, colorScheme.outlineVariant.copy(alpha = 0.2f))
             .padding(12.dp),
     ) {
-        // Single title row with REFRESH button on right
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            // Title: instance name or default
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = if (quota?.instanceName?.isNotBlank() == true) quota.instanceName.uppercase() else stringResource(R.string.repos_coding_plan),
                     fontFamily = JetBrainsMonoFamily,
                     fontWeight = FontWeight.Bold,
                     fontSize = 12.sp,
                     color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
-                // Show cache age indicator if data is cached (not fresh)
-                if (cacheAgeMinutes > 0 && !isLoading) {
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = "${cacheAgeMinutes}m",
-                        fontFamily = JetBrainsMonoFamily,
-                        fontSize = 9.sp,
-                        color = if (cacheAgeMinutes > 60) TacticalRed else IndustrialOrange,
-                    )
-                }
+                Text(
+                    text = providerLabel(selectedProvider).uppercase(),
+                    fontFamily = JetBrainsMonoFamily,
+                    fontSize = 9.sp,
+                    color = IndustrialOrange,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
             }
-            // REFRESH button - prominent color
+
             if (isLoading) {
                 Text(
                     text = stringResource(R.string.repos_fetching),
@@ -1130,68 +1174,14 @@ private fun CodingPlanBoard(
         Spacer(modifier = Modifier.height(8.dp))
 
         if (quota != null) {
-            // Details: use Column for better text handling on narrow screens
-            Column(modifier = Modifier.fillMaxWidth()) {
-                // Remaining days and cost
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    Text(
-                        text = stringResource(R.string.repos_quota_remaining, quota.remainingDays),
-                        fontFamily = JetBrainsMonoFamily,
-                        fontSize = 10.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f, fill = false),
-                    )
-                    Text(
-                        text = stringResource(R.string.repos_quota_cost, quota.chargeAmount),
-                        fontFamily = JetBrainsMonoFamily,
-                        fontSize = 10.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                    )
-                }
-                Spacer(modifier = Modifier.height(6.dp))
-                // Status tags
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    if (quota.autoRenewFlag) {
-                        Box(
-                            modifier = Modifier
-                                .border(1.dp, IndustrialOrange)
-                                .padding(horizontal = 3.dp, vertical = 1.dp),
-                        ) {
-                            Text(
-                                text = stringResource(R.string.repos_quota_auto_renew),
-                                fontFamily = JetBrainsMonoFamily,
-                                fontSize = 8.sp,
-                                color = IndustrialOrange,
-                            )
-                        }
-                    }
-                    // Status tag
-                    val isValid = quota.status == "VALID"
-                    Box(
-                        modifier = Modifier
-                            .background(if (isValid) IndustrialOrange.copy(0.15f) else TacticalRed.copy(0.2f))
-                            .border(1.dp, if (isValid) IndustrialOrange else TacticalRed)
-                            .padding(horizontal = 4.dp, vertical = 1.dp),
-                    ) {
-                        Text(
-                            text = if (isValid) stringResource(R.string.repos_quota_status_valid) else stringResource(R.string.repos_quota_status_expired),
-                            fontFamily = JetBrainsMonoFamily,
-                            fontSize = 8.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = if (isValid) IndustrialOrange else TacticalRed,
-                        )
-                    }
-                }
-            }
+            CodingPlanSummaryGrid(
+                quota = quota,
+                selectedProvider = selectedProvider,
+                cacheAgeMinutes = cacheAgeMinutes,
+                isLoading = isLoading,
+            )
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Separator
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -1200,14 +1190,48 @@ private fun CodingPlanBoard(
             )
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Quota gauges
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                QuotaGauge(stringResource(R.string.quota_5h), quota.sessionUsed, quota.sessionTotal, Modifier.weight(1f))
+                QuotaGauge(primaryWindowLabel(selectedProvider), quota.sessionUsed, quota.sessionTotal, Modifier.weight(1f))
                 QuotaGauge(stringResource(R.string.quota_week), quota.weekUsed, quota.weekTotal, Modifier.weight(1f))
                 QuotaGauge(stringResource(R.string.quota_month), quota.monthUsed, quota.monthTotal, Modifier.weight(1f))
             }
+
+            if (quota.modelQuotas.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(12.dp))
+                Text(
+                    text = stringResource(R.string.repos_quota_models),
+                    fontFamily = JetBrainsMonoFamily,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 10.sp,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                quota.modelQuotas.values.forEach { modelQuota ->
+                    ModelQuotaRow(modelQuota)
+                    Spacer(modifier = Modifier.height(6.dp))
+                }
+            }
+
+            if (quota.creditsRemaining > 0.0 || quota.extraUsageLimit > 0.0) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                    if (quota.creditsRemaining > 0.0) {
+                        MetricTile(
+                            label = stringResource(R.string.repos_quota_credits),
+                            value = "${quota.creditsRemaining} ${quota.creditsCurrency}",
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
+                    if (quota.extraUsageLimit > 0.0) {
+                        MetricTile(
+                            label = stringResource(R.string.repos_quota_extra_usage),
+                            value = "${quota.extraUsageSpent} / ${quota.extraUsageLimit}",
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
+                }
+            }
         } else {
-            // Error or empty state
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -1238,6 +1262,115 @@ private fun CodingPlanBoard(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun CodingPlanSummaryGrid(
+    quota: CodingPlanQuota,
+    selectedProvider: String,
+    cacheAgeMinutes: Int,
+    isLoading: Boolean,
+) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        val statusText = quota.status.ifBlank { stringResource(R.string.repos_quota_status_valid) }
+        val isValid = statusText.equals("VALID", ignoreCase = true) ||
+            statusText.equals("ACTIVE", ignoreCase = true)
+
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            StatusTag(
+                text = if (isValid) stringResource(R.string.repos_quota_status_valid) else statusText.uppercase(),
+                color = if (isValid) IndustrialOrange else TacticalRed,
+            )
+            if (quota.autoRenewFlag) {
+                StatusTag(stringResource(R.string.repos_quota_auto_renew), IndustrialOrange)
+            }
+            if (cacheAgeMinutes > 0 && !isLoading) {
+                StatusTag("${cacheAgeMinutes}m cache", if (cacheAgeMinutes > 60) TacticalRed else IndustrialOrange)
+            }
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+            MetricTile(
+                label = stringResource(R.string.repos_quota_plan),
+                value = listOf(quota.planName, quota.tier, quota.instanceType)
+                    .firstOrNull { it.isNotBlank() }
+                    ?: providerLabel(selectedProvider),
+                modifier = Modifier.weight(1f),
+            )
+            MetricTile(
+                label = stringResource(R.string.repos_quota_account),
+                value = quota.accountEmail.ifBlank { quota.loginMethod.ifBlank { "--" } },
+                modifier = Modifier.weight(1f),
+            )
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+            MetricTile(
+                label = stringResource(R.string.repos_quota_remaining_label),
+                value = if (quota.remainingDays > 0) stringResource(R.string.repos_quota_days_value, quota.remainingDays) else "--",
+                modifier = Modifier.weight(1f),
+            )
+            MetricTile(
+                label = stringResource(R.string.repos_quota_cost_label),
+                value = if (quota.chargeAmount > 0.0) "¥${quota.chargeAmount}" else quota.chargeType.ifBlank { "--" },
+                modifier = Modifier.weight(1f),
+            )
+        }
+    }
+}
+
+@Composable
+private fun StatusTag(text: String, color: Color) {
+    Box(
+        modifier = Modifier
+            .background(color.copy(alpha = 0.12f))
+            .border(1.dp, color)
+            .padding(horizontal = 4.dp, vertical = 1.dp),
+    ) {
+        Text(
+            text = text,
+            fontFamily = JetBrainsMonoFamily,
+            fontSize = 8.sp,
+            fontWeight = FontWeight.Bold,
+            color = color,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+    }
+}
+
+@Composable
+private fun MetricTile(label: String, value: String, modifier: Modifier = Modifier) {
+    val colorScheme = MaterialTheme.colorScheme
+    Column(
+        modifier = modifier
+            .background(colorScheme.surfaceContainerHighest)
+            .border(1.dp, colorScheme.outlineVariant.copy(alpha = 0.2f))
+            .padding(8.dp),
+    ) {
+        Text(
+            text = label,
+            fontFamily = JetBrainsMonoFamily,
+            fontSize = 8.sp,
+            color = colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Spacer(modifier = Modifier.height(3.dp))
+        Text(
+            text = value,
+            fontFamily = JetBrainsMonoFamily,
+            fontWeight = FontWeight.Bold,
+            fontSize = 10.sp,
+            color = colorScheme.onSurface,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
     }
 }
 
@@ -1300,6 +1433,101 @@ private fun QuotaGauge(label: String, used: Int, total: Int, modifier: Modifier 
             maxLines = 1,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+    }
+}
+
+@Composable
+private fun ModelQuotaRow(modelQuota: com.lockit.domain.model.ModelQuota) {
+    val colorScheme = MaterialTheme.colorScheme
+    val pct = modelQuota.usedPercent.coerceIn(0.0, 100.0).toFloat()
+    val barColor = when {
+        pct >= 90f -> TacticalRed
+        pct >= 70f -> IndustrialOrange
+        else -> colorScheme.onSurfaceVariant
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(colorScheme.surfaceContainerHighest)
+            .border(1.dp, colorScheme.outlineVariant.copy(alpha = 0.2f))
+            .padding(8.dp),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Text(
+                text = modelQuota.modelName.uppercase(),
+                fontFamily = JetBrainsMonoFamily,
+                fontWeight = FontWeight.Bold,
+                fontSize = 9.sp,
+                color = colorScheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
+            )
+            Text(
+                text = "${pct.toInt()}%",
+                fontFamily = JetBrainsMonoFamily,
+                fontWeight = FontWeight.Bold,
+                fontSize = 9.sp,
+                color = barColor,
+            )
+        }
+        Spacer(modifier = Modifier.height(5.dp))
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(7.dp)
+                .background(SurfaceLow),
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(pct / 100f)
+                    .height(7.dp)
+                    .background(barColor),
+            )
+        }
+        if (modelQuota.weekTotal > 0 || modelQuota.resetsAt != null) {
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = buildModelQuotaFooter(modelQuota),
+                fontFamily = JetBrainsMonoFamily,
+                fontSize = 8.sp,
+                color = colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+    }
+}
+
+private fun buildModelQuotaFooter(modelQuota: com.lockit.domain.model.ModelQuota): String {
+    val usage = if (modelQuota.weekTotal > 0) {
+        "${modelQuota.weekUsed} / ${modelQuota.weekTotal}"
+    } else {
+        ""
+    }
+    val reset = modelQuota.resetsAt?.toString()?.substringBefore("T")?.let { "RESET $it" } ?: ""
+    return listOf(usage, reset).filter { it.isNotBlank() }.joinToString(" // ")
+}
+
+@Composable
+private fun providerLabel(provider: String): String {
+    return when (CodingPlanProviders.normalize(provider)) {
+        CodingPlanProviders.QWEN_BAILIAN -> stringResource(R.string.provider_qwen)
+        CodingPlanProviders.CHATGPT -> stringResource(R.string.provider_chatgpt)
+        CodingPlanProviders.CLAUDE -> stringResource(R.string.provider_claude)
+        else -> provider
+    }
+}
+
+@Composable
+private fun primaryWindowLabel(provider: String): String {
+    return when (CodingPlanProviders.normalize(provider)) {
+        CodingPlanProviders.CHATGPT -> stringResource(R.string.quota_day)
+        else -> stringResource(R.string.quota_5h)
     }
 }
 
