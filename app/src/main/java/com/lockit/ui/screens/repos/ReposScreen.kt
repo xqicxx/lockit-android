@@ -484,7 +484,7 @@ fun ReposScreen(
                         fontWeight = FontWeight.Bold,
                         fontSize = 12.sp,
                         letterSpacing = 2.sp,
-                        color = Primary,
+                        color = MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.padding(bottom = 12.dp),
                     )
                     CodingPlanBoard(
@@ -519,7 +519,7 @@ fun ReposScreen(
                     fontWeight = FontWeight.Bold,
                     fontSize = 12.sp,
                     letterSpacing = 2.sp,
-                    color = Primary,
+                    color = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.padding(bottom = 12.dp),
                 )
 
@@ -842,9 +842,10 @@ fun ReposScreen(
 
 @Composable
 private fun StatCard(label: String, value: String, modifier: Modifier = Modifier) {
+    val colorScheme = MaterialTheme.colorScheme
     Box(
         modifier = modifier
-            .border(1.dp, Primary)
+            .border(1.dp, colorScheme.outlineVariant.copy(alpha = 0.2f))
             .padding(16.dp),
     ) {
         Column {
@@ -853,13 +854,13 @@ private fun StatCard(label: String, value: String, modifier: Modifier = Modifier
                 fontFamily = JetBrainsMonoFamily,
                 fontWeight = FontWeight.ExtraBold,
                 fontSize = 32.sp,
-                color = Primary,
+                color = colorScheme.onSurface,
             )
             Text(
                 text = label,
                 fontFamily = JetBrainsMonoFamily,
                 fontSize = 10.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = colorScheme.onSurfaceVariant,
             )
         }
     }
@@ -872,10 +873,11 @@ private fun ServiceRow(
     isLocal: Boolean,
     onClick: () -> Unit,
 ) {
+    val colorScheme = MaterialTheme.colorScheme
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .border(1.dp, Primary)
+            .border(1.dp, colorScheme.outlineVariant.copy(alpha = 0.2f))
             .clickable(onClick = onClick)
             .padding(12.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -885,7 +887,7 @@ private fun ServiceRow(
             Icon(
                 imageVector = if (isLocal) Icons.Default.Lock else Icons.Default.CloudUpload,
                 contentDescription = null,
-                tint = if (isLocal) IndustrialOrange else MaterialTheme.colorScheme.onSurfaceVariant,
+                tint = if (isLocal) IndustrialOrange else colorScheme.onSurfaceVariant,
                 modifier = Modifier.height(16.dp),
             )
             Spacer(modifier = Modifier.width(8.dp))
@@ -894,7 +896,7 @@ private fun ServiceRow(
                 fontFamily = JetBrainsMonoFamily,
                 fontWeight = FontWeight.Bold,
                 fontSize = 14.sp,
-                color = Primary,
+                color = colorScheme.onSurface,
             )
         }
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -902,13 +904,13 @@ private fun ServiceRow(
                 text = stringResource(R.string.repos_keys, count),
                 fontFamily = JetBrainsMonoFamily,
                 fontSize = 10.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = colorScheme.onSurfaceVariant,
             )
             Spacer(modifier = Modifier.width(8.dp))
             Box(
                 modifier = Modifier
-                    .background(if (isLocal) MaterialTheme.colorScheme.surfaceContainerHighest else MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.2f))
-                    .border(1.dp, if (isLocal) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline)
+                    .background(if (isLocal) colorScheme.surfaceContainerHighest else colorScheme.surfaceContainer.copy(alpha = 0.2f))
+                    .border(1.dp, if (isLocal) colorScheme.outlineVariant.copy(alpha = 0.2f) else colorScheme.outlineVariant.copy(alpha = 0.2f))
                     .padding(horizontal = 6.dp, vertical = 2.dp),
             ) {
                 Text(
@@ -916,7 +918,7 @@ private fun ServiceRow(
                     fontFamily = JetBrainsMonoFamily,
                     fontSize = 8.sp,
                     fontWeight = FontWeight.Bold,
-                    color = if (isLocal) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = if (isLocal) colorScheme.onSurface else colorScheme.onSurfaceVariant,
                 )
             }
         }
@@ -933,10 +935,11 @@ internal fun CompactCredentialRow(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val colorScheme = MaterialTheme.colorScheme
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .border(1.dp, MaterialTheme.colorScheme.primary)
+            .border(1.dp, colorScheme.outlineVariant.copy(alpha = 0.2f))
             .clickable(onClick = onClick)
             .padding(12.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -956,7 +959,7 @@ internal fun CompactCredentialRow(
                 fontFamily = JetBrainsMonoFamily,
                 fontWeight = FontWeight.Bold,
                 fontSize = 13.sp,
-                color = Primary,
+                color = colorScheme.onSurface,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -1019,7 +1022,7 @@ internal fun CredentialCardModal(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
+            .background(colorScheme.surface.copy(alpha = 0.8f))
             .clickable(onClick = onDismiss),
         contentAlignment = Alignment.Center,
     ) {
@@ -1066,10 +1069,11 @@ private fun CodingPlanBoard(
     cacheAgeMinutes: Int, // How old is the cached data (minutes)
     onRefresh: () -> Unit,
 ) {
+    val colorScheme = MaterialTheme.colorScheme
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .border(1.dp, Primary)
+            .border(1.dp, colorScheme.outlineVariant.copy(alpha = 0.2f))
             .padding(12.dp),
     ) {
         // Single title row with REFRESH button on right
@@ -1085,7 +1089,7 @@ private fun CodingPlanBoard(
                     fontFamily = JetBrainsMonoFamily,
                     fontWeight = FontWeight.Bold,
                     fontSize = 12.sp,
-                    color = Primary,
+                    color = MaterialTheme.colorScheme.onSurface,
                 )
                 // Show cache age indicator if data is cached (not fresh)
                 if (cacheAgeMinutes > 0 && !isLoading) {
@@ -1294,7 +1298,7 @@ private fun QuotaGauge(label: String, used: Int, total: Int, modifier: Modifier 
             fontFamily = JetBrainsMonoFamily,
             fontSize = 9.sp,
             maxLines = 1,
-            color = Primary,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
 }
@@ -1309,6 +1313,7 @@ private fun ProviderCardsRow(
     existingProviders: List<String>,
     onSelect: (String) -> Unit,
 ) {
+    val colorScheme = MaterialTheme.colorScheme
     // Provider label mapping
     val providerLabels = mapOf(
         "qwen_bailian" to stringResource(R.string.provider_qwen),
@@ -1326,8 +1331,8 @@ private fun ProviderCardsRow(
             Box(
                 modifier = Modifier
                     .weight(1f)
-                    .background(if (isSelected) IndustrialOrange.copy(alpha = 0.15f) else SurfaceHighest)
-                    .border(1.dp, if (isSelected) IndustrialOrange else Primary)
+                    .background(if (isSelected) IndustrialOrange.copy(alpha = 0.15f) else colorScheme.surfaceContainerHighest)
+                    .border(1.dp, if (isSelected) IndustrialOrange else colorScheme.outlineVariant.copy(alpha = 0.2f))
                     .clickable { onSelect(provider) }
                     .padding(vertical = 8.dp, horizontal = 4.dp),
             ) {

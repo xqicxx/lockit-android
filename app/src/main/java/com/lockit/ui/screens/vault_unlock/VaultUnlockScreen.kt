@@ -55,7 +55,6 @@ import com.lockit.ui.components.BrutalistTopBar
 import com.lockit.ui.components.findActivity
 import com.lockit.ui.theme.IndustrialOrange
 import com.lockit.ui.theme.JetBrainsMonoFamily
-import com.lockit.ui.theme.Primary
 import com.lockit.ui.theme.TacticalRed
 import com.lockit.ui.theme.White
 import kotlinx.coroutines.Dispatchers
@@ -338,7 +337,7 @@ fun VaultUnlockScreen(
                         fontFamily = JetBrainsMonoFamily,
                         fontWeight = FontWeight.ExtraBold,
                         fontSize = 36.sp,
-                        color = Primary,
+                        color = colorScheme.onSurface,
                         letterSpacing = (-2).sp,
                         lineHeight = 36.sp,
                     )
@@ -358,7 +357,7 @@ fun VaultUnlockScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .border(1.dp, colorScheme.primary)
+                        .border(1.dp, colorScheme.outlineVariant.copy(alpha = 0.2f))
                         .background(colorScheme.surface),
                 ) {
                     // PIN Input Display
@@ -366,7 +365,7 @@ fun VaultUnlockScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .drawBehind {
-                                drawLine(colorScheme.primary, Offset(0f, size.height), Offset(size.width, size.height), 1.dp.toPx())
+                                drawLine(colorScheme.outlineVariant.copy(alpha = 0.2f), Offset(0f, size.height), Offset(size.width, size.height), 1.dp.toPx())
                             }
                                 .padding(vertical = 12.dp),
                             horizontalAlignment = Alignment.CenterHorizontally,
@@ -400,8 +399,8 @@ fun VaultUnlockScreen(
                                     Box(
                                         modifier = Modifier
                                             .requiredSize(8.dp)
-                                            .border(1.dp, Primary)
-                                            .background(if (isFilled) Primary else White),
+                                            .border(1.dp, colorScheme.outlineVariant.copy(alpha = 0.2f))
+                                            .background(if (isFilled) colorScheme.onSurface else colorScheme.background),
                                     )
                                 }
                             }
@@ -420,7 +419,7 @@ fun VaultUnlockScreen(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .drawBehind {
-                                    drawLine(colorScheme.primary, Offset(0f, 0f), Offset(size.width, 0f), 1.dp.toPx())
+                                    drawLine(colorScheme.outlineVariant.copy(alpha = 0.2f), Offset(0f, 0f), Offset(size.width, 0f), 1.dp.toPx())
                                 }
                                 .padding(12.dp),
                             verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -521,7 +520,7 @@ fun VaultUnlockScreen(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f))
+                    .background(colorScheme.surface.copy(alpha = 0.8f))
                     .clickable(enabled = false) {},
                 contentAlignment = Alignment.Center,
             ) {
@@ -529,7 +528,7 @@ fun VaultUnlockScreen(
                     modifier = Modifier
                         .fillMaxWidth(0.85f)
                         .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                        .border(2.dp, MaterialTheme.colorScheme.primary)
+                        .border(2.dp, colorScheme.outlineVariant.copy(alpha = 0.2f))
                         .padding(20.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
@@ -545,7 +544,7 @@ fun VaultUnlockScreen(
                         fontFamily = JetBrainsMonoFamily,
                         fontWeight = FontWeight.Bold,
                         fontSize = 14.sp,
-                        color = Primary,
+                        color = colorScheme.onSurface,
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
@@ -596,11 +595,11 @@ fun VaultUnlockScreen(
             }
         }
 
-        // Status Footer
+        // Status Footer - use surfaceContainerLowest for dark footer
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(Primary)
+                .background(colorScheme.surfaceContainerLowest)
                 .padding(horizontal = 16.dp, vertical = 8.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
@@ -623,14 +622,14 @@ fun VaultUnlockScreen(
                     text = stringResource(R.string.vault_os_ver),
                     fontFamily = JetBrainsMonoFamily,
                     fontSize = 9.sp,
-                    color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.6f),
+                    color = colorScheme.onSurface.copy(alpha = 0.6f),
                 )
             }
             Text(
                     text = stringResource(R.string.vault_node_id_label, viewModel.nodeId),
                     fontFamily = JetBrainsMonoFamily,
                     fontSize = 9.sp,
-                    color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.4f),
+                    color = colorScheme.onSurface.copy(alpha = 0.4f),
                 )
         }
     }
@@ -684,19 +683,19 @@ private fun KeypadKey(
 ) {
     val colorScheme = MaterialTheme.colorScheme
     val bgColor = colorScheme.surface
-    val borderColor = colorScheme.primary
+    val ghostBorder = colorScheme.outlineVariant.copy(alpha = 0.2f)
 
     Box(
         modifier = modifier
             .aspectRatio(4f / 3f)
-            .background(if (enabled) bgColor else borderColor.copy(0.05f))
+            .background(if (enabled) bgColor else ghostBorder.copy(alpha = 0.05f))
             .drawBehind {
                 val sw = 1.dp.toPx()
                 if (hasRightBorder) {
-                    drawLine(borderColor, Offset(size.width, 0f), Offset(size.width, size.height), sw)
+                    drawLine(ghostBorder, Offset(size.width, 0f), Offset(size.width, size.height), sw)
                 }
                 if (hasBottomBorder) {
-                    drawLine(borderColor, Offset(0f, size.height), Offset(size.width, size.height), sw)
+                    drawLine(ghostBorder, Offset(0f, size.height), Offset(size.width, size.height), sw)
                 }
             }
             .clickable(enabled = enabled) {
@@ -713,7 +712,7 @@ private fun KeypadKey(
                 Icon(
                     imageVector = Icons.Default.Delete,
                     contentDescription = "Delete",
-                    tint = Primary,
+                    tint = colorScheme.onSurface,
                     modifier = Modifier.requiredSize(20.dp),
                 )
             }
@@ -731,7 +730,7 @@ private fun KeypadKey(
                     fontFamily = JetBrainsMonoFamily,
                     fontWeight = FontWeight.Bold,
                     fontSize = 20.sp,
-                    color = Primary,
+                    color = colorScheme.onSurface,
                 )
             }
         }
@@ -769,11 +768,12 @@ private fun BrutalistActionButton(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     iconColor: Color,
 ) {
+    val colorScheme = MaterialTheme.colorScheme
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .height(40.dp)
-            .background(Primary)
+            .background(colorScheme.surfaceContainer)
             .clickable(onClick = onClick)
             .padding(horizontal = 16.dp),
         horizontalArrangement = Arrangement.Center,
@@ -790,7 +790,7 @@ private fun BrutalistActionButton(
             text = text,
             fontFamily = JetBrainsMonoFamily,
             fontSize = 10.sp,
-            color = White,
+            color = colorScheme.onSurface,
             letterSpacing = 2.sp,
         )
     }
@@ -803,14 +803,15 @@ private fun BrutalistSmallButton(
     modifier: Modifier = Modifier,
     isDanger: Boolean = false,
     icon: androidx.compose.ui.graphics.vector.ImageVector? = null,
-    iconColor: Color = if (isDanger) White else Primary,  // Match text color based on danger state
 ) {
+    val colorScheme = MaterialTheme.colorScheme
+    val iconColor: Color = if (isDanger) White else colorScheme.onSurface
     Row(
         modifier = modifier
             .height(32.dp)
-            .border(1.dp, if (isDanger) TacticalRed else Primary)
+            .border(1.dp, if (isDanger) TacticalRed else colorScheme.outlineVariant.copy(alpha = 0.2f))
             .clickable(onClick = onClick)
-            .background(if (isDanger) TacticalRed else White),
+            .background(if (isDanger) TacticalRed else colorScheme.surface),
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -827,7 +828,7 @@ private fun BrutalistSmallButton(
             text = text,
             fontFamily = JetBrainsMonoFamily,
             fontSize = 9.sp,
-            color = if (isDanger) White else Primary,
+            color = if (isDanger) colorScheme.onSurface else colorScheme.onSurface,
             letterSpacing = 1.sp,
         )
     }

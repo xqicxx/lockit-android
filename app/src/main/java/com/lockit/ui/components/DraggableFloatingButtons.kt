@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
@@ -195,7 +196,7 @@ private fun VisibleButton(
                 color = backgroundColor,
                 shape = RectangleShape
             )
-            .border(1.dp, Color.Black, RectangleShape)
+            .border(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f), RectangleShape)
     ) {
         Icon(
             painter = painterResource(id = iconRes),
@@ -208,16 +209,17 @@ private fun VisibleButton(
 
 @Composable
 private fun Modifier.visibleBackground(): Modifier {
-    // Technical Brutalism: 0px corners, 1px black border
+    val colorScheme = MaterialTheme.colorScheme
+    // Technical Brutalism: 0px corners, theme-aware border
     return this
         .shadow(4.dp, RectangleShape)
         .background(
-            color = Color(0x90111111),
+            color = colorScheme.surfaceContainerHigh,
             shape = RectangleShape
         )
         .border(
             width = 1.dp,
-            color = Color.Black,
+            color = colorScheme.onSurface.copy(alpha = 0.4f),
             shape = RectangleShape
         )
 }

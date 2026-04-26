@@ -43,10 +43,7 @@ import com.lockit.LockitApp
 import com.lockit.ui.theme.Grey400
 import com.lockit.ui.theme.IndustrialOrange
 import com.lockit.ui.theme.JetBrainsMonoFamily
-import com.lockit.ui.theme.Primary
-import com.lockit.ui.theme.SurfaceContainer
 import com.lockit.ui.theme.TacticalRed
-import com.lockit.ui.theme.White
 import com.lockit.utils.BiometricUtils
 
 /**
@@ -101,10 +98,13 @@ fun BrutalistPinVerifyDialog(
         }
     }
 
+    val colorScheme = MaterialTheme.colorScheme
+    val isLight = colorScheme.background.red > 0.5f
+
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
+            .background(colorScheme.onSurface.copy(alpha = 0.5f))
             .clickable(onClick = onDismiss),
         contentAlignment = Alignment.Center,
     ) {
@@ -113,15 +113,15 @@ fun BrutalistPinVerifyDialog(
             Column(
                 modifier = Modifier
                     .fillMaxWidth(0.85f)
-                    .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                    .border(2.dp, Primary),
+                    .background(colorScheme.surfaceContainerHigh)
+                    .border(2.dp, colorScheme.onSurface),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 // === Header Bar ===
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(Primary)
+                        .background(colorScheme.onSurface)
                         .padding(horizontal = 16.dp, vertical = 10.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically,
@@ -133,7 +133,7 @@ fun BrutalistPinVerifyDialog(
                         Icon(
                             imageVector = Icons.Default.Fingerprint,
                             contentDescription = null,
-                            tint = White,
+                            tint = colorScheme.surface,
                             modifier = Modifier.size(18.dp),
                         )
                         Text(
@@ -141,7 +141,7 @@ fun BrutalistPinVerifyDialog(
                             fontFamily = JetBrainsMonoFamily,
                             fontWeight = FontWeight.Bold,
                             fontSize = 10.sp,
-                            color = White,
+                            color = colorScheme.surface,
                             letterSpacing = 1.sp,
                         )
                     }
@@ -150,17 +150,17 @@ fun BrutalistPinVerifyDialog(
                         Box(
                             modifier = Modifier
                                 .size(6.dp)
-                                .background(White.copy(0.2f)),
+                                .background(colorScheme.surface.copy(alpha = 0.2f)),
                         )
                         Box(
                             modifier = Modifier
                                 .size(6.dp)
-                                .background(White.copy(0.4f)),
+                                .background(colorScheme.surface.copy(alpha = 0.4f)),
                         )
                         Box(
                             modifier = Modifier
                                 .size(6.dp)
-                                .background(MaterialTheme.colorScheme.surfaceContainerHigh),
+                                .background(colorScheme.surfaceContainerHigh),
                         )
                     }
                 }
@@ -203,8 +203,8 @@ fun BrutalistPinVerifyDialog(
                         Box(
                             modifier = Modifier
                                 .size(96.dp)
-                                .border(1.dp, Primary)
-                                .background(MaterialTheme.colorScheme.surfaceContainerHigh),
+                                .border(1.dp, colorScheme.onSurface.copy(alpha = 0.4f))
+                                .background(colorScheme.surfaceContainerHigh),
                             contentAlignment = Alignment.Center,
                         ) {
                             Icon(
@@ -222,7 +222,7 @@ fun BrutalistPinVerifyDialog(
                             fontFamily = JetBrainsMonoFamily,
                             fontWeight = FontWeight.Bold,
                             fontSize = 14.sp,
-                            color = Primary,
+                            color = colorScheme.onSurface,
                             letterSpacing = 1.sp,
                         )
                         Spacer(modifier = Modifier.height(16.dp))
@@ -230,15 +230,15 @@ fun BrutalistPinVerifyDialog(
                         // Session token
                         Box(
                             modifier = Modifier
-                                .border(1.dp, Grey400)
-                                .background(SurfaceContainer)
+                                .border(1.dp, colorScheme.outline)
+                                .background(colorScheme.surfaceContainer)
                                 .padding(horizontal = 12.dp, vertical = 4.dp),
                         ) {
                             Text(
                                 text = "SESSION_TOKEN: 0x${sessionId.toString(16).uppercase()}_LOCKIT_AUTH",
                                 fontFamily = JetBrainsMonoFamily,
                                 fontSize = 8.sp,
-                                color = Grey400,
+                                color = colorScheme.onSurfaceVariant,
                             )
                         }
                         Spacer(modifier = Modifier.height(24.dp))
@@ -249,8 +249,8 @@ fun BrutalistPinVerifyDialog(
                                 Box(
                                     modifier = Modifier
                                         .requiredSize(12.dp)
-                                        .border(1.5.dp, Primary)
-                                        .background(if (index < pin.length) Primary else White),
+                                        .border(1.5.dp, colorScheme.onSurface)
+                                        .background(if (index < pin.length) colorScheme.onSurface else colorScheme.surface),
                                 )
                             }
                         }
@@ -298,7 +298,7 @@ fun BrutalistPinVerifyDialog(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .border(1.dp, Primary)
+                                .border(1.dp, colorScheme.onSurface.copy(alpha = 0.4f))
                                 .clickable(onClick = onDismiss)
                                 .padding(vertical = 12.dp),
                             horizontalArrangement = Arrangement.Center,
@@ -309,14 +309,14 @@ fun BrutalistPinVerifyDialog(
                                 fontFamily = JetBrainsMonoFamily,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 10.sp,
-                                color = Primary,
+                                color = colorScheme.onSurface,
                                 letterSpacing = 1.sp,
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Icon(
                                 imageVector = Icons.Default.Close,
                                 contentDescription = null,
-                                tint = Primary,
+                                tint = colorScheme.onSurface,
                                 modifier = Modifier.size(14.dp),
                             )
                         }
@@ -327,7 +327,7 @@ fun BrutalistPinVerifyDialog(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(Primary)
+                        .background(colorScheme.onSurface)
                         .padding(horizontal = 16.dp, vertical = 8.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically,
@@ -356,7 +356,7 @@ fun BrutalistPinVerifyDialog(
                         fontFamily = JetBrainsMonoFamily,
                         fontWeight = FontWeight.Bold,
                         fontSize = 9.sp,
-                        color = White.copy(0.5f),
+                        color = colorScheme.surface.copy(alpha = 0.5f),
                     )
                 }
             }
@@ -366,7 +366,7 @@ fun BrutalistPinVerifyDialog(
                 modifier = Modifier
                     .matchParentSize()
                     .offset(2.dp, 2.dp)
-                    .border(2.dp, Primary)
+                    .border(2.dp, colorScheme.onSurface)
                     .background(Color.Transparent),
             )
         }
@@ -383,17 +383,18 @@ private fun PinKey(
     hasRightBorder: Boolean,
     hasBottomBorder: Boolean,
 ) {
+    val colorScheme = MaterialTheme.colorScheme
     Box(
         modifier = modifier
             .aspectRatio(4f / 3f)
-            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+            .background(colorScheme.surfaceContainerHigh)
             .drawBehind {
                 val sw = 1.dp.toPx()
                 if (hasRightBorder) {
-                    drawLine(Primary, Offset(size.width, 0f), Offset(size.width, size.height), sw)
+                    drawLine(colorScheme.onSurface.copy(alpha = 0.3f), Offset(size.width, 0f), Offset(size.width, size.height), sw)
                 }
                 if (hasBottomBorder) {
-                    drawLine(Primary, Offset(0f, size.height), Offset(size.width, size.height), sw)
+                    drawLine(colorScheme.onSurface.copy(alpha = 0.3f), Offset(0f, size.height), Offset(size.width, size.height), sw)
                 }
             }
             .clickable {
@@ -410,7 +411,7 @@ private fun PinKey(
                 Icon(
                     imageVector = Icons.Default.Delete,
                     contentDescription = "Delete",
-                    tint = Primary,
+                    tint = colorScheme.onSurface,
                     modifier = Modifier.requiredSize(18.dp),
                 )
             }
@@ -428,7 +429,7 @@ private fun PinKey(
                     fontFamily = JetBrainsMonoFamily,
                     fontWeight = FontWeight.Bold,
                     fontSize = 18.sp,
-                    color = Primary,
+                    color = colorScheme.onSurface,
                 )
             }
         }

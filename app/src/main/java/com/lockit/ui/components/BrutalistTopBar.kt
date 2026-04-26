@@ -30,8 +30,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lockit.ui.theme.JetBrainsMonoFamily
-import com.lockit.ui.theme.Primary
-import com.lockit.ui.theme.White
 
 @Composable
 fun BrutalistTopBar(
@@ -48,11 +46,12 @@ fun BrutalistTopBar(
             "Unknown"
         }
     }
+    val colorScheme = MaterialTheme.colorScheme
 
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surface),
+            .background(colorScheme.surface),
     ) {
         Row(
             modifier = Modifier
@@ -66,7 +65,7 @@ fun BrutalistTopBar(
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                         contentDescription = "Back",
-                        tint = Primary,
+                        tint = colorScheme.onSurface,
                         modifier = Modifier.size(20.dp),
                     )
                 }
@@ -78,7 +77,7 @@ fun BrutalistTopBar(
                 fontFamily = JetBrainsMonoFamily,
                 fontWeight = FontWeight.ExtraBold,
                 fontSize = 18.sp,
-                color = Primary,
+                color = colorScheme.onSurface,
                 modifier = Modifier.weight(1f),
             )
 
@@ -90,9 +89,9 @@ fun BrutalistTopBar(
                     fontFamily = JetBrainsMonoFamily,
                     fontWeight = FontWeight.Bold,
                     fontSize = 10.sp,
-                    color = Primary,
+                    color = colorScheme.onSurface,
                     modifier = Modifier
-                        .border(1.dp, Primary)
+                        .border(1.dp, colorScheme.onSurface)
                         .padding(horizontal = 8.dp, vertical = 4.dp),
                 )
             }
@@ -104,17 +103,18 @@ fun BrutalistTopBar(
 
 @Composable
 fun TopBarAddButton(onClick: () -> Unit) {
+    val colorScheme = MaterialTheme.colorScheme
     Row(
         modifier = Modifier
             .clickable(onClick = onClick)
-            .border(1.dp, Primary)
+            .border(1.dp, colorScheme.onSurface)
             .padding(horizontal = 8.dp, vertical = 4.dp),  // Match version number padding
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(
             imageVector = Icons.Default.Add,
             contentDescription = "Add",
-            tint = Primary,
+            tint = colorScheme.onSurface,
             modifier = Modifier.size(14.dp),  // Smaller icon to match text height
         )
         Spacer(modifier = Modifier.width(3.dp))
@@ -124,7 +124,7 @@ fun TopBarAddButton(onClick: () -> Unit) {
             fontWeight = FontWeight.Bold,
             fontSize = 10.sp,  // Same as version number
             letterSpacing = 1.sp,
-            color = Primary,
+            color = colorScheme.onSurface,
         )
     }
 }

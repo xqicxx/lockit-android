@@ -274,7 +274,40 @@ class SyncManager(
      * Use after conflict resolution (user chose "keep cloud").
      */
     suspend fun forcePull(): Result<Unit> {
-        return pull() // Pull already replaces local, so force pull is just normal pull
+        return withContext(Dispatchers.IO) {
+            if (!hasSyncKey()) {
+                Result.failure(IllegalStateException("No Sync Key configured"))
+            } else if (!backend.isConfigured()) {
+                Result.failure(IllegalStateException("Backend not configured"))
+            } else {
+                val syncKey = SyncCrypto.decodeSyncKey(getSyncKeyEncoded()!!)
+                val cloudManifest = backend.getManifest().getOrNull()
+                if (cloudManifest == null) {
+                    Result.failure(IllegalStateException("No cloud vault exists"))
+                } else {
+                    // Download and decrypt, skipping conflict check
+                    val encrypted = backend.downloadVault().getOrThrow()
+                    val plaintext = SyncCrypto.decrypt(encrypted, syncKey)
+
+                    LockitDatabase.closeAndReset(context)
+
+                    val dbFile = getDatabaseFile()
+                    val backupFile = File(dbFile.parent, "vault.db.backup")
+                    if (dbFile.exists()) {
+                        dbFile.copyTo(backupFile, overwrite = true)
+                    }
+
+                    dbFile.writeBytes(plaintext)
+
+                    prefs.edit()
+                        .putString(KEY_LAST_SYNC_CHECKSUM, cloudManifest.vaultChecksum)
+                        .putLong(KEY_LAST_SYNC_TIME, cloudManifest.updatedAt.toEpochMilli())
+                        .apply()
+
+                    Result.success(Unit)
+                }
+            }
+        }
     }
 
     // --- Private ---

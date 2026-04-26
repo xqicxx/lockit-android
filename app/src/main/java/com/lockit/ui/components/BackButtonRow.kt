@@ -4,6 +4,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -13,7 +14,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lockit.R
 import com.lockit.ui.theme.JetBrainsMonoFamily
-import com.lockit.ui.theme.Primary
 
 /**
  * Reusable back button row for screen navigation.
@@ -35,7 +35,7 @@ fun BackButtonRow(
             text = stringResource(R.string.repos_back),
             fontFamily = JetBrainsMonoFamily,
             fontSize = 10.sp,
-            color = Primary,
+            color = MaterialTheme.colorScheme.onSurface,
         )
     }
 }

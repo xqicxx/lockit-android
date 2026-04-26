@@ -45,8 +45,6 @@ import com.lockit.domain.model.CredentialType
 import com.lockit.domain.model.CodingPlanFields
 import com.lockit.ui.theme.IndustrialOrange
 import com.lockit.ui.theme.JetBrainsMonoFamily
-import com.lockit.ui.theme.Primary
-import com.lockit.ui.theme.SurfaceLow
 import com.lockit.utils.BiometricUtils
 
 // Default display values for empty/missing fields
@@ -195,6 +193,7 @@ fun CredentialCard(
     onHide: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
+    val colorScheme = MaterialTheme.colorScheme
     val clipboardManager = LocalClipboardManager.current
     var showDeleteDialog by remember { mutableStateOf(false) }
     var localRevealed by remember { mutableStateOf(isRevealed) }
@@ -231,7 +230,7 @@ fun CredentialCard(
 
     Column(
         modifier = modifier
-            .border(1.dp, MaterialTheme.colorScheme.primary)
+            .border(1.dp, colorScheme.outlineVariant.copy(alpha = 0.2f))
             .clickable(onClick = onClick)
             .pointerInput(localRevealed) {
                 detectTapGestures(
@@ -324,9 +323,10 @@ fun IconButtonBox(
     description: String,
     onClick: () -> Unit,
 ) {
+    val colorScheme = MaterialTheme.colorScheme
     Box(
         modifier = Modifier
-            .border(1.dp, Primary)
+            .border(1.dp, colorScheme.outlineVariant.copy(alpha = 0.2f))
             .clickable(onClick = onClick)
             .padding(6.dp),
         contentAlignment = Alignment.Center,
@@ -334,7 +334,7 @@ fun IconButtonBox(
         Icon(
             imageVector = icon,
             contentDescription = description,
-            tint = Primary,
+            tint = colorScheme.onSurface,
             modifier = Modifier.size(18.dp),
         )
     }
@@ -359,7 +359,7 @@ private fun CardHeader(
                 fontFamily = JetBrainsMonoFamily,
                 fontWeight = FontWeight.Bold,
                 fontSize = 16.sp,
-                color = Primary,
+                color = MaterialTheme.colorScheme.onSurface,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -492,8 +492,8 @@ private fun CredentialContent(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(SurfaceLow)
-                    .border(1.dp, Primary)
+                    .background(MaterialTheme.colorScheme.surfaceContainerLow)
+                    .border(1.dp, colorScheme.outlineVariant.copy(alpha = 0.2f))
                     .padding(12.dp)
                     .pointerInput(Unit) {
                         detectTapGestures(
@@ -510,7 +510,7 @@ private fun CredentialContent(
                     text = baseUrl,
                     fontFamily = JetBrainsMonoFamily,
                     fontSize = 13.sp,
-                    color = Primary,
+                    color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -690,6 +690,7 @@ private fun FieldValueBox(
     value: String,
     maxLines: Int = 1,
 ) {
+    val colorScheme = MaterialTheme.colorScheme
     Column {
         if (label.isNotBlank()) {
             FieldLabel(label)
@@ -698,8 +699,8 @@ private fun FieldValueBox(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(SurfaceLow)
-                .border(1.dp, Primary)
+                .background(colorScheme.surfaceContainerLow)
+                .border(1.dp, colorScheme.outlineVariant.copy(alpha = 0.2f))
                 .padding(12.dp),
         ) {
             Text(
@@ -707,7 +708,7 @@ private fun FieldValueBox(
                 fontFamily = JetBrainsMonoFamily,
                 fontSize = if (maxLines == 1) 14.sp else 11.sp,
                 fontWeight = if (maxLines == 1) FontWeight.Bold else FontWeight.Normal,
-                color = Primary,
+                color = colorScheme.onSurface,
                 maxLines = maxLines,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -733,7 +734,7 @@ private fun FieldValue(text: String, maxLines: Int = 1) {
         text = text,
         fontFamily = JetBrainsMonoFamily,
         fontSize = 11.sp,
-        color = Primary,
+        color = MaterialTheme.colorScheme.onSurface,
         maxLines = maxLines,
         overflow = TextOverflow.Ellipsis,
     )
@@ -755,6 +756,7 @@ private fun RevealableValueBox(
     onCopy: () -> Unit,
     clipboardManager: ClipboardManager,
 ) {
+    val colorScheme = MaterialTheme.colorScheme
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -771,8 +773,8 @@ private fun RevealableValueBox(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .background(SurfaceLow)
-            .border(1.dp, Primary)
+            .background(colorScheme.surfaceContainerLow)
+            .border(1.dp, colorScheme.outlineVariant.copy(alpha = 0.2f))
             .padding(12.dp)
             .pointerInput(isRevealed) {
                 detectTapGestures(
@@ -791,7 +793,7 @@ private fun RevealableValueBox(
             text = if (isRevealed) value else maskPlaceholder,
             fontFamily = JetBrainsMonoFamily,
             fontSize = 13.sp,
-            color = if (isRevealed) Primary else MaterialTheme.colorScheme.onSurfaceVariant,
+            color = if (isRevealed) colorScheme.onSurface else colorScheme.onSurfaceVariant,
             maxLines = if (isRevealed) maxLinesRevealed else 1,
             overflow = TextOverflow.Ellipsis,
         )

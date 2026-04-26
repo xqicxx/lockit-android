@@ -95,6 +95,7 @@ fun ConfigScreen(
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
+    val colorScheme = MaterialTheme.colorScheme
     val scope = rememberCoroutineScope()
     val view = LocalView.current
 
@@ -610,7 +611,7 @@ fun ConfigScreen(
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
+                        .background(colorScheme.surface.copy(alpha = 0.8f))
                         .clickable(enabled = false) {},
                     contentAlignment = Alignment.Center,
                 ) {
@@ -618,7 +619,7 @@ fun ConfigScreen(
                         modifier = Modifier
                             .fillMaxWidth(0.9f)
                             .background(MaterialTheme.colorScheme.surface)
-                            .border(2.dp, MaterialTheme.colorScheme.primary)
+                            .border(2.dp, colorScheme.outlineVariant.copy(alpha = 0.2f))
                             .padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
@@ -788,7 +789,7 @@ fun ConfigScreen(
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .border(1.dp, MaterialTheme.colorScheme.primary)
+                                .border(1.dp, colorScheme.outlineVariant.copy(alpha = 0.2f))
                                 .clickable { languageExpanded = true }
                                 .padding(12.dp),
                         ) {
@@ -813,7 +814,7 @@ fun ConfigScreen(
                             DropdownMenu(
                                 expanded = languageExpanded,
                                 onDismissRequest = { languageExpanded = false },
-                                modifier = Modifier.background(MaterialTheme.colorScheme.background).border(1.dp, MaterialTheme.colorScheme.primary),
+                                modifier = Modifier.background(MaterialTheme.colorScheme.background).border(1.dp, colorScheme.outlineVariant.copy(alpha = 0.2f)),
                             ) {
                                 languageOptions.forEach { (langCode, langLabel) ->
                                     DropdownMenuItem(
@@ -868,7 +869,7 @@ fun ConfigScreen(
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .border(1.dp, MaterialTheme.colorScheme.primary)
+                                .border(1.dp, colorScheme.outlineVariant.copy(alpha = 0.2f))
                                 .clickable { themeExpanded = true }
                                 .padding(12.dp),
                         ) {
@@ -893,7 +894,7 @@ fun ConfigScreen(
                             DropdownMenu(
                                 expanded = themeExpanded,
                                 onDismissRequest = { themeExpanded = false },
-                                modifier = Modifier.background(MaterialTheme.colorScheme.background).border(1.dp, MaterialTheme.colorScheme.primary),
+                                modifier = Modifier.background(MaterialTheme.colorScheme.background).border(1.dp, colorScheme.outlineVariant.copy(alpha = 0.2f)),
                             ) {
                                 themeOptions.forEach { (mode, modeLabel) ->
                                     DropdownMenuItem(
@@ -1346,6 +1347,7 @@ private fun ChangePasswordDialog(
     onDismiss: () -> Unit,
     onSuccess: () -> Unit,
 ) {
+    val colorScheme = MaterialTheme.colorScheme
     var currentPassword by remember { mutableStateOf("") }
     var newPassword by remember { mutableStateOf("") }
     var confirmPassword by remember { mutableStateOf("") }
@@ -1359,7 +1361,7 @@ private fun ChangePasswordDialog(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                .border(2.dp, MaterialTheme.colorScheme.primary)
+                .border(2.dp, colorScheme.outlineVariant.copy(alpha = 0.2f))
                 .padding(24.dp),
         ) {
             Text(
@@ -1367,7 +1369,7 @@ private fun ChangePasswordDialog(
                 fontFamily = JetBrainsMonoFamily,
                 fontWeight = FontWeight.Bold,
                 fontSize = 14.sp,
-                color = Primary,
+                color = MaterialTheme.colorScheme.onSurface,
             )
             Spacer(modifier = Modifier.height(16.dp))
 
@@ -1467,6 +1469,7 @@ private fun LinkBiometricDialog(
     onSuccess: () -> Unit,
     onError: (String) -> Unit,
 ) {
+    val colorScheme = MaterialTheme.colorScheme
     var pin by remember { mutableStateOf("") }
     var error by remember { mutableStateOf<String?>(null) }
     var isLinking by remember { mutableStateOf(false) }
@@ -1497,7 +1500,7 @@ private fun LinkBiometricDialog(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                .border(2.dp, MaterialTheme.colorScheme.primary)
+                .border(2.dp, colorScheme.outlineVariant.copy(alpha = 0.2f))
                 .padding(24.dp),
         ) {
             Text(
@@ -1505,7 +1508,7 @@ private fun LinkBiometricDialog(
                 fontFamily = JetBrainsMonoFamily,
                 fontWeight = FontWeight.Bold,
                 fontSize = 14.sp,
-                color = Primary,
+                color = MaterialTheme.colorScheme.onSurface,
             )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
@@ -1732,14 +1735,14 @@ private fun ConfigSection(
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Bold,
                 letterSpacing = 2.sp,
-                color = Primary,
+                color = MaterialTheme.colorScheme.onSurface,
             )
             Spacer(modifier = Modifier.width(8.dp))
             Box(
                 modifier = Modifier
                     .height(1.dp)
                     .weight(1f)
-                    .background(Primary),
+                    .background(colorScheme.outlineVariant.copy(alpha = 0.2f)),
             )
         }
 
@@ -1781,13 +1784,14 @@ private fun UpdateDialog(
     onDismiss: () -> Unit,
     onDownload: () -> Unit,
 ) {
+    val colorScheme = MaterialTheme.colorScheme
     val context = LocalContext.current
     androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                .border(2.dp, MaterialTheme.colorScheme.primary)
+                .border(2.dp, colorScheme.outlineVariant.copy(alpha = 0.2f))
                 .padding(24.dp),
         ) {
             Text(
@@ -1806,7 +1810,7 @@ private fun UpdateDialog(
                     fontFamily = JetBrainsMonoFamily,
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Bold,
-                    color = Primary,
+                    color = MaterialTheme.colorScheme.onSurface,
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Box(
@@ -1872,6 +1876,7 @@ private fun GitHubTokenConfigDialog(
     onDismiss: () -> Unit,
     onSave: (String) -> Unit,
 ) {
+    val colorScheme = MaterialTheme.colorScheme
     var newName by remember { mutableStateOf(currentName) }
     val context = LocalContext.current
 
@@ -1880,7 +1885,7 @@ private fun GitHubTokenConfigDialog(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                .border(2.dp, MaterialTheme.colorScheme.primary)
+                .border(2.dp, colorScheme.outlineVariant.copy(alpha = 0.2f))
                 .padding(24.dp),
         ) {
             Text(
@@ -1888,7 +1893,7 @@ private fun GitHubTokenConfigDialog(
                 fontFamily = JetBrainsMonoFamily,
                 fontWeight = FontWeight.Bold,
                 fontSize = 14.sp,
-                color = Primary,
+                color = MaterialTheme.colorScheme.onSurface,
             )
             Spacer(modifier = Modifier.height(12.dp))
 
