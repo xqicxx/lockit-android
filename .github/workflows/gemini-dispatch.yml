@@ -22,7 +22,10 @@ jobs:
     if: |-
       (
         github.event.sender.type == 'User' &&
-        startsWith(github.event.comment.body || github.event.review.body, '@gemini-cli') &&
+        (
+          startsWith(github.event.comment.body || github.event.review.body, '@gemini-cli') ||
+          startsWith(github.event.comment.body || github.event.review.body, '@chatgpt-cli')
+        ) &&
         contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association || github.event.review.author_association)
       )
     runs-on: 'ubuntu-latest'
@@ -52,9 +55,17 @@ jobs:
               core.setOutput('command', 'review');
               const additionalContext = request.replace(/^@gemini-cli \/review/, '').trim();
               core.setOutput('additional_context', additionalContext);
+            } else if (request.startsWith("@chatgpt-cli /review")) {
+              core.setOutput('command', 'chatgpt-review');
+              const additionalContext = request.replace(/^@chatgpt-cli \/review/, '').trim();
+              core.setOutput('additional_context', additionalContext);
             } else if (request.startsWith("@gemini-cli")) {
               const additionalContext = request.replace(/^@gemini-cli/, '').trim();
               core.setOutput('command', 'invoke');
+              core.setOutput('additional_context', additionalContext);
+            } else if (request.startsWith("@chatgpt-cli")) {
+              const additionalContext = request.replace(/^@chatgpt-cli/, '').trim();
+              core.setOutput('command', 'chatgpt-invoke');
               core.setOutput('additional_context', additionalContext);
             } else {
               core.setOutput('command', 'fallthrough');
@@ -64,10 +75,14 @@ jobs:
         env:
           GITHUB_TOKEN: '${{ secrets.GITHUB_TOKEN || github.token }}'
           ISSUE_NUMBER: '${{ github.event.pull_request.number || github.event.issue.number }}'
-          MESSAGE: |-
-            🤖 Hi @${{ github.actor }}, I've received your request, and I'm working on it now!
           REPOSITORY: '${{ github.repository }}'
+          COMMAND: '${{ steps.extract_command.outputs.command }}'
         run: |-
+          if [ "$COMMAND" = "chatgpt-review" ] || [ "$COMMAND" = "chatgpt-invoke" ]; then
+            MESSAGE="🤖 Hi @${{ github.actor }}, ChatGPT is reviewing your code now!"
+          else
+            MESSAGE="🤖 Hi @${{ github.actor }}, I've received your request, and I'm working on it now!"
+          fi
           gh issue comment "${ISSUE_NUMBER}" \
             --body "${MESSAGE}" \
             --repo "${REPOSITORY}"
@@ -94,6 +109,32 @@ jobs:
     permissions:
       contents: 'read'
       id-token: 'write'
+      issues: 'write'
+      pull-requests: 'write'
+    with:
+      additional_context: '${{ needs.dispatch.outputs.additional_context }}'
+    secrets: 'inherit'
+
+  chatgpt-review:
+    needs: 'dispatch'
+    if: |-
+      ${{ needs.dispatch.outputs.command == 'chatgpt-review' }}
+    uses: './.github/workflows/chatgpt-review.yml'
+    permissions:
+      contents: 'read'
+      issues: 'write'
+      pull-requests: 'write'
+    with:
+      additional_context: '${{ needs.dispatch.outputs.additional_context }}'
+    secrets: 'inherit'
+
+  chatgpt-invoke:
+    needs: 'dispatch'
+    if: |-
+      ${{ needs.dispatch.outputs.command == 'chatgpt-invoke' }}
+    uses: './.github/workflows/chatgpt-review.yml'
+    permissions:
+      contents: 'read'
       issues: 'write'
       pull-requests: 'write'
     with:
