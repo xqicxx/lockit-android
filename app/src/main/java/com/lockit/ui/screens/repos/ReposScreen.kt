@@ -228,11 +228,10 @@ class ReposViewModel(app: LockitApp) : ViewModel() {
             _codingPlanQuota.value = result
             CodingPlanPrefetchState.setQuota(result)
             if (result == null && codingPlanCreds.isNotEmpty()) {
-                val status = com.lockit.domain.qwen.QwenCodingPlan.lastHttpStatus
-                _codingPlanQuotaError.value = when {
-                    status in listOf(302, 401, 403) -> "COOKIE_EXPIRED"
-                    else -> "NO_QUOTA_DATA"
-                }
+                // Only check Qwen-specific HTTP status for qwen_bailian provider
+                val isExpired = targetProvider == "qwen_bailian" &&
+                    com.lockit.domain.qwen.QwenCodingPlan.lastHttpStatus in listOf(302, 401, 403)
+                _codingPlanQuotaError.value = if (isExpired) "COOKIE_EXPIRED" else "NO_QUOTA_DATA"
                 CodingPlanPrefetchState.setError(_codingPlanQuotaError.value)
             } else {
                 CodingPlanPrefetchState.setError(null)

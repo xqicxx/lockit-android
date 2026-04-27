@@ -24,6 +24,7 @@ object QwenCodingPlan : CodingPlanFetcher {
     override val providerKey: String = "qwen_bailian"
 
     /** Exposed for ViewModel to check auth failure type after null result. */
+    @Volatile
     var lastHttpStatus: Int = 0
         private set
 
@@ -44,6 +45,7 @@ object QwenCodingPlan : CodingPlanFetcher {
         }
 
     private fun fetchFromApi(cookie: String): CodingPlanQuota? {
+        lastHttpStatus = 0 // reset before each request to avoid stale data
         val url = URL(API_URL)
         val conn = url.openConnection() as HttpURLConnection
 
