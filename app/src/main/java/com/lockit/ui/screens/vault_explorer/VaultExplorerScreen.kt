@@ -239,9 +239,10 @@ fun VaultExplorerScreen(
         }
     }
 
-    fun handleReveal(credential: Credential) {
+    fun handleReveal(credential: Credential, onSuccess: (() -> Unit)? = null) {
         if (BiometricUtils.isSessionValid()) {
             revealedCredentialIds.add(credential.id)
+            onSuccess?.invoke()
             return
         }
         val activity = getActivity()
@@ -250,11 +251,22 @@ fun VaultExplorerScreen(
                 activity = activity,
                 title = biometricRevealTitle,
                 subtitle = biometricRevealSubtitle,
-                onSuccess = { revealedCredentialIds.add(credential.id) },
-                onError = { pendingBiometricAction = { revealedCredentialIds.add(credential.id) } },
+                onSuccess = {
+                    revealedCredentialIds.add(credential.id)
+                    onSuccess?.invoke()
+                },
+                onError = {
+                    pendingBiometricAction = {
+                        revealedCredentialIds.add(credential.id)
+                        onSuccess?.invoke()
+                    }
+                },
             )
         } else {
-            pendingBiometricAction = { revealedCredentialIds.add(credential.id) }
+            pendingBiometricAction = {
+                revealedCredentialIds.add(credential.id)
+                onSuccess?.invoke()
+            }
         }
     }
 
@@ -419,7 +431,7 @@ fun VaultExplorerScreen(
                             }
                         }
                     },
-                    onNeedReveal = { handleReveal(credential) },
+                    onNeedReveal = { onSuccess -> handleReveal(credential, onSuccess) },
                     onDelete = { viewModel.deleteCredential(credential) },
                     onEdit = { onNavigateToEdit(credential.id) },
                     isRevealed = revealedCredentialIds.contains(credential.id),
