@@ -9,6 +9,19 @@ android {
     namespace = "com.lockit"
     compileSdk = 35
 
+    val releaseKeystorePath = System.getenv("KEYSTORE_PATH")
+        ?.takeUnless { it.isBlank() }
+        ?: "${System.getProperty("user.home")}/.android/debug.keystore"
+    val releaseKeystorePassword = System.getenv("KEYSTORE_PASSWORD")
+        ?.takeUnless { it.isBlank() }
+        ?: "android"
+    val releaseKeyAlias = System.getenv("KEY_ALIAS")
+        ?.takeUnless { it.isBlank() }
+        ?: "androiddebugkey"
+    val releaseKeyPassword = System.getenv("KEY_PASSWORD")
+        ?.takeUnless { it.isBlank() }
+        ?: "android"
+
     defaultConfig {
         applicationId = "com.lockit"
         minSdk = 26
@@ -24,16 +37,18 @@ android {
 
     signingConfigs {
         create("release") {
-            storeFile = file("${System.getProperty("user.home")}/.android/debug.keystore")
-            storePassword = "android"
-            keyAlias = "androiddebugkey"
-            keyPassword = "android"
+            storeFile = file(releaseKeystorePath)
+            storePassword = releaseKeystorePassword
+            keyAlias = releaseKeyAlias
+            keyPassword = releaseKeyPassword
         }
     }
 
     buildTypes {
         release {
-            isMinifyEnabled = true
+            // Keep release behavior close to local Android Studio runs until
+            // we have release-specific smoke coverage and hardened keep rules.
+            isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
