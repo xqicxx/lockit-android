@@ -153,7 +153,9 @@ class VaultUnlockViewModel(private val app: LockitApp) : ViewModel() {
                 }
                 if (pin != confirmPin) {
                     errorMessage = "PIN_MISMATCH"
+                    pin = ""
                     confirmPin = ""
+                    isConfirmStep = false
                     return
                 }
                 isProcessing = true
@@ -180,12 +182,6 @@ class VaultUnlockViewModel(private val app: LockitApp) : ViewModel() {
                 }
             }
         }
-    }
-
-    fun cancelConfirm() {
-        isConfirmStep = false
-        confirmPin = ""
-        errorMessage = null
     }
 
     fun navigateToMain() {
@@ -443,21 +439,7 @@ fun VaultUnlockScreen(
                                 .padding(12.dp),
                             verticalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
-                            if (viewModel.isConfirmStep) {
-                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    BrutalistSmallButton(
-                                        text = stringResource(R.string.vault_cancel),
-                                        onClick = { viewModel.cancelConfirm() },
-                                        modifier = Modifier.weight(1f),
-                                    )
-                                    BrutalistSmallButton(
-                                        text = stringResource(R.string.vault_reenter_pin),
-                                        onClick = { viewModel.cancelConfirm() },
-                                        modifier = Modifier.weight(1f),
-                                        isDanger = true,
-                                    )
-                                }
-                            } else {
+                            if (!viewModel.isConfirmStep) {
                                 // Bottom row: Recovery + Biometric (if linked)
                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                     BrutalistSmallButton(
@@ -485,8 +467,6 @@ fun VaultUnlockScreen(
                                             icon = Icons.Default.Fingerprint,
                                             modifier = Modifier.weight(1f),
                                         )
-                                    } else {
-                                        Spacer(modifier = Modifier.weight(1f))
                                     }
                                 }
                             }
