@@ -54,7 +54,17 @@ enum class CredentialType(
         "CODING_PLAN", "code",
         "Store coding agent plan tokens. Paste your curl command or enter credentials manually.",
         listOf(
-            CredentialField("PROVIDER", "Select provider"),
+            CredentialField(
+                "PROVIDER", "Select provider",
+                isDropdown = true,
+                presets = listOf(
+                    "openai", "chatgpt",
+                    "anthropic", "claude",
+                    "google", "deepseek",
+                    "moonshot", "minimax", "glm",
+                    "qwen", "qwen_bailian",
+                ),
+            ),
             CredentialField("RAW_CURL", "Paste curl command (auto-extracts all fields)..."),
             CredentialField("API_KEY", "API key (required)...", required = true),
             CredentialField("COOKIE", "Bailian console cookie..."),

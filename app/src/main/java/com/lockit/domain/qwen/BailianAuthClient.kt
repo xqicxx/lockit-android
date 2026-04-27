@@ -80,12 +80,18 @@ object BailianAuthClient {
         conn.connectTimeout = 5000
         conn.readTimeout = 10000
         conn.requestMethod = "POST"
+        conn.setRequestProperty("Accept", "*/*")
         conn.setRequestProperty("Content-Type", "application/x-www-form-urlencoded")
+        conn.setRequestProperty("Origin", "https://bailian.console.aliyun.com")
+        conn.setRequestProperty("Referer", "https://bailian.console.aliyun.com/cn-beijing?tab=coding-plan")
         conn.setRequestProperty("Cookie", cookie)
+        conn.setRequestProperty("Connection", "close")
         conn.doOutput = true
         conn.outputStream.use { it.write(body.toByteArray()) }
 
         if (conn.responseCode != 200) {
+            val errorBody = try { conn.errorStream?.bufferedReader()?.readText()?.take(200) ?: "" } catch (_: Exception) { "" }
+            Log.e(TAG, "fetchInstanceId failed: HTTP ${conn.responseCode} $errorBody")
             conn.disconnect()
             return ""
         }
@@ -155,12 +161,18 @@ object BailianAuthClient {
         conn.connectTimeout = 5000
         conn.readTimeout = 10000
         conn.requestMethod = "POST"
+        conn.setRequestProperty("Accept", "*/*")
         conn.setRequestProperty("Content-Type", "application/x-www-form-urlencoded")
+        conn.setRequestProperty("Origin", "https://bailian.console.aliyun.com")
+        conn.setRequestProperty("Referer", "https://bailian.console.aliyun.com/cn-beijing?tab=coding-plan")
         conn.setRequestProperty("Cookie", cookie)
+        conn.setRequestProperty("Connection", "close")
         conn.doOutput = true
         conn.outputStream.use { it.write(body.toByteArray()) }
 
         if (conn.responseCode != 200) {
+            val errorBody = try { conn.errorStream?.bufferedReader()?.readText()?.take(200) ?: "" } catch (_: Exception) { "" }
+            Log.e(TAG, "fetchApiKeys failed: HTTP ${conn.responseCode} $errorBody")
             conn.disconnect()
             return null
         }

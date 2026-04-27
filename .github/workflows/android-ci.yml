@@ -8,6 +8,8 @@ on:
 
 permissions:
   contents: read
+  issues: write
+  pull-requests: write
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -48,3 +50,9 @@ jobs:
       with:
         name: app-debug
         path: app/build/outputs/apk/debug/app-debug.apk
+
+  chatgpt-review:
+    needs: build
+    if: ${{ always() && needs.build.result == 'success' }}
+    uses: ./.github/workflows/chatgpt-review.yml
+    secrets: inherit

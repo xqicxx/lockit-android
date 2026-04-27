@@ -122,7 +122,7 @@ fun LogsScreen(
                     fontWeight = FontWeight.Bold,
                     fontSize = 12.sp,
                     letterSpacing = 2.sp,
-                    color = Primary,
+                    color = MaterialTheme.colorScheme.onSurface,
                 )
                 Text(
                     text = stringResource(R.string.logs_entries, logs.size),
@@ -271,7 +271,7 @@ private fun LogRow(entry: AuditEntry) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .border(1.dp, MaterialTheme.colorScheme.primary.copy(0.15f))
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f))
             .background(
                 when (entry.severity) {
                     AuditSeverity.Info -> Color.Transparent
@@ -297,7 +297,7 @@ private fun LogRow(entry: AuditEntry) {
                     fontFamily = JetBrainsMonoFamily,
                     fontWeight = FontWeight.Bold,
                     fontSize = 11.sp,
-                    color = Primary,
+                    color = MaterialTheme.colorScheme.onSurface,
                 )
                 Text(
                     text = entry.detail,

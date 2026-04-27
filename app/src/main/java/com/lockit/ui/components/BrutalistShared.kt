@@ -32,11 +32,12 @@ import com.lockit.ui.theme.White
 
 @Composable
 fun SeparatorLine(modifier: Modifier = Modifier) {
+    val colorScheme = MaterialTheme.colorScheme
     Box(
         modifier = modifier
             .fillMaxWidth()
             .height(1.dp)
-            .background(Primary),
+            .background(colorScheme.outlineVariant.copy(alpha = 0.2f)),
     )
 }
 
@@ -76,17 +77,18 @@ fun InfoTag(
     text: String,
     modifier: Modifier = Modifier,
 ) {
+    val colorScheme = MaterialTheme.colorScheme
     Box(
         modifier = modifier
-            .background(MaterialTheme.colorScheme.surfaceContainerHighest)
-            .border(1.dp, MaterialTheme.colorScheme.primary)
+            .background(colorScheme.surfaceContainerHighest)
+            .border(1.dp, colorScheme.outlineVariant.copy(alpha = 0.2f))
             .padding(horizontal = 6.dp, vertical = 3.dp),
     ) {
         Text(
             text = text,
             fontFamily = JetBrainsMonoFamily,
             fontSize = 9.sp,
-            color = MaterialTheme.colorScheme.primary,
+            color = colorScheme.onSurface,
             maxLines = 1,
             overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
         )
@@ -98,11 +100,12 @@ fun TerminalFooter(
     lines: List<Pair<String, Color>>,
     modifier: Modifier = Modifier,
 ) {
+    val colorScheme = MaterialTheme.colorScheme
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surfaceContainerHighest)
-            .border(1.dp, MaterialTheme.colorScheme.primary)
+            .background(colorScheme.surfaceContainerHighest)
+            .border(1.dp, colorScheme.outlineVariant.copy(alpha = 0.2f))
             .padding(12.dp),
     ) {
         Column {
@@ -128,6 +131,7 @@ fun BrutalistConfirmDialog(
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
 ) {
+    val colorScheme = MaterialTheme.colorScheme
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
@@ -163,7 +167,7 @@ fun BrutalistConfirmDialog(
                 useMonoFont = true,
             )
         },
-        containerColor = White,
+        containerColor = colorScheme.surfaceContainerHigh,
     )
 }
 
@@ -174,6 +178,7 @@ fun BrutalistToast(
     modifier: Modifier = Modifier,
     onAction: (() -> Unit)? = null,
 ) {
+    val colorScheme = MaterialTheme.colorScheme
     LaunchedEffect(Unit) {
         kotlinx.coroutines.delay(2500)
         onDismiss()
@@ -181,7 +186,7 @@ fun BrutalistToast(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .background(Primary)
+            .background(colorScheme.surfaceContainerHigh)
             .padding(horizontal = 16.dp, vertical = 12.dp)
             .then(
                 if (onAction != null) Modifier.clickable { onAction() } else Modifier
@@ -201,7 +206,7 @@ fun BrutalistToast(
                 text = "TAP",
                 fontFamily = JetBrainsMonoFamily,
                 fontSize = 10.sp,
-                color = White,
+                color = colorScheme.onSurface,
                 fontWeight = FontWeight.Bold,
             )
         }

@@ -43,31 +43,87 @@ object ChatGptAuthClient {
 
                 val json = JSONObject(response)
                 val accessToken = json.optString("accessToken", "")
-                val userObj = json.optJSONObject("user")
-                val accountId = userObj?.optString("id", "") ?: ""
+                val accountId = fetchAccountId(accessToken).ifBlank { extractAccountId(json) }
 
-                if (accessToken.isNotBlank() && accountId.isNotBlank()) {
+                if (accessToken.isNotBlank()) {
                     mapOf(
-                        "provider" to "openai",
+                        "provider" to "chatgpt",
                         "accessToken" to accessToken,
                         "accountId" to accountId,
-                        "baseUrl" to "https://api.openai.com/v1",
+                        "baseUrl" to "https://chatgpt.com/backend-api/wham/usage",
                         "apiKey" to accessToken  // For API_KEY field compatibility
                     )
                 } else {
-                    Log.e(TAG, "Missing accessToken or accountId")
+                    Log.e(TAG, "Missing accessToken")
                     mapOf(
-                        "provider" to "openai",
+                        "provider" to "chatgpt",
                         "error" to "Missing credentials"
                     )
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Error: ${e.message}")
                 mapOf(
-                    "provider" to "openai",
+                    "provider" to "chatgpt",
                     "error" to (e.message ?: "Unknown error")
                 )
             }
+        }
+    }
+
+    private fun extractAccountId(json: JSONObject): String {
+        val accountsArray = json.optJSONArray("accounts")
+        if (accountsArray != null) {
+            for (i in 0 until accountsArray.length()) {
+                val account = accountsArray.optJSONObject(i) ?: continue
+                val accountId = account.optString("account_id")
+                    .ifBlank { account.optString("id") }
+                    .ifBlank { account.optString("accountId") }
+                if (accountId.isNotBlank()) return accountId
+            }
+        }
+
+        val accountsObject = json.optJSONObject("accounts")
+        if (accountsObject != null) {
+            accountsObject.keys().forEach { key ->
+                val account = accountsObject.optJSONObject(key)
+                val accountId = account?.optString("account_id").orEmpty()
+                    .ifBlank { account?.optString("id").orEmpty() }
+                    .ifBlank { account?.optString("accountId").orEmpty() }
+                    .ifBlank { key }
+                if (accountId.isNotBlank()) return accountId
+            }
+        }
+
+        return json.optString("account_id")
+            .ifBlank { json.optString("accountId") }
+    }
+
+    private fun fetchAccountId(accessToken: String): String {
+        return try {
+            val url = URL("https://chatgpt.com/backend-api/accounts/check/v4-2023-04-27?timezone_offset_min=0")
+            val conn = url.openConnection() as HttpURLConnection
+            conn.connectTimeout = 5000
+            conn.readTimeout = 10000
+            conn.requestMethod = "GET"
+            conn.setRequestProperty("Accept", "application/json")
+            conn.setRequestProperty("Authorization", "Bearer $accessToken")
+            conn.setRequestProperty("User-Agent", "Lockit-Android")
+
+            if (conn.responseCode != 200) {
+                Log.w(TAG, "Account check failed: ${conn.responseCode}")
+                conn.disconnect()
+                return ""
+            }
+
+            val response = conn.inputStream.bufferedReader().use { it.readText() }
+            conn.disconnect()
+            val accounts = JSONObject(response).optJSONObject("accounts") ?: return ""
+            val defaultAccount = accounts.optJSONObject("default")
+                ?.optJSONObject("account")
+            defaultAccount?.optString("account_id", "") ?: ""
+        } catch (e: Exception) {
+            Log.w(TAG, "Account check error: ${e.message}")
+            ""
         }
     }
 }

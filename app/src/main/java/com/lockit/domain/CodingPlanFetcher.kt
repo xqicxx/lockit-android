@@ -62,7 +62,7 @@ data class CodingPlanQuota(
 
 /**
  * Provider-specific coding plan quota fetcher.
- * Each provider (qwen_bailian, openai, etc.) implements its own API call logic.
+ * Each provider (qwen_bailian, chatgpt, claude, etc.) implements its own API call logic.
  */
 interface CodingPlanFetcher {
     val providerKey: String
@@ -85,6 +85,6 @@ object CodingPlanFetchers {
         "claude" to ClaudeCodingPlan,
     )
 
-    fun forProvider(key: String): CodingPlanFetcher? = registry[key]
+    fun forProvider(key: String): CodingPlanFetcher? = registry[CodingPlanProviders.normalize(key)]
     fun supportedProviders(): Set<String> = registry.keys
 }

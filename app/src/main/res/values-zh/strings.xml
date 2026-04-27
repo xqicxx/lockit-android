@@ -219,6 +219,28 @@
     <string name="toast_logs_exported">日志已导出</string>
     <string name="toast_sync_complete">同步完成</string>
     <string name="toast_signed_out">已退出</string>
+    <string name="toast_sync_push_complete">上传完成</string>
+    <string name="toast_sync_pull_complete">下载完成</string>
+    <string name="toast_sync_conflict">检测到同步冲突</string>
+    <string name="toast_sync_error">同步错误:</string>
+    <string name="toast_sync_key_generated">同步密钥已生成</string>
+    <string name="toast_sync_key_saved">同步密钥已保存</string>
+    <string name="toast_sync_key_invalid">无效的同步密钥格式</string>
+    <string name="toast_sync_key_cleared">同步密钥已清除</string>
+    <string name="config_sync_key_title">同步密钥</string>
+    <string name="config_sync_key_configured">同步密钥: 已配置</string>
+    <string name="config_sync_key_not_configured">同步密钥: 未配置</string>
+    <string name="config_sync_key_generate">生成同步密钥</string>
+    <string name="config_sync_key_label">同步密钥</string>
+    <string name="config_sync_key_placeholder">粘贴同步密钥 (Base64)</string>
+    <string name="config_sync_key_save">保存</string>
+    <string name="config_sync_key_change">更换同步密钥</string>
+    <string name="config_sync_key_enter">输入同步密钥</string>
+    <string name="config_sync_key_clear">清除同步密钥</string>
+    <string name="config_sync_push">上传到云端</string>
+    <string name="config_sync_pull">从云端下载</string>
+    <string name="config_sync_refresh_status">刷新状态</string>
+    <string name="config_sync_status">状态</string>
     <string name="toast_download_started">下载已开始</string>
     <string name="toast_download_location">下载位置:</string>
     <string name="toast_download_failed">下载失败</string>
@@ -325,6 +347,14 @@
     <string name="repos_quota_cookie_expired">COOKIE已过期</string>
     <string name="repos_quota_no_data">暂无数据</string>
     <string name="repos_quota_retry_hint">请检查凭据或点击刷新重试</string>
+    <string name="repos_quota_plan">套餐</string>
+    <string name="repos_quota_account">账号</string>
+    <string name="repos_quota_remaining_label">剩余</string>
+    <string name="repos_quota_days_value">%1$d天</string>
+    <string name="repos_quota_cost_label">费用</string>
+    <string name="repos_quota_models">模型额度</string>
+    <string name="repos_quota_credits">余额</string>
+    <string name="repos_quota_extra_usage">额外用量</string>
 
     <!-- Logs Screen -->
     <string name="logs_title">审计日志</string>
@@ -356,6 +386,7 @@
 
     <!-- Quota Gauge Labels -->
     <string name="quota_5h">5小时</string>
+    <string name="quota_day">日</string>
     <string name="quota_week">周</string>
     <string name="quota_month">月</string>
 
