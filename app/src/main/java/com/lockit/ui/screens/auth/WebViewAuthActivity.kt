@@ -607,9 +607,11 @@ class OAuthWebChromeClient(
         popupWebViews.remove(window)
         window?.destroy()
 
-        // When popup closes, trigger main WebView to check login status
+        // When popup closes, navigate to root so the SPA can detect session cookie
+        // and auto-redirect away from /auth. reload() keeps the page on /auth/login,
+        // which causes cookie polling's URL check to always fail.
         activity.authWebViewClient?.resetExtractionState()
-        activity.webView?.reload()
+        activity.webView?.loadUrl("https://chatgpt.com/")
     }
 
     /**
