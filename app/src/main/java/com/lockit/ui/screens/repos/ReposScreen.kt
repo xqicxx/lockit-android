@@ -512,7 +512,7 @@ fun ReposScreen(
                         fontWeight = FontWeight.Bold,
                         fontSize = 12.sp,
                         letterSpacing = 2.sp,
-                        color = colorScheme.onSurface,
+                        color = MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.padding(bottom = 12.dp),
                     )
                     CodingPlanBoard(
@@ -547,7 +547,7 @@ fun ReposScreen(
                     fontWeight = FontWeight.Bold,
                     fontSize = 12.sp,
                     letterSpacing = 2.sp,
-                    color = colorScheme.onSurface,
+                    color = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.padding(bottom = 12.dp),
                 )
 
@@ -885,7 +885,7 @@ private fun StatCard(label: String, value: String, modifier: Modifier = Modifier
                 fontFamily = JetBrainsMonoFamily,
                 fontWeight = FontWeight.ExtraBold,
                 fontSize = 32.sp,
-                color = colorScheme.onSurface,
+                color = MaterialTheme.colorScheme.onSurface,
             )
             Text(
                 text = label,
@@ -927,7 +927,7 @@ private fun ServiceRow(
                 fontFamily = JetBrainsMonoFamily,
                 fontWeight = FontWeight.Bold,
                 fontSize = 14.sp,
-                color = colorScheme.onSurface,
+                color = MaterialTheme.colorScheme.onSurface,
             )
         }
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -969,7 +969,7 @@ internal fun CompactCredentialRow(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .border(1.dp, MaterialTheme.colorScheme.primary)
+            .border(1.dp, MaterialTheme.colorScheme.outline)
             .clickable(onClick = onClick)
             .padding(12.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -989,7 +989,7 @@ internal fun CompactCredentialRow(
                 fontFamily = JetBrainsMonoFamily,
                 fontWeight = FontWeight.Bold,
                 fontSize = 13.sp,
-                color = colorScheme.onSurface,
+                color = MaterialTheme.colorScheme.onSurface,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -1121,7 +1121,7 @@ private fun CodingPlanBoard(
                     fontFamily = JetBrainsMonoFamily,
                     fontWeight = FontWeight.Bold,
                     fontSize = 12.sp,
-                    color = colorScheme.onSurface,
+                    color = MaterialTheme.colorScheme.onSurface,
                 )
                 // Show cache age indicator if data is cached (not fresh)
                 if (cacheAgeMinutes > 0 && !isLoading) {
@@ -1276,7 +1276,6 @@ private fun CodingPlanBoard(
 @Composable
 private fun QuotaGauge(label: String, used: Int, total: Int, modifier: Modifier = Modifier) {
     Column(modifier = modifier) {
-        // Use Long to prevent integer overflow when used > 21.4M tokens
         val pct = if (total > 0) (used.toLong() * 100 / total).coerceIn(0, 100).toInt() else 0
         val barColor = when {
             pct >= 90 -> TacticalRed
@@ -1312,7 +1311,7 @@ private fun QuotaGauge(label: String, used: Int, total: Int, modifier: Modifier 
             modifier = Modifier
                 .fillMaxWidth()
                 .height(8.dp)
-                .background(colorScheme.surfaceContainerLowest),
+                .background(MaterialTheme.colorScheme.surfaceContainerLowest),
         ) {
             // Progress bar fill
             Box(
@@ -1330,7 +1329,7 @@ private fun QuotaGauge(label: String, used: Int, total: Int, modifier: Modifier 
             fontFamily = JetBrainsMonoFamily,
             fontSize = 9.sp,
             maxLines = 1,
-            color = colorScheme.onSurface,
+            color = MaterialTheme.colorScheme.onSurface,
         )
     }
 }
