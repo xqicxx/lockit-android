@@ -607,11 +607,16 @@ class OAuthWebChromeClient(
         popupWebViews.remove(window)
         window?.destroy()
 
-        // When popup closes, navigate to root so the SPA can detect session cookie
-        // and auto-redirect away from /auth. reload() keeps the page on /auth/login,
-        // which causes cookie polling's URL check to always fail.
+        // When popup closes, navigate to provider root so the SPA detects session
+        // cookie and auto-redirects away from login page. reload() keeps the page
+        // on /auth/login, which causes cookie polling's URL check to always fail.
         activity.authWebViewClient?.resetExtractionState()
-        activity.webView?.loadUrl("https://chatgpt.com/")
+        val rootUrl = when (provider) {
+            "chatgpt" -> "https://chatgpt.com/"
+            "claude" -> "https://claude.ai/"
+            else -> "https://chatgpt.com/" // fallback, only chatgpt/claude use OAuth popups
+        }
+        activity.webView?.loadUrl(rootUrl)
     }
 
     /**
