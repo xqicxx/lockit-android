@@ -23,6 +23,11 @@ import java.net.URL
 object QwenCodingPlan : CodingPlanFetcher {
     override val providerKey: String = "qwen_bailian"
 
+    /** Exposed for ViewModel to check auth failure type after null result. */
+    @Volatile
+    var lastHttpStatus: Int = 0
+        private set
+
     private const val API_URL = "https://bailian-cs.console.aliyun.com/data/api.json" +
         "?action=BroadScopeAspnGateway&product=sfm_bailian" +
         "&api=zeldaEasy.broadscope-bailian.codingPlan.queryCodingPlanInstanceInfoV2"
@@ -40,18 +45,18 @@ object QwenCodingPlan : CodingPlanFetcher {
         }
 
     private fun fetchFromApi(cookie: String): CodingPlanQuota? {
+        lastHttpStatus = 0 // reset before each request to avoid stale data
         val url = URL(API_URL)
         val conn = url.openConnection() as HttpURLConnection
 
-        // 设置超时：连接 5秒，读取 10秒
         conn.connectTimeout = 5000
         conn.readTimeout = 10000
-        // 禁用缓存，加速响应
         conn.useCaches = false
 
         conn.setupHeaders(cookie)
         conn.writeBody()
 
+        lastHttpStatus = conn.responseCode
         val response = conn.readResponse()
         conn.disconnect()
 
