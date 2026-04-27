@@ -124,7 +124,7 @@ fun DropdownWithCustomInput(
                                 text = "+ CUSTOM",
                                 fontFamily = JetBrainsMonoFamily,
                                 fontSize = 12.sp,
-                                color = Primary,
+                                color = colorScheme.onSurface,
                             )
                         },
                         onClick = {
@@ -341,7 +341,7 @@ fun CredentialTypeDropdown(
                         Icon(
                             imageVector = Icons.Default.Add,
                             contentDescription = null,
-                            tint = Primary,
+                            tint = colorScheme.onSurface,
                             modifier = Modifier.size(16.dp),
                         )
                     },
