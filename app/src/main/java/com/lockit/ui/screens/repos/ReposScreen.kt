@@ -228,8 +228,12 @@ class ReposViewModel(app: LockitApp) : ViewModel() {
             _codingPlanQuota.value = result
             CodingPlanPrefetchState.setQuota(result)
             if (result == null && codingPlanCreds.isNotEmpty()) {
-                _codingPlanQuotaError.value = "NO_QUOTA_DATA"
-                CodingPlanPrefetchState.setError("NO_QUOTA_DATA")
+                val status = com.lockit.domain.qwen.QwenCodingPlan.lastHttpStatus
+                _codingPlanQuotaError.value = when {
+                    status in listOf(302, 401, 403) -> "COOKIE_EXPIRED"
+                    else -> "NO_QUOTA_DATA"
+                }
+                CodingPlanPrefetchState.setError(_codingPlanQuotaError.value)
             } else {
                 CodingPlanPrefetchState.setError(null)
                 // Save to cache for next startup
@@ -1215,7 +1219,7 @@ private fun CodingPlanBoard(
                     Text(
                         text = when (error) {
                             "NO_QUOTA_DATA" -> stringResource(R.string.repos_quota_fetch_failed)
-                            "NOT_LOGIN" -> stringResource(R.string.repos_quota_cookie_expired)
+                            "NOT_LOGIN", "COOKIE_EXPIRED" -> stringResource(R.string.repos_quota_cookie_expired)
                             null -> stringResource(R.string.repos_quota_no_data)
                             else -> error
                         },

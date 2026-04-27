@@ -41,6 +41,7 @@ object BailianAuthClient {
                 mapOf(
                     "provider" to "qwen_bailian",
                     "cookie" to cookie,
+                    "apiKey" to "",
                     "rawCurl" to buildCurlCommand(cookie),
                     "baseUrl" to "https://coding.dashscope.aliyuncs.com/v1"
                 )
