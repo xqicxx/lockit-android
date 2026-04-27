@@ -186,8 +186,8 @@ fun CredentialCard(
     onClick: () -> Unit,
     /** Unified copy callback - receives CopyAction to determine what to copy */
     onCopy: (CopyAction) -> Unit,
-    /** Request biometric reveal before sensitive operations */
-    onNeedReveal: () -> Unit = {},
+    /** Request biometric reveal before sensitive operations. Optional callback invoked after reveal succeeds. */
+    onNeedReveal: (onSuccess: (() -> Unit)?) -> Unit = {},
     onDelete: () -> Unit,
     onEdit: () -> Unit,
     /** External reveal state management */
@@ -240,7 +240,7 @@ fun CredentialCard(
                         if (localRevealed || alwaysVisible) {
                             onCopy(CopyAction.STRUCTURED)
                         } else {
-                            onNeedReveal()
+                            onNeedReveal(null)
                         }
                     }
                 )
@@ -258,7 +258,7 @@ fun CredentialCard(
                     currentOnHide.value()
                 } else {
                     // Trigger biometric auth before revealing - don't bypass security
-                    onNeedReveal()
+                    onNeedReveal(null)
                 }
             },
             onCopy = { onCopy(CopyAction.VALUE) },
@@ -298,9 +298,9 @@ fun CredentialCard(
                 text = "COPY",
                 onClick = {
                     if (localRevealed || alwaysVisible) {
-                        onCopy(CopyAction.STRUCTURED)
+                        onCopy(CopyAction.VALUE)
                     } else {
-                        onNeedReveal()
+                        onNeedReveal { onCopy(CopyAction.VALUE) }
                     }
                 },
                 variant = ButtonVariant.Secondary,
@@ -402,7 +402,7 @@ private fun CredentialContent(
     isRevealed: Boolean,
     maskPlaceholder: String,
     onCopy: (CopyAction) -> Unit,
-    onNeedReveal: () -> Unit,
+    onNeedReveal: ((() -> Unit)?) -> Unit,
     onHide: () -> Unit,
     clipboardManager: androidx.compose.ui.platform.ClipboardManager,
 ) {
@@ -450,7 +450,7 @@ private fun CredentialContent(
                 IconButtonBox(
                     icon = if (isRevealed) Icons.Default.VisibilityOff else Icons.Default.Visibility,
                     description = if (isRevealed) "Hide" else "Reveal",
-                    onClick = { if (!isRevealed) onNeedReveal() else onHide() },
+                    onClick = { if (!isRevealed) onNeedReveal(null) else onHide() },
                 )
             }
             Spacer(modifier = Modifier.height(4.dp))
@@ -525,7 +525,7 @@ private fun CredentialContent(
                 isRevealed = isRevealed,
                 maskPlaceholder = maskPlaceholder,
                 maxLinesRevealed = 3,
-                onNeedReveal = onNeedReveal,
+                onNeedReveal = { onNeedReveal(null) },
                 onHide = onHide,
                 onCopy = { onCopy(CopyAction.API_KEY) },
                 clipboardManager = clipboardManager,
@@ -551,7 +551,7 @@ private fun CredentialContent(
                 isRevealed = isRevealed,
                 maskPlaceholder = maskPlaceholder,
                 maxLinesRevealed = 5,
-                onNeedReveal = onNeedReveal,
+                onNeedReveal = { onNeedReveal(null) },
                 onHide = onHide,
                 onCopy = { onCopy(CopyAction.VALUE) },
                 clipboardManager = clipboardManager,
@@ -589,7 +589,7 @@ private fun CredentialContent(
                 IconButtonBox(
                     icon = if (isRevealed) Icons.Default.VisibilityOff else Icons.Default.Visibility,
                     description = if (isRevealed) "Hide" else "Reveal",
-                    onClick = { if (!isRevealed) onNeedReveal() else onHide() },
+                    onClick = { if (!isRevealed) onNeedReveal(null) else onHide() },
                 )
             }
             Spacer(modifier = Modifier.height(4.dp))

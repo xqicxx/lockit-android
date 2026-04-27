@@ -640,7 +640,7 @@ fun ReposScreen(
                         cardRevealed = false
                         pendingRevealAction = null
                     },
-                    onNeedReveal = {
+                    onNeedReveal = { postReveal: (() -> Unit)? ->
                         val activity = getActivity()
                         val credToReveal = cred  // Capture credential for audit logging
                         if (activity != null) {
@@ -652,16 +652,19 @@ fun ReposScreen(
                                     onSuccess = {
                                         cardRevealed = true
                                         credToReveal?.let { app.vaultManager.logCredentialViewed(it.name) }
+                                        postReveal?.invoke()
                                     },
                                     onError = { pendingRevealAction = {
                                         cardRevealed = true
                                         credToReveal?.let { app.vaultManager.logCredentialViewed(it.name) }
+                                        postReveal?.invoke()
                                     } },
                                 )
                             } else {
                                 pendingRevealAction = {
                                     cardRevealed = true
                                     credToReveal?.let { app.vaultManager.logCredentialViewed(it.name) }
+                                    postReveal?.invoke()
                                 }
                             }
                         }
@@ -1012,7 +1015,7 @@ internal fun CredentialCardModal(
     onCopy: (CopyAction) -> Unit,
     onDelete: () -> Unit,
     onEdit: () -> Unit,
-    onNeedReveal: () -> Unit = {},
+    onNeedReveal: ((() -> Unit)?) -> Unit = {},
     isRevealed: Boolean = false,
     onHide: () -> Unit = {},
 ) {
