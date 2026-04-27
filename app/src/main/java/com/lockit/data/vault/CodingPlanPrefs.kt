@@ -6,6 +6,7 @@ import android.util.Log
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 import androidx.security.crypto.MasterKey.KeyScheme
+import com.lockit.domain.CodingPlanProviders
 import com.lockit.domain.CodingPlanQuota
 import org.json.JSONObject
 import java.time.Instant
@@ -84,16 +85,18 @@ object CodingPlanPrefs {
     }
 
     fun save(context: Context, provider: String, cookie: String, apiKey: String) {
+        val normalizedProvider = CodingPlanProviders.normalize(provider)
         getPrefs(context).edit()
-            .putString(KEY_ACTIVE_PROVIDER, provider)
-            .putString("${provider}_cookie", cookie)
-            .putString("${provider}_api_key", apiKey)
+            .putString(KEY_ACTIVE_PROVIDER, normalizedProvider)
+            .putString("${normalizedProvider}_cookie", cookie)
+            .putString("${normalizedProvider}_api_key", apiKey)
             .apply()
     }
 
     fun setActiveProvider(context: Context, provider: String) {
+        val normalizedProvider = CodingPlanProviders.normalize(provider)
         getPrefs(context).edit()
-            .putString(KEY_ACTIVE_PROVIDER, provider)
+            .putString(KEY_ACTIVE_PROVIDER, normalizedProvider)
             .apply()
     }
 
@@ -101,18 +104,20 @@ object CodingPlanPrefs {
         getPrefs(context).getString(KEY_ACTIVE_PROVIDER, null)
 
     fun saveProviderData(context: Context, provider: String, data: Map<String, String>) {
+        val normalizedProvider = CodingPlanProviders.normalize(provider)
         val editor = getPrefs(context).edit()
         data.forEach { (key, value) ->
-            editor.putString("${provider}_$key", value)
+            editor.putString("${normalizedProvider}_$key", value)
         }
-        editor.putString(KEY_ACTIVE_PROVIDER, provider)
+        editor.putString(KEY_ACTIVE_PROVIDER, normalizedProvider)
         editor.apply()
     }
 
     fun getProviderData(context: Context, provider: String): Map<String, String> {
+        val normalizedProvider = CodingPlanProviders.normalize(provider)
         val prefs = getPrefs(context)
         return PROVIDER_FIELDS.associateWith { field ->
-            prefs.getString("${provider}_$field", "") ?: ""
+            prefs.getString("${normalizedProvider}_$field", "") ?: ""
         }.filterValues { it.isNotBlank() }
     }
 
@@ -132,9 +137,10 @@ object CodingPlanPrefs {
     }
 
     fun clearProvider(context: Context, provider: String) {
+        val normalizedProvider = CodingPlanProviders.normalize(provider)
         val editor = getPrefs(context).edit()
         PROVIDER_FIELDS.forEach { field ->
-            editor.remove("${provider}_$field")
+            editor.remove("${normalizedProvider}_$field")
         }
         editor.apply()
     }

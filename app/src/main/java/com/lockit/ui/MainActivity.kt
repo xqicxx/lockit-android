@@ -41,6 +41,7 @@ import com.lockit.ui.theme.LockitTheme
 import com.lockit.ui.theme.ThemePreference
 import com.lockit.data.vault.CodingPlanPrefs
 import com.lockit.domain.CodingPlanFetchers
+import com.lockit.domain.CodingPlanProviders
 import com.lockit.domain.CodingPlanPrefetchState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -134,8 +135,8 @@ class MainActivity : FragmentActivity() {
             lifecycleScope.launch {
                 try {
                     val metadata = CodingPlanPrefs.getMetadata(app)
-                    val provider = metadata["provider"]
-                    if (provider != null) {
+                    val provider = CodingPlanProviders.normalize(metadata["provider"])
+                    if (provider.isNotBlank()) {
                         val fetcher = CodingPlanFetchers.forProvider(provider)
                         if (fetcher != null) {
                             val quota = withContext(Dispatchers.IO) {

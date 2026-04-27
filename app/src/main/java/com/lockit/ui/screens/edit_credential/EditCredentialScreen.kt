@@ -398,8 +398,30 @@ private fun EditCredentialForm(
                     )
                 } else {
                     val isRawCurlField = selectedType == CredentialType.CodingPlan && index == CodingPlanFields.RAW_CURL
+                    val isApiKeyField = selectedType == CredentialType.CodingPlan && index == CodingPlanFields.API_KEY
                     val isCookieField = selectedType == CredentialType.CodingPlan && index == CodingPlanFields.COOKIE
                     val isMultiline = isRawCurlField || isCookieField
+
+                    val dynamicLabel: String = when {
+                        isApiKeyField && selectedType == CredentialType.CodingPlan -> {
+                            val provider = getField(0)
+                            when (provider) {
+                                "openai", "chatgpt" -> "ACCESS_TOKEN"
+                                "anthropic", "claude" -> "SESSION_KEY"
+                                else -> field.label
+                            }
+                        }
+                        isCookieField && selectedType == CredentialType.CodingPlan -> {
+                            val provider = getField(0)
+                            when (provider) {
+                                "openai", "chatgpt" -> "ACCOUNT_ID"
+                                "anthropic", "claude" -> "ORG_ID"
+                                else -> field.label
+                            }
+                        }
+                        else -> field.label
+                    }
+
                     BrutalistTextField(
                         value = getField(index),
                         onValueChange = { value ->
@@ -412,7 +434,7 @@ private fun EditCredentialForm(
                                 else -> fieldValues[index] = value
                             }
                         },
-                        label = field.label,
+                        label = dynamicLabel,
                         placeholder = field.placeholder,
                         error = fieldErrors[index],
                         maxLines = if (isMultiline) 10 else 1,

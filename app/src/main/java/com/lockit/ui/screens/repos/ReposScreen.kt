@@ -62,6 +62,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.lockit.LockitApp
 import com.lockit.R
+import com.lockit.domain.CodingPlanProviders
 import com.lockit.domain.CodingPlanQuota
 import com.lockit.domain.CodingPlanFetchers
 import com.lockit.domain.CodingPlanPrefetchState
@@ -155,8 +156,27 @@ class ReposViewModel(app: LockitApp) : ViewModel() {
         currentApp = app
         app.vaultManager.getAllCredentials()
             .catch { _credentials.value = emptyList() }
-            .onEach { _credentials.value = it }
+            .onEach {
+                _credentials.value = it
+                syncSelectedProviderWithCredentials(app, it)
+            }
             .launchIn(viewModelScope)
+    }
+
+    private fun syncSelectedProviderWithCredentials(app: LockitApp, credentials: List<Credential>) {
+        val providers = credentials
+            .filter { it.type == CredentialType.CodingPlan }
+            .mapNotNull { credential ->
+                CodingPlanProviders.normalize(
+                    credential.metadata["provider"]?.ifBlank { credential.service } ?: credential.service
+                ).takeIf { it.isNotBlank() }
+            }
+            .distinct()
+
+        if (providers.isEmpty() || _selectedProvider.value in providers) return
+
+        val activeProvider = CodingPlanProviders.normalize(CodingPlanPrefs.getActiveProvider(app))
+        _selectedProvider.value = activeProvider.takeIf { it in providers } ?: providers.first()
     }
 
     fun selectService(service: String?) {
@@ -169,7 +189,7 @@ class ReposViewModel(app: LockitApp) : ViewModel() {
     }
 
     fun selectProvider(provider: String) {
-        _selectedProvider.value = provider
+        _selectedProvider.value = CodingPlanProviders.normalize(provider)
         // Re-fetch quota for new provider
         fetchCodingPlanQuota(force = true)
     }
@@ -209,12 +229,12 @@ class ReposViewModel(app: LockitApp) : ViewModel() {
         CodingPlanPrefetchState.setLoading(true)
         _codingPlanQuotaError.value = null
 
-        val targetProvider = _selectedProvider.value
+        val targetProvider = CodingPlanProviders.normalize(_selectedProvider.value)
         viewModelScope.launch {
             val result = withContext(Dispatchers.IO) {
                 // Filter credentials by selected provider
                 val providerCreds = codingPlanCreds.filter {
-                    it.metadata["provider"] == targetProvider
+                    CodingPlanProviders.normalize(it.metadata["provider"]?.ifBlank { it.service } ?: it.service) == targetProvider
                 }
                 var quota: CodingPlanQuota? = null
                 for (cred in providerCreds) {
@@ -222,6 +242,14 @@ class ReposViewModel(app: LockitApp) : ViewModel() {
                     val fetcher = CodingPlanFetchers.forProvider(targetProvider) ?: continue
                     quota = fetcher.fetchQuota(metadata)
                     if (quota != null) break
+                }
+                if (quota == null) {
+                    val prefsMetadata = currentApp?.let { CodingPlanPrefs.getMetadata(it) }.orEmpty()
+                    val prefsProvider = CodingPlanProviders.normalize(prefsMetadata["provider"])
+                    if (prefsProvider == targetProvider) {
+                        val fetcher = CodingPlanFetchers.forProvider(targetProvider)
+                        quota = fetcher?.fetchQuota(prefsMetadata)
+                    }
                 }
                 quota
             }
@@ -502,9 +530,9 @@ fun ReposScreen(
                     Spacer(modifier = Modifier.height(8.dp))
                     // Get unique providers from existing CodingPlan credentials
                     val existingProviders = codingPlanCredentials.mapNotNull { cred ->
-                        runCatching {
-                            JSONObject(cred.metadata).optString("provider")
-                        }.getOrNull()?.takeIf { it.isNotBlank() }
+                        CodingPlanProviders.normalize(
+                            cred.metadata["provider"]?.ifBlank { cred.service } ?: cred.service
+                        ).takeIf { it.isNotBlank() }
                     }.distinct()
                     if (existingProviders.size >= 2) {
                         ProviderCardsRow(

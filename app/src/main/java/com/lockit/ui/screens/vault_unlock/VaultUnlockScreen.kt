@@ -439,7 +439,7 @@ fun VaultUnlockScreen(
                                 .padding(12.dp),
                             verticalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
-                            if (!viewModel.isConfirmStep) {
+                            if (!viewModel.isConfirmStep && viewModel.isInitialized) {
                                 // Bottom row: Recovery + Biometric (if linked)
                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                     BrutalistSmallButton(

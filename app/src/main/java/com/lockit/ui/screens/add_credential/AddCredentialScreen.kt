@@ -38,6 +38,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lockit.LockitApp
 import com.lockit.R
+import com.lockit.domain.CodingPlanProviders
 import com.lockit.domain.model.CredentialType
 import com.lockit.domain.model.CodingPlanFields
 import com.lockit.domain.model.requiredFieldIndices
@@ -208,6 +209,28 @@ fun AddCredentialScreen(
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
 
+    fun applyCodingPlanProviderTemplate(providerValue: String, clearAuthFields: Boolean) {
+        val provider = CodingPlanProviders.normalize(providerValue)
+        if (provider.isBlank() || fieldValues.size <= CodingPlanFields.BASE_URL) return
+
+        selectedAuthProvider = provider
+        fieldValues[CodingPlanFields.PROVIDER] = provider
+        fieldValues[CodingPlanFields.BASE_URL] = CodingPlanProviders.defaultBaseUrl(provider)
+
+        if (clearAuthFields) {
+            fieldValues[CodingPlanFields.RAW_CURL] = ""
+            fieldValues[CodingPlanFields.API_KEY] = ""
+            fieldValues[CodingPlanFields.COOKIE] = ""
+            authExtraData = emptyMap()
+            authCredentialStatus = null
+            userEditedCookie = false
+        }
+    }
+
+    fun currentCodingPlanProvider(): String =
+        CodingPlanProviders.normalize(fieldValues.getOrElse(CodingPlanFields.PROVIDER) { "" })
+            .ifBlank { selectedAuthProvider }
+
     // WebView auth launcher
     val webViewAuthLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
@@ -230,13 +253,13 @@ fun AddCredentialScreen(
                 }
 
                 // Fill in provider name
-                val provider = dataMap["provider"] ?: selectedAuthProvider
-                fieldValues[CodingPlanFields.PROVIDER] = provider
+                val provider = CodingPlanProviders.normalize(dataMap["provider"] ?: selectedAuthProvider)
+                applyCodingPlanProviderTemplate(provider, clearAuthFields = false)
                 userEditedName = true
 
                 // Fill in credentials based on provider
                 when (provider) {
-                    "qwen", "qwen_bailian" -> {
+                    CodingPlanProviders.QWEN_BAILIAN -> {
                         // Fill RAW_CURL
                         fieldValues[CodingPlanFields.RAW_CURL] = dataMap["rawCurl"] ?: ""
                         // Fill API_KEY
@@ -250,23 +273,25 @@ fun AddCredentialScreen(
                         android.util.Log.d("AddCredential", "Bailian: apiKey=${if (dataMap["apiKey"]?.isNotBlank() == true) "OK" else "EMPTY"}")
                         android.util.Log.d("AddCredential", "fieldValues after fill: provider=${fieldValues[CodingPlanFields.PROVIDER]}")
                     }
-                    "openai", "chatgpt" -> {
-                        // apiKey fills API_KEY field
-                        fieldValues[CodingPlanFields.API_KEY] = dataMap["apiKey"] ?: ""
-                        // Fill BASE_URL
-                        fieldValues[CodingPlanFields.BASE_URL] = dataMap["baseUrl"] ?: ""
-                        // Store extra fields for metadata
+                    CodingPlanProviders.CHATGPT -> {
+                        fieldValues[CodingPlanFields.API_KEY] = dataMap["accessToken"]
+                            ?: dataMap["apiKey"]
+                            ?: ""
+                        fieldValues[CodingPlanFields.COOKIE] = dataMap["accountId"] ?: ""
+                        fieldValues[CodingPlanFields.BASE_URL] = dataMap["baseUrl"]
+                            ?: CodingPlanProviders.defaultBaseUrl(provider)
                         authExtraData = dataMap
-                        android.util.Log.d("AddCredential", "ChatGPT: apiKey=${if (dataMap["apiKey"]?.isNotBlank() == true) "OK" else "EMPTY"}")
+                        android.util.Log.d("AddCredential", "ChatGPT: accessToken=${if (fieldValues[CodingPlanFields.API_KEY].isNotBlank()) "OK" else "EMPTY"}")
                     }
-                    "anthropic", "claude" -> {
-                        // apiKey fills API_KEY field
-                        fieldValues[CodingPlanFields.API_KEY] = dataMap["apiKey"] ?: ""
-                        // Fill BASE_URL
-                        fieldValues[CodingPlanFields.BASE_URL] = dataMap["baseUrl"] ?: ""
-                        // Store extra fields for metadata
+                    CodingPlanProviders.CLAUDE -> {
+                        fieldValues[CodingPlanFields.API_KEY] = dataMap["sessionKey"]
+                            ?: dataMap["apiKey"]
+                            ?: ""
+                        fieldValues[CodingPlanFields.COOKIE] = dataMap["orgId"] ?: ""
+                        fieldValues[CodingPlanFields.BASE_URL] = dataMap["baseUrl"]
+                            ?: CodingPlanProviders.defaultBaseUrl(provider)
                         authExtraData = dataMap
-                        android.util.Log.d("AddCredential", "Claude: apiKey=${if (dataMap["apiKey"]?.isNotBlank() == true) "OK" else "EMPTY"}")
+                        android.util.Log.d("AddCredential", "Claude: sessionKey=${if (fieldValues[CodingPlanFields.API_KEY].isNotBlank()) "OK" else "EMPTY"}")
                     }
                 }
                 userEditedCookie = true
@@ -454,6 +479,7 @@ fun AddCredentialScreen(
                     BrutalistButton(
                         text = stringResource(R.string.auth_qwen_bailian),
                         onClick = {
+                            applyCodingPlanProviderTemplate(CodingPlanProviders.QWEN_BAILIAN, clearAuthFields = true)
                             val intent = WebViewAuthActivity.createIntent(context, "qwen_bailian")
                             webViewAuthLauncher.launch(intent)
                         },
@@ -464,6 +490,7 @@ fun AddCredentialScreen(
                     BrutalistButton(
                         text = stringResource(R.string.auth_chatgpt),
                         onClick = {
+                            applyCodingPlanProviderTemplate(CodingPlanProviders.CHATGPT, clearAuthFields = true)
                             val intent = WebViewAuthActivity.createIntent(context, "chatgpt")
                             webViewAuthLauncher.launch(intent)
                         },
@@ -474,6 +501,7 @@ fun AddCredentialScreen(
                     BrutalistButton(
                         text = stringResource(R.string.auth_claude),
                         onClick = {
+                            applyCodingPlanProviderTemplate(CodingPlanProviders.CLAUDE, clearAuthFields = true)
                             val intent = WebViewAuthActivity.createIntent(context, "claude")
                             webViewAuthLauncher.launch(intent)
                         },
@@ -520,11 +548,13 @@ fun AddCredentialScreen(
                         options = field.presets,
                         selectedValue = getField(index),
                         onSelect = { value ->
-                            when {
-                                isNameField -> handleNameChange(index, value)
-                                isServiceField -> handleServiceChange(index, value)
-                                else -> fieldValues[index] = value
-                            }
+	                            when {
+	                                isNameField -> handleNameChange(index, value)
+	                                isServiceField -> handleServiceChange(index, value)
+	                                selectedType == CredentialType.CodingPlan && index == CodingPlanFields.PROVIDER ->
+	                                    applyCodingPlanProviderTemplate(value, clearAuthFields = true)
+	                                else -> fieldValues[index] = value
+	                            }
                         },
                         placeholder = field.placeholder,
                         error = fieldErrors[index],
@@ -536,49 +566,59 @@ fun AddCredentialScreen(
                         presets = field.presets,
                         selectedValue = getField(index),
                         onValueChange = { value ->
-                            when {
-                                isNameField -> handleNameChange(index, value)
-                                isServiceField -> handleServiceChange(index, value)
-                                else -> fieldValues[index] = value
-                            }
+	                            when {
+	                                isNameField -> handleNameChange(index, value)
+	                                isServiceField -> handleServiceChange(index, value)
+	                                selectedType == CredentialType.CodingPlan && index == CodingPlanFields.PROVIDER ->
+	                                    applyCodingPlanProviderTemplate(value, clearAuthFields = true)
+	                                else -> fieldValues[index] = value
+	                            }
                         },
                         placeholder = field.placeholder,
                         error = fieldErrors[index],
                         editable = field.editable,
                     )
                 } else {
-                    val isRawCurlField = selectedType == CredentialType.CodingPlan && index == 1
-                    val isApiKeyField = selectedType == CredentialType.CodingPlan && index == 2
-                    val isCookieField = selectedType == CredentialType.CodingPlan && index == 3
-                    val isMultiline = isRawCurlField || isCookieField
+                    val provider = currentCodingPlanProvider()
+                    val isRawCurlField = selectedType == CredentialType.CodingPlan && index == CodingPlanFields.RAW_CURL
+                    val isApiKeyField = selectedType == CredentialType.CodingPlan && index == CodingPlanFields.API_KEY
+                    val isCookieField = selectedType == CredentialType.CodingPlan && index == CodingPlanFields.COOKIE
+                    val isBaseUrlField = selectedType == CredentialType.CodingPlan && index == CodingPlanFields.BASE_URL
+                    val isMultiline = isRawCurlField ||
+                        (isCookieField && provider == CodingPlanProviders.QWEN_BAILIAN)
 
                     // Dynamic labels for CodingPlan based on provider
                     val dynamicLabel: String = when {
                         isApiKeyField && selectedType == CredentialType.CodingPlan -> {
-                            val provider = getField(0)
                             when (provider) {
-                                "openai", "chatgpt" -> "ACCESS_TOKEN"
-                                "anthropic", "claude" -> "SESSION_KEY"
+                                CodingPlanProviders.CHATGPT -> "ACCESS_TOKEN"
+                                CodingPlanProviders.CLAUDE -> "SESSION_KEY"
                                 else -> field.label
                             }
                         }
                         isCookieField && selectedType == CredentialType.CodingPlan -> {
-                            val provider = getField(0)
                             when (provider) {
-                                "openai", "chatgpt" -> "ACCOUNT_ID"
-                                "anthropic", "claude" -> "ORG_ID"
+                                CodingPlanProviders.CHATGPT -> "ACCOUNT_ID"
+                                CodingPlanProviders.CLAUDE -> "ORG_ID"
                                 else -> field.label
                             }
                         }
+                        isBaseUrlField && provider == CodingPlanProviders.CHATGPT -> "USAGE_API"
+                        isBaseUrlField && provider == CodingPlanProviders.CLAUDE -> "BASE_API"
                         else -> field.label
                     }
 
-                    // Hide COOKIE field for non-Bailian providers if empty
-                    val shouldShowField = if (isCookieField && selectedType == CredentialType.CodingPlan) {
-                        val provider = getField(0)
-                        // Always show for bailian, show for others too (they need accountId/orgId)
-                        true
-                    } else true
+                    val dynamicPlaceholder = when {
+                        isApiKeyField && provider == CodingPlanProviders.CHATGPT -> "Paste ChatGPT access token..."
+                        isCookieField && provider == CodingPlanProviders.CHATGPT -> "Optional ChatGPT account id..."
+                        isBaseUrlField && provider == CodingPlanProviders.CHATGPT -> CodingPlanProviders.defaultBaseUrl(provider)
+                        isApiKeyField && provider == CodingPlanProviders.CLAUDE -> "Paste Claude session key..."
+                        isCookieField && provider == CodingPlanProviders.CLAUDE -> "Paste Claude org id..."
+                        isBaseUrlField && provider == CodingPlanProviders.CLAUDE -> CodingPlanProviders.defaultBaseUrl(provider)
+                        else -> field.placeholder
+                    }
+
+                    val shouldShowField = !(isRawCurlField && provider != CodingPlanProviders.QWEN_BAILIAN)
 
                     if (shouldShowField) {
                         BrutalistTextField(
@@ -594,7 +634,7 @@ fun AddCredentialScreen(
                                 }
                             },
                             label = dynamicLabel,
-                            placeholder = field.placeholder,
+                            placeholder = dynamicPlaceholder,
                             error = fieldErrors[index],
                             maxLines = if (isMultiline) 10 else 1,
                         )
@@ -640,14 +680,7 @@ fun AddCredentialScreen(
 
                                 // For CodingPlan: store all fields as metadata (provider-specific)
                                 val metadata = if (selectedType == CredentialType.CodingPlan) {
-                                    val rawProvider = getField(0)
-                                    // Normalize provider key for fetcher registry
-                                    val provider = when (rawProvider) {
-                                        "qwen" -> "qwen_bailian"
-                                        "anthropic" -> "claude"
-                                        "openai" -> "chatgpt"
-                                        else -> rawProvider
-                                    }
+                                    val provider = CodingPlanProviders.normalize(getField(0))
                                     val rawCurl = getField(1)
                                     val apiKey = getField(2).takeIf { it.isNotBlank() }
                                         ?: extractApiKeyFromCurl(rawCurl)
@@ -667,11 +700,11 @@ fun AddCredentialScreen(
                                         )
                                         "chatgpt" -> mapOf(
                                             "accessToken" to (apiKey ?: ""),
-                                            "accountId" to (cookie.ifBlank { authExtraData["accountId"] ?: "" }),
+                                            "accountId" to cookie.ifBlank { authExtraData["accountId"] ?: "" },
                                         )
                                         "claude" -> mapOf(
                                             "sessionKey" to (apiKey ?: ""),
-                                            "orgId" to (cookie.ifBlank { authExtraData["orgId"] ?: "" }),
+                                            "orgId" to cookie.ifBlank { authExtraData["orgId"] ?: "" },
                                         )
                                         else -> mapOf("api_key" to (apiKey ?: ""))
                                     }
@@ -693,11 +726,11 @@ fun AddCredentialScreen(
                                             }
                                             "chatgpt" -> {
                                                 put("accessToken", apiKey)
-                                                authExtraData["accountId"]?.let { put("accountId", it) }
+                                                put("accountId", cookie.ifBlank { authExtraData["accountId"] ?: "" })
                                             }
                                             "claude" -> {
                                                 put("sessionKey", apiKey)
-                                                authExtraData["orgId"]?.let { put("orgId", it) }
+                                                put("orgId", cookie.ifBlank { authExtraData["orgId"] ?: "" })
                                             }
                                             else -> {
                                                 put("apiKey", apiKey)
@@ -710,7 +743,7 @@ fun AddCredentialScreen(
 
                                 // CodingPlan: use provider name as service, apiKey as key
                                 val (serviceVal, keyVal) = if (selectedType == CredentialType.CodingPlan) {
-                                    (getField(0).takeIf { it.isNotBlank() }
+                                    (CodingPlanProviders.normalize(getField(0)).takeIf { it.isNotBlank() }
                                         ?: selectedType.displayName) to getField(2)
                                 } else {
                                     getField(1) to getField(2)

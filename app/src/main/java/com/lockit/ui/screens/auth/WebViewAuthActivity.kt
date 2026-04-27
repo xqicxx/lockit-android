@@ -10,6 +10,7 @@ import android.view.View
 import android.webkit.CookieManager
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.FrameLayout
@@ -28,6 +29,21 @@ import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
+
+private val QWEN_BAILIAN_LOGIN_URLS = listOf(
+    "https://bailian.console.aliyun.com/cn-beijing/?tab=coding-plan#/efm/detail",
+    "https://bailian.console.aliyun.com/cn-beijing/?tab=coding-plan#/efm/index",
+    "https://bailian.console.aliyun.com/cn-beijing/?tab=coding-plan",
+)
+
+private fun loginUrlFor(provider: String): String {
+    return when (provider) {
+        "qwen_bailian" -> QWEN_BAILIAN_LOGIN_URLS.first()
+        "chatgpt" -> "https://chatgpt.com/auth/login"
+        "claude" -> "https://claude.ai/login"
+        else -> QWEN_BAILIAN_LOGIN_URLS.first()
+    }
+}
 
 /**
  * WebView authentication activity for extracting login credentials.
@@ -90,13 +106,13 @@ class WebViewAuthActivity : ComponentActivity() {
             oauthWebChromeClient = chromeClient
             webChromeClient = chromeClient
 
-            val loginUrl = when (provider) {
-                "qwen_bailian" -> "https://bailian.console.aliyun.com/cn-beijing/?tab=coding-plan#/efm/coding-plan-detail"
-                "chatgpt" -> "https://chatgpt.com/auth/login"
-                "claude" -> "https://claude.ai/login"
-                else -> "https://bailian.console.aliyun.com/cn-beijing/?tab=coding-plan#/efm/coding-plan-detail"
-            }
-            loadUrl(loginUrl)
+            // Clear stale cookies before loading login page.
+            // If old cookies are present, ChatGPT/Claude auto-redirect away from
+            // login, causing the poller to fire instantly — before the user logs in.
+            CookieManager.getInstance().removeAllCookies(null)
+            CookieManager.getInstance().flush()
+
+            loadUrl(loginUrlFor(provider))
         }
 
         // Handle incoming callback intent from external apps (Alipay, etc.)
@@ -113,13 +129,7 @@ class WebViewAuthActivity : ComponentActivity() {
                 webView?.clearHistory()
                 webView?.clearFormData()
                 authWebViewClient?.resetExtractionState()
-                val loginUrl = when (provider) {
-                    "qwen_bailian" -> "https://bailian.console.aliyun.com/cn-beijing/?tab=coding-plan#/efm/coding-plan-detail"
-                    "chatgpt" -> "https://chatgpt.com/auth/login"
-                    "claude" -> "https://claude.ai/login"
-                    else -> "https://bailian.console.aliyun.com/cn-beijing/?tab=coding-plan#/efm/coding-plan-detail"
-                }
-                webView?.loadUrl(loginUrl)
+                webView?.loadUrl(loginUrlFor(provider))
                 android.widget.Toast.makeText(this@WebViewAuthActivity, "已清除登录数据", android.widget.Toast.LENGTH_SHORT).show()
             },
             onClose = {
@@ -232,11 +242,13 @@ class AuthWebViewClient(
 
     private var hasExtracted = false
     private var cookieCheckJob: kotlinx.coroutines.Job? = null
+    private var qwenFallbackIndex = 0
 
     fun resetExtractionState() {
         hasExtracted = false
         cookieCheckJob?.cancel()
         cookieCheckJob = null
+        qwenFallbackIndex = 0
     }
 
     fun hasExtracted(): Boolean = hasExtracted
@@ -246,6 +258,21 @@ class AuthWebViewClient(
         hasExtracted = false
         cookieCheckJob?.cancel()
         android.util.Log.d("WebViewAuth", "Page started: $url")
+    }
+
+    override fun onReceivedHttpError(
+        view: WebView?,
+        request: WebResourceRequest?,
+        errorResponse: WebResourceResponse?,
+    ) {
+        super.onReceivedHttpError(view, request, errorResponse)
+
+        val statusCode = errorResponse?.statusCode ?: return
+        if (provider != "qwen_bailian" || request?.isForMainFrame != true || statusCode < 500) {
+            return
+        }
+
+        tryLoadNextQwenFallback(view, "HTTP $statusCode")
     }
 
     /**
@@ -276,6 +303,10 @@ class AuthWebViewClient(
         super.onPageFinished(view, url)
         android.util.Log.d("WebViewAuth", "Page finished: $url")
 
+        if (provider == "qwen_bailian") {
+            recoverQwenSystemErrorIfPresent(view)
+        }
+
         if (hasExtracted) return
 
         // For SPA (Claude/ChatGPT), start polling for cookies
@@ -284,6 +315,39 @@ class AuthWebViewClient(
             startCookiePolling(view)
         } else {
             checkLoginAndExtract(view, url)
+        }
+    }
+
+    private fun recoverQwenSystemErrorIfPresent(view: WebView?) {
+        view ?: return
+        view.postDelayed({
+            view.evaluateJavascript(
+                "(function(){return document.body ? document.body.innerText : '';})()"
+            ) { pageText ->
+                val hasSystemError = pageText.contains("500") &&
+                    (pageText.contains("系统异常") || pageText.contains("\\u7cfb\\u7edf\\u5f02\\u5e38"))
+                if (hasSystemError) {
+                    tryLoadNextQwenFallback(view, "SPA system error")
+                }
+            }
+        }, 1200)
+    }
+
+    private fun tryLoadNextQwenFallback(view: WebView?, reason: String) {
+        qwenFallbackIndex += 1
+        val fallbackUrl = QWEN_BAILIAN_LOGIN_URLS.getOrNull(qwenFallbackIndex)
+        if (fallbackUrl == null) {
+            android.util.Log.e("WebViewAuth", "Qwen login failed with $reason and no fallback left")
+            android.widget.Toast.makeText(activity, "百炼页面系统异常，请稍后重试", android.widget.Toast.LENGTH_LONG).show()
+            return
+        }
+
+        android.util.Log.w("WebViewAuth", "Qwen login $reason, switching to fallback: $fallbackUrl")
+        android.widget.Toast.makeText(activity, "百炼页面异常，正在切换备用入口", android.widget.Toast.LENGTH_SHORT).show()
+        view?.post {
+            resetExtractionState()
+            qwenFallbackIndex = QWEN_BAILIAN_LOGIN_URLS.indexOf(fallbackUrl)
+            view.loadUrl(fallbackUrl)
         }
     }
 
@@ -330,7 +394,7 @@ class AuthWebViewClient(
                     }
                     "chatgpt" -> {
                         !currentUrl.contains("/auth") &&
-                        (cookies.contains("__Secure-") || cookies.contains("session"))
+                        cookies.contains("__Secure-next-auth.session-token=")
                     }
                     else -> false
                 }

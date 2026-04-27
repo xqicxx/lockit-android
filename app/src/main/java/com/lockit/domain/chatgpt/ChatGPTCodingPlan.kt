@@ -2,11 +2,13 @@ package com.lockit.domain.chatgpt
 
 import com.lockit.domain.CodingPlanFetcher
 import com.lockit.domain.CodingPlanQuota
+import com.lockit.domain.model.ModelQuota
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
+import java.time.Instant
 
 /**
  * ChatGPT Coding Plan quota fetcher.
@@ -31,7 +33,6 @@ object ChatGPTCodingPlan : CodingPlanFetcher {
             val accessToken = metadata["accessToken"]?.takeIf { it.isNotBlank() }
                 ?: return@withContext null
             val accountId = metadata["accountId"]?.takeIf { it.isNotBlank() }
-                ?: return@withContext null
 
             try {
                 fetchFromApi(accessToken, accountId)
@@ -40,7 +41,7 @@ object ChatGPTCodingPlan : CodingPlanFetcher {
             }
         }
 
-    private fun fetchFromApi(accessToken: String, accountId: String): CodingPlanQuota? {
+    private fun fetchFromApi(accessToken: String, accountId: String?): CodingPlanQuota? {
         val url = URL(USAGE_API)
         val conn = url.openConnection() as HttpURLConnection
         try {
@@ -51,9 +52,13 @@ object ChatGPTCodingPlan : CodingPlanFetcher {
             conn.setRequestMethod("GET")
             conn.setRequestProperty("Accept", "application/json")
             conn.setRequestProperty("Authorization", "Bearer $accessToken")
-            conn.setRequestProperty("ChatGPT-Account-Id", accountId)
+            conn.setRequestProperty("User-Agent", "Lockit-Android")
+            if (!accountId.isNullOrBlank()) {
+                conn.setRequestProperty("ChatGPT-Account-Id", accountId)
+            }
 
             if (conn.responseCode != 200) {
+                android.util.Log.e("ChatGPTCodingPlan", "Usage API failed: HTTP ${conn.responseCode}")
                 return null
             }
 
@@ -69,25 +74,54 @@ object ChatGPTCodingPlan : CodingPlanFetcher {
 
         val json = JSONObject(response)
 
-        // ChatGPT usage API returns daily/weekly limits
-        val dailyLimit = json.optJSONObject("daily_limit")
-        val weeklyLimit = json.optJSONObject("weekly_limit")
+        val rateLimit = json.optJSONObject("rate_limit")
+        val primaryWindow = rateLimit?.optJSONObject("primary_window")
+        val secondaryWindow = rateLimit?.optJSONObject("secondary_window")
 
-        val dailyUsed = dailyLimit?.optInt("used", 0) ?: 0
-        val dailyTotal = dailyLimit?.optInt("total", 0) ?: 0
-        val weeklyUsed = weeklyLimit?.optInt("used", 0) ?: 0
-        val weeklyTotal = weeklyLimit?.optInt("total", 0) ?: 0
+        val primaryUsedPercent = primaryWindow?.optDouble("used_percent", 0.0) ?: 0.0
+        val secondaryUsedPercent = secondaryWindow?.optDouble("used_percent", 0.0) ?: 0.0
+        val primaryWindowSeconds = primaryWindow?.optLong("limit_window_seconds", 0L) ?: 0L
+        val secondaryWindowSeconds = secondaryWindow?.optLong("limit_window_seconds", 0L) ?: 0L
+        val primaryResetAfter = primaryWindow?.optLong("reset_after_seconds", 0L) ?: 0L
+        val secondaryResetAfter = secondaryWindow?.optLong("reset_after_seconds", 0L) ?: 0L
+
+        val primaryTotal = if (primaryWindowSeconds > 0) 100 else 0
+        val secondaryTotal = if (secondaryWindowSeconds > 0) 100 else 0
+        val primaryUsed = primaryUsedPercent.toInt().coerceIn(0, 100)
+        val secondaryUsed = secondaryUsedPercent.toInt().coerceIn(0, 100)
+        val now = Instant.now()
+        val primaryResetsAt = if (primaryResetAfter > 0) now.plusSeconds(primaryResetAfter) else null
+        val secondaryResetsAt = if (secondaryResetAfter > 0) now.plusSeconds(secondaryResetAfter) else null
+        val planType = json.optString("plan_type", "ChatGPT")
 
         return CodingPlanQuota(
-            sessionUsed = dailyUsed,
-            sessionTotal = dailyTotal,
-            weekUsed = weeklyUsed,
-            weekTotal = weeklyTotal,
+            sessionUsed = primaryUsed,
+            sessionTotal = primaryTotal,
+            weekUsed = secondaryUsed,
+            weekTotal = secondaryTotal,
             monthUsed = 0,
             monthTotal = 0,
             instanceName = "ChatGPT",
-            instanceType = "GPT-4",
+            instanceType = planType,
             status = "VALID",
+            sessionResetsAt = primaryResetsAt,
+            weekResetsAt = secondaryResetsAt,
+            modelQuotas = mapOf(
+                "primary" to ModelQuota(
+                    modelName = "Primary window",
+                    usedPercent = primaryUsedPercent,
+                    weekUsed = primaryUsed,
+                    weekTotal = primaryTotal,
+                    resetsAt = primaryResetsAt,
+                ),
+                "secondary" to ModelQuota(
+                    modelName = "Secondary window",
+                    usedPercent = secondaryUsedPercent,
+                    weekUsed = secondaryUsed,
+                    weekTotal = secondaryTotal,
+                    resetsAt = secondaryResetsAt,
+                ),
+            ).filterValues { it.weekTotal > 0 },
             remainingDays = 0,
             chargeAmount = 0.0,
             chargeType = "subscription",
