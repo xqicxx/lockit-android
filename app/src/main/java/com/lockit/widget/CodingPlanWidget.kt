@@ -1,7 +1,6 @@
 package com.lockit.widget
 
 import android.content.Context
-import android.graphics.Color
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -14,56 +13,76 @@ import androidx.glance.appwidget.action.actionRunCallback
 import androidx.glance.layout.*
 import androidx.glance.text.*
 import androidx.glance.unit.ColorProvider
-import com.lockit.LockitApp
-import com.lockit.data.audit.AuditLogger
-import com.lockit.data.audit.AuditSeverity
+import com.lockit.data.vault.CodingPlanPrefs
 import com.lockit.domain.CodingPlanQuota
-import com.lockit.domain.CodingPlanFetchers
-import com.lockit.domain.model.CredentialType
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.withContext
 
-// Suppress lint: Glance ColorProvider accepts Int colors, not R.color references
+// Suppress lint: Glance ColorProvider accepts Int colors
 @Suppress("ResourceType")
 private val ColorDarkBg = ColorProvider(android.graphics.Color.parseColor("#1A1A1A"))
 @Suppress("ResourceType")
 private val ColorWhite = ColorProvider(android.graphics.Color.WHITE)
 @Suppress("ResourceType")
-private val ColorBlack = ColorProvider(android.graphics.Color.BLACK)
-@Suppress("ResourceType")
 private val ColorGray = ColorProvider(android.graphics.Color.GRAY)
+@Suppress("ResourceType")
+private val ColorLightGray = ColorProvider(android.graphics.Color.parseColor("#AAAAAA"))
 @Suppress("ResourceType")
 private val ColorOrange = ColorProvider(android.graphics.Color.parseColor("#B34700"))
 @Suppress("ResourceType")
 private val ColorRed = ColorProvider(android.graphics.Color.parseColor("#A30000"))
 
+/** Status codes for widget data resolution. */
+private object WidgetStatus {
+    const val LOCKED = "LOCKED"
+    const val NO_CREDENTIALS = "NO_CREDENTIALS"
+    const val NO_CACHE = "NO_CACHE"
+    const val FETCH_FAILED = "FETCH_FAILED"
+}
+
 /**
  * Coding Plan Widget using Glance.
- * Displays quota gauges (5h/week/month) with refresh button.
+ * Reads cached quota from SharedPreferences (widget runs in separate process,
+ * cannot access Room database directly).
  */
 class CodingPlanWidget : GlanceAppWidget() {
 
     override val sizeMode = SizeMode.Exact
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
-        val app = context.applicationContext as LockitApp
-        val vaultManager = app.vaultManager
-        val isUnlocked = vaultManager.isUnlocked()
-
-        val quota = if (isUnlocked) {
-            fetchFirstCodingPlanQuota(context)
-        } else {
-            null
-        }
+        val (status, quota) = loadWidgetData(context)
 
         provideContent {
-            if (isUnlocked) {
-                QuotaWidgetContent(quota)
-            } else {
-                LockedWidgetContent()
+            when (status) {
+                WidgetStatus.LOCKED -> LockedWidgetContent()
+                else -> QuotaWidgetContent(quota, status)
             }
         }
+    }
+}
+
+/**
+ * Load widget data from SharedPreferences cache.
+ * Widget runs in a separate process and cannot access Room database or LockitApp DI.
+ */
+private fun loadWidgetData(context: Context): Pair<String, CodingPlanQuota?> {
+    if (!CodingPlanPrefs.isVaultUnlocked(context)) {
+        return WidgetStatus.LOCKED to null
+    }
+
+    val cacheTimestamp = CodingPlanPrefs.getCacheTimestamp(context)
+    if (cacheTimestamp == 0L) {
+        return WidgetStatus.NO_CACHE to null
+    }
+
+    val quota = try {
+        CodingPlanPrefs.loadQuotaCache(context)
+    } catch (e: Exception) {
+        android.util.Log.e("CodingPlanWidget", "Failed to load quota cache", e)
+        null
+    }
+
+    return when {
+        quota != null -> "OK" to quota
+        else -> WidgetStatus.FETCH_FAILED to null
     }
 }
 
@@ -77,7 +96,7 @@ private fun LockedWidgetContent() {
         contentAlignment = Alignment.Center
     ) {
         Text(
-            text = "🔒 解锁以查看",
+            text = "Locked",
             style = TextStyle(
                 color = ColorOrange,
                 fontSize = 14.sp,
@@ -88,21 +107,19 @@ private fun LockedWidgetContent() {
 }
 
 @Composable
-private fun QuotaWidgetContent(quota: CodingPlanQuota?) {
+private fun QuotaWidgetContent(quota: CodingPlanQuota?, status: String) {
     Column(
         modifier = GlanceModifier
             .fillMaxSize()
-            .background(ColorWhite)
+            .background(ColorDarkBg)
             .padding(12.dp)
     ) {
         // Header row: title + refresh button
-        Row(
-            modifier = GlanceModifier.fillMaxWidth()
-        ) {
+        Row(modifier = GlanceModifier.fillMaxWidth()) {
             Text(
                 text = quota?.instanceName?.uppercase() ?: "CODING PLAN",
                 style = TextStyle(
-                    color = ColorBlack,
+                    color = ColorWhite,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Bold
                 ),
@@ -110,7 +127,7 @@ private fun QuotaWidgetContent(quota: CodingPlanQuota?) {
             )
             Box(
                 modifier = GlanceModifier
-                    .background(ColorRed)
+                    .background(ColorOrange)
                     .padding(horizontal = 8.dp, vertical = 3.dp)
                     .clickable(onRefreshAction)
             ) {
@@ -125,36 +142,43 @@ private fun QuotaWidgetContent(quota: CodingPlanQuota?) {
             }
         }
 
+        Spacer(modifier = GlanceModifier.height(6.dp))
+
         if (quota != null) {
             // Status info
-            Text(
-                text = "剩余 ${quota.remainingDays} 天",
-                style = TextStyle(
-                    color = ColorGray,
-                    fontSize = 10.sp
-                )
-            )
-            if (quota.autoRenewFlag) {
+            Row(modifier = GlanceModifier.fillMaxWidth()) {
                 Text(
-                    text = "自动续费",
-                    style = TextStyle(
-                        color = ColorOrange,
-                        fontSize = 9.sp
-                    )
+                    text = "${quota.remainingDays}d left",
+                    style = TextStyle(color = ColorLightGray, fontSize = 10.sp)
                 )
+                if (quota.autoRenewFlag) {
+                    Text(
+                        text = "  AUTO",
+                        style = TextStyle(color = ColorOrange, fontSize = 9.sp)
+                    )
+                }
             }
+
+            Spacer(modifier = GlanceModifier.height(6.dp))
 
             // Quota gauges row
             Row(modifier = GlanceModifier.fillMaxWidth()) {
                 QuotaGaugeWidget("5h", quota.sessionUsed, quota.sessionTotal, GlanceModifier.defaultWeight())
-                QuotaGaugeWidget("周", quota.weekUsed, quota.weekTotal, GlanceModifier.defaultWeight())
-                QuotaGaugeWidget("月", quota.monthUsed, quota.monthTotal, GlanceModifier.defaultWeight())
+                QuotaGaugeWidget("Wk", quota.weekUsed, quota.weekTotal, GlanceModifier.defaultWeight())
+                QuotaGaugeWidget("Mo", quota.monthUsed, quota.monthTotal, GlanceModifier.defaultWeight())
             }
         } else {
+            // Differentiated failure message
+            val (message, color) = when (status) {
+                WidgetStatus.NO_CREDENTIALS -> "No credentials" to ColorOrange
+                WidgetStatus.NO_CACHE -> "No cached data" to ColorGray
+                WidgetStatus.FETCH_FAILED -> "Fetch failed" to ColorRed
+                else -> "No data" to ColorGray
+            }
             Text(
-                text = "无 CodingPlan 凭据",
+                text = message,
                 style = TextStyle(
-                    color = ColorRed,
+                    color = color,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold
                 )
@@ -169,35 +193,24 @@ private fun QuotaGaugeWidget(label: String, used: Int, total: Int, modifier: Gla
     val color = when {
         pct >= 90 -> ColorRed
         pct >= 70 -> ColorOrange
-        else -> ColorGray
+        else -> ColorLightGray
     }
 
     Column(modifier = modifier) {
         Text(
             text = "$label $pct%",
-            style = TextStyle(
-                color = color,
-                fontSize = 8.sp,
-                fontWeight = FontWeight.Bold
-            )
+            style = TextStyle(color = color, fontSize = 8.sp, fontWeight = FontWeight.Bold)
         )
-        // Simple text bar representation
         val barFill = (pct / 10)
         Text(
             text = "█".repeat(barFill) + "░".repeat(10 - barFill),
-            style = TextStyle(
-                color = color,
-                fontSize = 8.sp
-            )
+            style = TextStyle(color = color, fontSize = 8.sp)
         )
     }
 }
 
 private val onRefreshAction = actionRunCallback<RefreshWidgetCallback>()
 
-/**
- * Refresh action callback for widget.
- */
 class RefreshWidgetCallback : ActionCallback {
     override suspend fun onAction(
         context: Context,
@@ -205,42 +218,5 @@ class RefreshWidgetCallback : ActionCallback {
         parameters: ActionParameters
     ) {
         CodingPlanWidget().update(context, glanceId)
-    }
-}
-
-/**
- * Fetch quota from first available CodingPlan credential.
- * Logs access to audit trail per security requirements.
- */
-private suspend fun fetchFirstCodingPlanQuota(context: Context): CodingPlanQuota? {
-    return withContext(Dispatchers.IO) {
-        val app = context.applicationContext as LockitApp
-        val vaultManager = app.vaultManager
-        val auditLogger = app.auditLogger
-
-        if (!vaultManager.isUnlocked()) return@withContext null
-
-        try {
-            val credentials = vaultManager.getAllCredentials().first()
-            val codingPlanCreds = credentials.filter { it.type == CredentialType.CodingPlan }
-
-            if (codingPlanCreds.isEmpty()) return@withContext null
-
-            val cred = codingPlanCreds.first()
-            // Audit log: Widget accessed credential quota data
-            auditLogger.log(
-                "WIDGET_QUOTA_VIEWED",
-                "${cred.name} - quota displayed in widget",
-                AuditSeverity.Info
-            )
-
-            val provider = cred.metadata["provider"] ?: return@withContext null
-            val fetcher = CodingPlanFetchers.forProvider(provider) ?: return@withContext null
-
-            fetcher.fetchQuota(cred.metadata)
-        } catch (e: Exception) {
-            android.util.Log.e("CodingPlanWidget", "Failed to fetch quota: ${e.message}")
-            null
-        }
     }
 }

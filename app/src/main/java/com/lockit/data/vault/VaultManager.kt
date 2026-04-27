@@ -56,6 +56,7 @@ class VaultManager(
         val result = keyManager.unlockVault(masterPassword)
         if (result.isSuccess) {
             auditLogger.log("VAULT_UNLOCKED", "PIN authentication successful", AuditSeverity.Info)
+            CodingPlanPrefs.setVaultUnlocked(context, true)
         } else {
             auditLogger.log("VAULT_UNLOCK_FAILED", "Invalid PIN attempt", AuditSeverity.Warning)
         }
@@ -126,6 +127,7 @@ class VaultManager(
      */
     fun lockVault() {
         keyManager.lockVault()
+        CodingPlanPrefs.setVaultUnlocked(context, false)
         auditLogger.log("VAULT_LOCKED", "Master key cleared from memory", AuditSeverity.Warning)
     }
 

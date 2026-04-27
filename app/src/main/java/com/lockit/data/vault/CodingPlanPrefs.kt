@@ -30,6 +30,7 @@ object CodingPlanPrefs {
     private const val KEY_QUOTA_CACHE = "quota_cache_json"
     private const val KEY_QUOTA_CACHE_TIME = "quota_cache_time"
     private const val KEY_QUOTA_CACHE_PROVIDER = "quota_cache_provider"
+    private const val KEY_VAULT_UNLOCKED = "vault_unlocked"
 
     private val PROVIDER_FIELDS = listOf("cookie", "api_key", "accessToken", "accountId", "sessionKey", "orgId")
 
@@ -155,6 +156,7 @@ object CodingPlanPrefs {
             .putString(KEY_QUOTA_CACHE, quotaJson)
             .putLong(KEY_QUOTA_CACHE_TIME, System.currentTimeMillis())
             .putString(KEY_QUOTA_CACHE_PROVIDER, provider)
+            .putBoolean(KEY_VAULT_UNLOCKED, true)
             .apply()
         Log.d(TAG, "Quota cache saved for provider=$provider")
     }
@@ -173,6 +175,13 @@ object CodingPlanPrefs {
 
     fun getCacheTimestamp(context: Context): Long =
         getPrefs(context).getLong(KEY_QUOTA_CACHE_TIME, 0)
+
+    fun setVaultUnlocked(context: Context, unlocked: Boolean) {
+        getPrefs(context).edit().putBoolean(KEY_VAULT_UNLOCKED, unlocked).apply()
+    }
+
+    fun isVaultUnlocked(context: Context): Boolean =
+        getPrefs(context).getBoolean(KEY_VAULT_UNLOCKED, false)
 
     fun clearQuotaCache(context: Context) {
         getPrefs(context).edit()
