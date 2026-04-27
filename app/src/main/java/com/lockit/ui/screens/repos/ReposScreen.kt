@@ -79,9 +79,6 @@ import com.lockit.ui.components.TerminalFooter
 import com.lockit.ui.components.findActivity
 import com.lockit.ui.theme.IndustrialOrange
 import com.lockit.ui.theme.JetBrainsMonoFamily
-import com.lockit.ui.theme.Primary
-import com.lockit.ui.theme.SurfaceHighest
-import com.lockit.ui.theme.SurfaceLow
 import com.lockit.ui.theme.TacticalRed
 import com.lockit.ui.theme.White
 import com.lockit.utils.BiometricUtils
@@ -515,7 +512,7 @@ fun ReposScreen(
                         fontWeight = FontWeight.Bold,
                         fontSize = 12.sp,
                         letterSpacing = 2.sp,
-                        color = Primary,
+                        color = colorScheme.onSurface,
                         modifier = Modifier.padding(bottom = 12.dp),
                     )
                     CodingPlanBoard(
@@ -550,7 +547,7 @@ fun ReposScreen(
                     fontWeight = FontWeight.Bold,
                     fontSize = 12.sp,
                     letterSpacing = 2.sp,
-                    color = Primary,
+                    color = colorScheme.onSurface,
                     modifier = Modifier.padding(bottom = 12.dp),
                 )
 
@@ -876,9 +873,10 @@ fun ReposScreen(
 
 @Composable
 private fun StatCard(label: String, value: String, modifier: Modifier = Modifier) {
+    val colorScheme = MaterialTheme.colorScheme
     Box(
         modifier = modifier
-            .border(1.dp, Primary)
+            .border(1.dp, colorScheme.outline)
             .padding(16.dp),
     ) {
         Column {
@@ -887,7 +885,7 @@ private fun StatCard(label: String, value: String, modifier: Modifier = Modifier
                 fontFamily = JetBrainsMonoFamily,
                 fontWeight = FontWeight.ExtraBold,
                 fontSize = 32.sp,
-                color = Primary,
+                color = colorScheme.onSurface,
             )
             Text(
                 text = label,
@@ -906,10 +904,11 @@ private fun ServiceRow(
     isLocal: Boolean,
     onClick: () -> Unit,
 ) {
+    val colorScheme = MaterialTheme.colorScheme
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .border(1.dp, Primary)
+            .border(1.dp, colorScheme.outline)
             .clickable(onClick = onClick)
             .padding(12.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -928,7 +927,7 @@ private fun ServiceRow(
                 fontFamily = JetBrainsMonoFamily,
                 fontWeight = FontWeight.Bold,
                 fontSize = 14.sp,
-                color = Primary,
+                color = colorScheme.onSurface,
             )
         }
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -990,7 +989,7 @@ internal fun CompactCredentialRow(
                 fontFamily = JetBrainsMonoFamily,
                 fontWeight = FontWeight.Bold,
                 fontSize = 13.sp,
-                color = Primary,
+                color = colorScheme.onSurface,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -1100,10 +1099,13 @@ private fun CodingPlanBoard(
     cacheAgeMinutes: Int, // How old is the cached data (minutes)
     onRefresh: () -> Unit,
 ) {
+    val colorScheme = MaterialTheme.colorScheme
+    val borderColor = colorScheme.outline
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .border(1.dp, Primary)
+            .border(1.dp, borderColor)
             .padding(12.dp),
     ) {
         // Single title row with REFRESH button on right
@@ -1119,7 +1121,7 @@ private fun CodingPlanBoard(
                     fontFamily = JetBrainsMonoFamily,
                     fontWeight = FontWeight.Bold,
                     fontSize = 12.sp,
-                    color = Primary,
+                    color = colorScheme.onSurface,
                 )
                 // Show cache age indicator if data is cached (not fresh)
                 if (cacheAgeMinutes > 0 && !isLoading) {
@@ -1226,7 +1228,7 @@ private fun CodingPlanBoard(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(1.dp)
-                    .background(SurfaceLow),
+                    .background(colorScheme.surfaceContainerHighest),
             )
             Spacer(modifier = Modifier.height(8.dp))
 
@@ -1310,7 +1312,7 @@ private fun QuotaGauge(label: String, used: Int, total: Int, modifier: Modifier 
             modifier = Modifier
                 .fillMaxWidth()
                 .height(8.dp)
-                .background(SurfaceLow),
+                .background(colorScheme.surfaceContainerLowest),
         ) {
             // Progress bar fill
             Box(
@@ -1328,7 +1330,7 @@ private fun QuotaGauge(label: String, used: Int, total: Int, modifier: Modifier 
             fontFamily = JetBrainsMonoFamily,
             fontSize = 9.sp,
             maxLines = 1,
-            color = Primary,
+            color = colorScheme.onSurface,
         )
     }
 }
@@ -1343,7 +1345,7 @@ private fun ProviderCardsRow(
     existingProviders: List<String>,
     onSelect: (String) -> Unit,
 ) {
-    // Provider label mapping
+    val colorScheme = MaterialTheme.colorScheme
     val providerLabels = mapOf(
         "qwen_bailian" to stringResource(R.string.provider_qwen),
         "chatgpt" to stringResource(R.string.provider_chatgpt),
@@ -1360,8 +1362,8 @@ private fun ProviderCardsRow(
             Box(
                 modifier = Modifier
                     .weight(1f)
-                    .background(if (isSelected) IndustrialOrange.copy(alpha = 0.15f) else SurfaceHighest)
-                    .border(1.dp, if (isSelected) IndustrialOrange else Primary)
+                    .background(if (isSelected) IndustrialOrange.copy(alpha = 0.15f) else colorScheme.surfaceContainerHighest)
+                    .border(1.dp, if (isSelected) IndustrialOrange else colorScheme.outline)
                     .clickable { onSelect(provider) }
                     .padding(vertical = 8.dp, horizontal = 4.dp),
             ) {
@@ -1370,7 +1372,7 @@ private fun ProviderCardsRow(
                     fontFamily = JetBrainsMonoFamily,
                     fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
                     fontSize = 10.sp,
-                    color = if (isSelected) IndustrialOrange else MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = if (isSelected) IndustrialOrange else colorScheme.onSurfaceVariant,
                     modifier = Modifier.align(Alignment.Center),
                 )
             }
