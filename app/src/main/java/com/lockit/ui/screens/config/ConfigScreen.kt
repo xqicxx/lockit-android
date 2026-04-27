@@ -53,7 +53,12 @@ import com.lockit.LockitApp
 import com.lockit.R
 import com.lockit.data.database.LockitDatabase
 import com.lockit.data.biometric.BiometricPinStorage
+import com.lockit.data.sync.GoogleDriveBackend
 import com.lockit.data.sync.GoogleDriveSyncManager
+import com.lockit.data.sync.SyncConflictException
+import com.lockit.data.sync.SyncCrypto
+import com.lockit.data.sync.SyncManager
+import com.lockit.data.sync.SyncStatus
 import com.lockit.data.sync.WebDavBackend
 import com.lockit.data.updater.AppUpdater
 import com.lockit.data.updater.GitHubRelease
@@ -154,14 +159,22 @@ fun ConfigScreen(
     android.util.Log.d("ConfigScreen", "needsRecovery state: $needsRecovery")
 
     // Google Drive sync
-    val syncManager = remember { GoogleDriveSyncManager(context) }
-    var signedInAccount by remember { mutableStateOf(syncManager.getSignedInAccount()) }
+    val googleDriveBackend = remember { GoogleDriveBackend(context) }
+    val googleSyncManager = remember { SyncManager(context, googleDriveBackend) }
+    val oldSyncManager = remember { GoogleDriveSyncManager(context) } // for sign-in intent only
+    var signedInAccount by remember { mutableStateOf(googleDriveBackend.getSignedInAccount()) }
     var isSyncing by remember { mutableStateOf(false) }
-    var syncStatus by remember { mutableStateOf<String?>(null) }
+    var syncStatusMessage by remember { mutableStateOf<String?>(null) }
     var lastBackupTime by remember { mutableStateOf<String?>(null) }
+    var googleSyncStatus by remember { mutableStateOf<SyncStatus>(SyncStatus.NotConfigured) }
+
+    // Sync Key state (shared across backends)
+    var syncKeyInput by remember { mutableStateOf("") }
+    var showSyncKeyInput by remember { mutableStateOf(false) }
 
     // WebDAV sync
     val webDavBackend = remember { WebDavBackend(context) }
+    val webDavSyncManager = remember { SyncManager(context, webDavBackend) }
     var webDavConfigured by remember { mutableStateOf(false) }
     var webDavConfiguring by remember { mutableStateOf(false) }
     var showWebDavDialog by remember { mutableStateOf(false) }
@@ -169,6 +182,7 @@ fun ConfigScreen(
     var webDavUsername by remember { mutableStateOf("") }
     var webDavPassword by remember { mutableStateOf("") }
     var webDavBasePath by remember { mutableStateOf("/lockit-sync") }
+    var webDavSyncStatus by remember { mutableStateOf<SyncStatus>(SyncStatus.NotConfigured) }
 
     // Check WebDAV configuration status on init
     LaunchedEffect(Unit) {
@@ -183,6 +197,10 @@ fun ConfigScreen(
         if (task.isSuccessful) {
             signedInAccount = task.result
             toastMessage = "GOOGLE_SIGNED_IN: ${task.result?.email}"
+            // Configure GoogleDriveBackend after sign-in
+            scope.launch {
+                googleDriveBackend.configure(emptyMap())
+            }
         } else {
             toastMessage = "GOOGLE_SIGN_IN_FAILED: ${task.exception?.message}"
         }
@@ -193,11 +211,16 @@ fun ConfigScreen(
         contract = ActivityResultContracts.StartActivityForResult(),
     ) {}
 
-    // Load last backup time when signed in
-    if (signedInAccount != null && lastBackupTime == null && !isSyncing) {
-        LaunchedEffect(signedInAccount) {
+    // Load Google Drive sync status when signed in
+    LaunchedEffect(signedInAccount) {
+        if (signedInAccount != null && !isSyncing) {
+            // Refresh sync status
+            try {
+                googleSyncStatus = googleSyncManager.getSyncStatus()
+            } catch (_: Exception) { }
+            // Also load last backup time from old manager for migration display
             val account = signedInAccount ?: return@LaunchedEffect
-            val timeResult = syncManager.getLastBackupTime(account)
+            val timeResult = oldSyncManager.getLastBackupTime(account)
             lastBackupTime = timeResult.getOrNull()
         }
     }
@@ -455,6 +478,101 @@ fun ConfigScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
+            // Sync Key Section
+            ConfigSection(
+                title = stringResource(R.string.config_sync_key_title),
+                content = {
+                    Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        val hasSyncKey = googleSyncManager.hasSyncKey()
+                        // Sync Key status
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .border(1.dp, MaterialTheme.colorScheme.outline)
+                                .padding(8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                text = if (hasSyncKey) stringResource(R.string.config_sync_key_configured) else stringResource(R.string.config_sync_key_not_configured),
+                                fontFamily = JetBrainsMonoFamily,
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = if (hasSyncKey) IndustrialOrange else MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+
+                        // Generate Sync Key button
+                        if (!hasSyncKey) {
+                            BrutalistButton(
+                                text = stringResource(R.string.config_sync_key_generate),
+                                onClick = {
+                                    val key = SyncCrypto.generateSyncKey()
+                                    googleSyncManager.setSyncKey(SyncCrypto.encodeSyncKey(key))
+                                    toastMessage = context.getString(R.string.toast_sync_key_generated)
+                                },
+                                variant = ButtonVariant.Primary,
+                                modifier = Modifier.fillMaxWidth(),
+                                useMonoFont = true,
+                            )
+                        }
+
+                        // Manual Sync Key input
+                        if (showSyncKeyInput) {
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                BrutalistTextField(
+                                    value = syncKeyInput,
+                                    onValueChange = { syncKeyInput = it },
+                                    label = stringResource(R.string.config_sync_key_label),
+                                    placeholder = stringResource(R.string.config_sync_key_placeholder),
+                                    modifier = Modifier.weight(1f),
+                                )
+                                BrutalistButton(
+                                    text = stringResource(R.string.config_sync_key_save),
+                                    onClick = {
+                                        try {
+                                            googleSyncManager.setSyncKey(syncKeyInput)
+                                            showSyncKeyInput = false
+                                            toastMessage = context.getString(R.string.toast_sync_key_saved)
+                                        } catch (_: Exception) {
+                                            toastMessage = context.getString(R.string.toast_sync_key_invalid)
+                                        }
+                                    },
+                                    variant = ButtonVariant.Primary,
+                                    modifier = Modifier.width(64.dp),
+                                    useMonoFont = true,
+                                )
+                            }
+                        } else {
+                            BrutalistButton(
+                                text = if (hasSyncKey) stringResource(R.string.config_sync_key_change) else stringResource(R.string.config_sync_key_enter),
+                                onClick = {
+                                    showSyncKeyInput = true
+                                    syncKeyInput = ""
+                                },
+                                variant = ButtonVariant.Secondary,
+                                modifier = Modifier.fillMaxWidth(),
+                                useMonoFont = true,
+                            )
+                        }
+
+                        if (hasSyncKey) {
+                            BrutalistButton(
+                                text = stringResource(R.string.config_sync_key_clear),
+                                onClick = {
+                                    googleSyncManager.clearSyncKey()
+                                    toastMessage = context.getString(R.string.toast_sync_key_cleared)
+                                },
+                                variant = ButtonVariant.Warning,
+                                modifier = Modifier.fillMaxWidth(),
+                                useMonoFont = true,
+                            )
+                        }
+                    }
+                },
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
             // Cloud Sync Section
             ConfigSection(
                 title = stringResource(R.string.config_cloud_sync),
@@ -495,39 +613,121 @@ fun ConfigScreen(
                             }
                         }
 
-                        // Sync action buttons
+                        // Sync status display
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .border(1.dp, MaterialTheme.colorScheme.outline)
+                                .padding(8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                text = "${stringResource(R.string.config_sync_status)}: ${syncStatusLabel(googleSyncStatus)}",
+                                fontFamily = JetBrainsMonoFamily,
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = when (googleSyncStatus) {
+                                    SyncStatus.UpToDate -> IndustrialOrange
+                                    SyncStatus.Conflict, SyncStatus.Error -> TacticalRed
+                                    else -> MaterialTheme.colorScheme.onSurfaceVariant
+                                },
+                            )
+                        }
+
+                        // Refresh status button
                         BrutalistButton(
-                            text = if (signedInAccount == null) stringResource(R.string.config_sign_in_google) else stringResource(R.string.config_sync_drive),
+                            text = stringResource(R.string.config_sync_refresh_status),
                             onClick = {
-                                val account = signedInAccount
-                                if (account == null) {
-                                    signInLauncher.launch(syncManager.getSignInIntent())
-                                } else {
-                                    syncToDrive(app, syncManager, account, context, scope) { error ->
-                                        if (error != null) {
-                                            toastMessage = error
-                                        } else {
-                                            toastMessage = context.getString(R.string.toast_sync_complete)
-                                            scope.launch {
-                                                val timeResult = syncManager.getLastBackupTime(account)
-                                                lastBackupTime = timeResult.getOrNull()
-                                            }
-                                        }
+                                scope.launch {
+                                    try {
+                                        googleSyncStatus = googleSyncManager.getSyncStatus()
+                                    } catch (_: Exception) {
+                                        googleSyncStatus = SyncStatus.Error
                                     }
                                 }
                             },
-                            variant = ButtonVariant.Primary,
+                            variant = ButtonVariant.Secondary,
                             modifier = Modifier.fillMaxWidth(),
                             useMonoFont = true,
-                            enabled = !isSyncing,
                         )
-                        if (signedInAccount != null) {
+
+                        // Sign in / Push / Pull buttons
+                        if (signedInAccount == null) {
+                            BrutalistButton(
+                                text = stringResource(R.string.config_sign_in_google),
+                                onClick = {
+                                    signInLauncher.launch(googleDriveBackend.getSignInIntent())
+                                },
+                                variant = ButtonVariant.Primary,
+                                modifier = Modifier.fillMaxWidth(),
+                                useMonoFont = true,
+                            )
+                        } else {
+                            val canSync = googleSyncManager.hasSyncKey()
+                            // Push button
+                            BrutalistButton(
+                                text = stringResource(R.string.config_sync_push),
+                                onClick = {
+                                    isSyncing = true
+                                    scope.launch {
+                                        val result = googleSyncManager.push()
+                                        isSyncing = false
+                                        if (result.isSuccess) {
+                                            toastMessage = context.getString(R.string.toast_sync_push_complete)
+                                            googleSyncStatus = googleSyncManager.getSyncStatus()
+                                        } else {
+                                            val err = result.exceptionOrNull()
+                                            if (err is com.lockit.data.sync.SyncConflictException) {
+                                                toastMessage = context.getString(R.string.toast_sync_conflict)
+                                                googleSyncStatus = SyncStatus.Conflict
+                                            } else {
+                                                toastMessage = "${context.getString(R.string.toast_sync_error)} ${err?.message}"
+                                                googleSyncStatus = SyncStatus.Error
+                                            }
+                                        }
+                                    }
+                                },
+                                variant = ButtonVariant.Primary,
+                                modifier = Modifier.fillMaxWidth(),
+                                useMonoFont = true,
+                                enabled = !isSyncing && canSync,
+                            )
+                            // Pull button
+                            BrutalistButton(
+                                text = stringResource(R.string.config_sync_pull),
+                                onClick = {
+                                    isSyncing = true
+                                    scope.launch {
+                                        val result = googleSyncManager.pull()
+                                        isSyncing = false
+                                        if (result.isSuccess) {
+                                            toastMessage = context.getString(R.string.toast_sync_pull_complete)
+                                            googleSyncStatus = googleSyncManager.getSyncStatus()
+                                        } else {
+                                            val err = result.exceptionOrNull()
+                                            if (err is com.lockit.data.sync.SyncConflictException) {
+                                                toastMessage = context.getString(R.string.toast_sync_conflict)
+                                                googleSyncStatus = SyncStatus.Conflict
+                                            } else {
+                                                toastMessage = "${context.getString(R.string.toast_sync_error)} ${err?.message}"
+                                                googleSyncStatus = SyncStatus.Error
+                                            }
+                                        }
+                                    }
+                                },
+                                variant = ButtonVariant.Secondary,
+                                modifier = Modifier.fillMaxWidth(),
+                                useMonoFont = true,
+                                enabled = !isSyncing && canSync,
+                            )
+                            // Sign out
                             BrutalistButton(
                                 text = stringResource(R.string.config_sign_out),
                                 onClick = {
-                                    syncManager.signOut()
+                                    googleDriveBackend.signOut()
                                     signedInAccount = null
                                     lastBackupTime = null
+                                    googleSyncStatus = SyncStatus.NotConfigured
                                     toastMessage = context.getString(R.string.toast_signed_out)
                                 },
                                 variant = ButtonVariant.Warning,
@@ -536,8 +736,8 @@ fun ConfigScreen(
                             )
                         }
 
-                        // Sync status
-                        syncStatus?.let { status ->
+                        // Sync status message
+                        syncStatusMessage?.let { status ->
                             Text(
                                 text = status,
                                 fontFamily = JetBrainsMonoFamily,
@@ -583,12 +783,109 @@ fun ConfigScreen(
                         )
 
                         if (webDavConfigured) {
+                            // Sync status display
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .border(1.dp, MaterialTheme.colorScheme.outline)
+                                    .padding(8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text(
+                                    text = "${stringResource(R.string.config_sync_status)}: ${syncStatusLabel(webDavSyncStatus)}",
+                                    fontFamily = JetBrainsMonoFamily,
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = when (webDavSyncStatus) {
+                                        SyncStatus.UpToDate -> IndustrialOrange
+                                        SyncStatus.Conflict, SyncStatus.Error -> TacticalRed
+                                        else -> MaterialTheme.colorScheme.onSurfaceVariant
+                                    },
+                                )
+                            }
+
+                            // Refresh status
+                            BrutalistButton(
+                                text = stringResource(R.string.config_sync_refresh_status),
+                                onClick = {
+                                    scope.launch {
+                                        try {
+                                            webDavSyncStatus = webDavSyncManager.getSyncStatus()
+                                        } catch (_: Exception) {
+                                            webDavSyncStatus = SyncStatus.Error
+                                        }
+                                    }
+                                },
+                                variant = ButtonVariant.Secondary,
+                                modifier = Modifier.fillMaxWidth(),
+                                useMonoFont = true,
+                            )
+
+                            val canSync = webDavSyncManager.hasSyncKey()
+                            // Push button
+                            BrutalistButton(
+                                text = stringResource(R.string.config_sync_push),
+                                onClick = {
+                                    isSyncing = true
+                                    scope.launch {
+                                        val result = webDavSyncManager.push()
+                                        isSyncing = false
+                                        if (result.isSuccess) {
+                                            toastMessage = context.getString(R.string.toast_sync_push_complete)
+                                            webDavSyncStatus = webDavSyncManager.getSyncStatus()
+                                        } else {
+                                            val err = result.exceptionOrNull()
+                                            if (err is SyncConflictException) {
+                                                toastMessage = context.getString(R.string.toast_sync_conflict)
+                                                webDavSyncStatus = SyncStatus.Conflict
+                                            } else {
+                                                toastMessage = "${context.getString(R.string.toast_sync_error)} ${err?.message}"
+                                                webDavSyncStatus = SyncStatus.Error
+                                            }
+                                        }
+                                    }
+                                },
+                                variant = ButtonVariant.Primary,
+                                modifier = Modifier.fillMaxWidth(),
+                                useMonoFont = true,
+                                enabled = !isSyncing && canSync,
+                            )
+                            // Pull button
+                            BrutalistButton(
+                                text = stringResource(R.string.config_sync_pull),
+                                onClick = {
+                                    isSyncing = true
+                                    scope.launch {
+                                        val result = webDavSyncManager.pull()
+                                        isSyncing = false
+                                        if (result.isSuccess) {
+                                            toastMessage = context.getString(R.string.toast_sync_pull_complete)
+                                            webDavSyncStatus = webDavSyncManager.getSyncStatus()
+                                        } else {
+                                            val err = result.exceptionOrNull()
+                                            if (err is SyncConflictException) {
+                                                toastMessage = context.getString(R.string.toast_sync_conflict)
+                                                webDavSyncStatus = SyncStatus.Conflict
+                                            } else {
+                                                toastMessage = "${context.getString(R.string.toast_sync_error)} ${err?.message}"
+                                                webDavSyncStatus = SyncStatus.Error
+                                            }
+                                        }
+                                    }
+                                },
+                                variant = ButtonVariant.Secondary,
+                                modifier = Modifier.fillMaxWidth(),
+                                useMonoFont = true,
+                                enabled = !isSyncing && canSync,
+                            )
+                            // Clear config
                             BrutalistButton(
                                 text = stringResource(R.string.config_webdav_clear),
                                 onClick = {
                                     // Clear WebDAV configuration
                                     webDavBackend.clearConfig()
                                     webDavConfigured = false
+                                    webDavSyncStatus = SyncStatus.NotConfigured
                                     // Reset sensitive UI state variables
                                     webDavPassword = ""
                                     webDavServerUrl = ""
@@ -1676,39 +1973,18 @@ private fun exportLogs(
 /**
  * Upload the encrypted vault database to Google Drive app data folder.
  */
-private fun syncToDrive(
-    app: LockitApp,
-    syncManager: GoogleDriveSyncManager,
-    account: com.google.android.gms.auth.api.signin.GoogleSignInAccount,
-    context: Context,
-    scope: kotlinx.coroutines.CoroutineScope,
-    callback: (String?) -> Unit,
-) {
-    val dbPath = context.getDatabasePath("lockit.db").absolutePath
-    scope.launch(Dispatchers.IO) {
-        try {
-            withContext(Dispatchers.Main) {
-                LockitDatabase.closeAndReset(context)
-            }
-            kotlinx.coroutines.delay(100)
-            // Copy WAL journal files too
-            val dbDir = context.getDatabasePath("lockit.db").parentFile
-            File(dbDir, "lockit.db-wal").copyTo(File(dbDir, "lockit.db-wal.bak"), overwrite = true)
-            File(dbDir, "lockit.db-shm").copyTo(File(dbDir, "lockit.db-shm.bak"), overwrite = true)
-            val result = syncManager.uploadVault(account, dbPath)
-            // Restore journal files
-            File(dbDir, "lockit.db-wal.bak").takeIf { it.exists() }?.renameTo(File(dbDir, "lockit.db-wal"))
-            File(dbDir, "lockit.db-shm.bak").takeIf { it.exists() }?.renameTo(File(dbDir, "lockit.db-shm"))
-            // Reinitialize
-            LockitDatabase.getInstance(context)
-            withContext(Dispatchers.Main) {
-                callback(result.exceptionOrNull()?.message)
-            }
-        } catch (e: Exception) {
-            withContext(Dispatchers.Main) {
-                callback("SYNC_ERROR: ${e.message}")
-            }
-        }
+/**
+ * Map SyncStatus enum to human-readable label.
+ */
+private fun syncStatusLabel(status: SyncStatus): String {
+    return when (status) {
+        SyncStatus.NotConfigured -> "NO_SYNC_KEY"
+        SyncStatus.NeverSynced -> "NEVER_SYNCED"
+        SyncStatus.UpToDate -> "UP_TO_DATE"
+        SyncStatus.LocalAhead -> "LOCAL_AHEAD"
+        SyncStatus.CloudAhead -> "CLOUD_AHEAD"
+        SyncStatus.Conflict -> "CONFLICT"
+        SyncStatus.Error -> "ERROR"
     }
 }
 
