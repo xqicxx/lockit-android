@@ -27,10 +27,9 @@ object CodingPlanPrefs {
     private const val PREFS_NAME = "coding_plan_prefs"
     private const val KEY_ACTIVE_PROVIDER = "active_provider"
 
-    // Quota cache keys
-    private const val KEY_QUOTA_CACHE = "quota_cache_json"
-    private const val KEY_QUOTA_CACHE_TIME = "quota_cache_time"
-    private const val KEY_QUOTA_CACHE_PROVIDER = "quota_cache_provider"
+    // Quota cache keys (per-provider to prevent cross-talk)
+    private fun quotaCacheKey(provider: String) = "quota_cache_${CodingPlanProviders.normalize(provider)}"
+    private fun quotaCacheTimeKey(provider: String) = "quota_cache_time_${CodingPlanProviders.normalize(provider)}"
     private const val KEY_VAULT_UNLOCKED = "vault_unlocked"
 
     private val PROVIDER_FIELDS = listOf(
@@ -166,30 +165,39 @@ object CodingPlanPrefs {
      */
     fun saveQuotaCache(context: Context, quota: CodingPlanQuota?, provider: String) {
         if (quota == null) return
+        val normalizedProvider = CodingPlanProviders.normalize(provider)
         val quotaJson = quotaToJson(quota)
         getPrefs(context).edit()
-            .putString(KEY_QUOTA_CACHE, quotaJson)
-            .putLong(KEY_QUOTA_CACHE_TIME, System.currentTimeMillis())
-            .putString(KEY_QUOTA_CACHE_PROVIDER, provider)
+            .putString(quotaCacheKey(normalizedProvider), quotaJson)
+            .putLong(quotaCacheTimeKey(normalizedProvider), System.currentTimeMillis())
             .putBoolean(KEY_VAULT_UNLOCKED, true)
             .apply()
-        Log.d(TAG, "Quota cache saved for provider=$provider")
+        Log.d(TAG, "Quota cache saved for provider=$normalizedProvider")
     }
 
     /**
-     * Load cached quota data for instant display.
+     * Load cached quota data for a specific provider.
      */
-    fun loadQuotaCache(context: Context): CodingPlanQuota? {
-        val quotaJson = getPrefs(context).getString(KEY_QUOTA_CACHE, null)
-        if (quotaJson == null) return null
+    fun loadQuotaCache(context: Context, provider: String): CodingPlanQuota? {
+        val quotaJson = getPrefs(context).getString(quotaCacheKey(provider), null) ?: return null
         return quotaFromJson(quotaJson)
     }
 
-    fun getCachedProvider(context: Context): String? =
-        getPrefs(context).getString(KEY_QUOTA_CACHE_PROVIDER, null)
+    /**
+     * Load cached quota for the active provider (widget compatibility).
+     */
+    fun loadQuotaCache(context: Context): CodingPlanQuota? {
+        val provider = getActiveProvider(context) ?: return null
+        return loadQuotaCache(context, provider)
+    }
 
-    fun getCacheTimestamp(context: Context): Long =
-        getPrefs(context).getLong(KEY_QUOTA_CACHE_TIME, 0)
+    fun getCacheTimestamp(context: Context, provider: String): Long =
+        getPrefs(context).getLong(quotaCacheTimeKey(provider), 0)
+
+    fun getCacheTimestamp(context: Context): Long {
+        val provider = getActiveProvider(context) ?: return 0L
+        return getCacheTimestamp(context, provider)
+    }
 
     fun setVaultUnlocked(context: Context, unlocked: Boolean) {
         getPrefs(context).edit().putBoolean(KEY_VAULT_UNLOCKED, unlocked).apply()
@@ -199,11 +207,13 @@ object CodingPlanPrefs {
         getPrefs(context).getBoolean(KEY_VAULT_UNLOCKED, false)
 
     fun clearQuotaCache(context: Context) {
-        getPrefs(context).edit()
-            .remove(KEY_QUOTA_CACHE)
-            .remove(KEY_QUOTA_CACHE_TIME)
-            .remove(KEY_QUOTA_CACHE_PROVIDER)
-            .apply()
+        val editor = getPrefs(context).edit()
+        val knownProviders = listOf("qwen_bailian", "chatgpt", "claude")
+        knownProviders.forEach { p ->
+            editor.remove(quotaCacheKey(p))
+            editor.remove(quotaCacheTimeKey(p))
+        }
+        editor.apply()
     }
 
     private fun JSONObject.optInstantOrNull(key: String): Instant? {

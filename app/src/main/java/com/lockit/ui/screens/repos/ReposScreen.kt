@@ -101,6 +101,13 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
 
+data class ProviderQuotaState(
+    val quota: CodingPlanQuota? = null,
+    val error: String? = null,
+    val isLoading: Boolean = false,
+    val cacheAgeMinutes: Int = 0,
+)
+
 class ReposViewModel(app: LockitApp) : ViewModel() {
 
     private val _credentials = MutableStateFlow<List<Credential>>(emptyList())
@@ -127,26 +134,23 @@ class ReposViewModel(app: LockitApp) : ViewModel() {
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    // Coding plan quota state - persisted in ViewModel across navigation
-    private val _codingPlanQuota = MutableStateFlow<CodingPlanQuota?>(null)
-    val codingPlanQuota: StateFlow<CodingPlanQuota?> = _codingPlanQuota.asStateFlow()
+    // Per-provider quota state — each provider has independent slots (no cross-talk)
+    private val _providerQuotas = MutableStateFlow<Map<String, ProviderQuotaState>>(emptyMap())
+    val providerQuotas: StateFlow<Map<String, ProviderQuotaState>> = _providerQuotas.asStateFlow()
 
-    private val _codingPlanQuotaError = MutableStateFlow<String?>(null)
-    val codingPlanQuotaError: StateFlow<String?> = _codingPlanQuotaError.asStateFlow()
+    // Expanded provider for detail view (null = all compact)
+    private val _expandedProvider = MutableStateFlow<String?>(null)
+    val expandedProvider: StateFlow<String?> = _expandedProvider.asStateFlow()
 
-    private val _isQuotaLoading = MutableStateFlow(false)
-    val isQuotaLoading: StateFlow<Boolean> = _isQuotaLoading.asStateFlow()
-
-    // Selected provider for quota display (qwen_bailian, chatgpt, claude)
-    private val _selectedProvider = MutableStateFlow<String>("qwen_bailian")
-    val selectedProvider: StateFlow<String> = _selectedProvider.asStateFlow()
-
-    // Cache freshness threshold (5 minutes) - replaces permanent lock
+    // Cache freshness threshold (5 minutes)
     private val CACHE_FRESHNESS_MS = 5 * 60 * 1000L
 
-    var lastAutoFetchTime = 0L  // Timestamp-based instead of permanent lock
+    // Per-provider last fetch timestamp (avoids redundant refetches)
+    private val lastFetchTimes = mutableMapOf<String, Long>()
+
+    var lastAutoFetchTime = 0L
     private var currentApp: LockitApp? = null
-    private var previousService: String? = null  // Track service transitions
+    private var previousService: String? = null
 
     init {
         // Will be set when app is passed in
@@ -156,42 +160,23 @@ class ReposViewModel(app: LockitApp) : ViewModel() {
         currentApp = app
         app.vaultManager.getAllCredentials()
             .catch { _credentials.value = emptyList() }
-            .onEach {
-                _credentials.value = it
-                syncSelectedProviderWithCredentials(app, it)
-            }
+            .onEach { _credentials.value = it }
             .launchIn(viewModelScope)
     }
 
-    private fun syncSelectedProviderWithCredentials(app: LockitApp, credentials: List<Credential>) {
-        val providers = credentials
-            .filter { it.type == CredentialType.CodingPlan }
-            .mapNotNull { credential ->
-                CodingPlanProviders.normalize(
-                    credential.metadata["provider"]?.ifBlank { credential.service } ?: credential.service
-                ).takeIf { it.isNotBlank() }
-            }
-            .distinct()
-
-        if (providers.isEmpty() || _selectedProvider.value in providers) return
-
-        val activeProvider = CodingPlanProviders.normalize(CodingPlanPrefs.getActiveProvider(app))
-        _selectedProvider.value = activeProvider.takeIf { it in providers } ?: providers.first()
-    }
-
     fun selectService(service: String?) {
-        // Reset auto-fetch timestamp when leaving CODING_PLAN board
+        // Reset fetch timestamps when leaving CODING_PLAN board
         if (previousService == "CODING_PLAN" && service != "CODING_PLAN") {
-            lastAutoFetchTime = 0L  // Allow fresh fetch on next board entry
+            lastAutoFetchTime = 0L
+            lastFetchTimes.clear()
         }
         previousService = _selectedService.value
         _selectedService.value = service
     }
 
-    fun selectProvider(provider: String) {
-        _selectedProvider.value = CodingPlanProviders.normalize(provider)
-        // Re-fetch quota for new provider
-        fetchCodingPlanQuota(force = true)
+    fun toggleExpandProvider(provider: String) {
+        val normalized = CodingPlanProviders.normalize(provider)
+        _expandedProvider.value = if (_expandedProvider.value == normalized) null else normalized
     }
 
     suspend fun getCredentialById(id: String): Credential? {
@@ -208,109 +193,126 @@ class ReposViewModel(app: LockitApp) : ViewModel() {
         currentApp?.vaultManager?.logCredentialCopied(name)
     }
 
-    fun fetchCodingPlanQuota(force: Boolean = false) {
-        // Prevent concurrent requests - skip if already loading
-        if (_isQuotaLoading.value) return
+    fun fetchQuotaForProvider(provider: String, force: Boolean = false) {
+        val normalizedProvider = CodingPlanProviders.normalize(provider)
+        val currentState = _providerQuotas.value[normalizedProvider]
 
-        // Cache freshness check - skip if data is fresh (within 5 min) unless forced
+        // Prevent concurrent requests
+        if (currentState?.isLoading == true) return
+
+        // Cache freshness check
         if (!force) {
-            val cacheAge = System.currentTimeMillis() - lastAutoFetchTime
-            if (cacheAge < CACHE_FRESHNESS_MS && _codingPlanQuota.value != null) {
-                return  // Fresh data exists, no need to refetch
-            }
+            val lastFetch = lastFetchTimes[normalizedProvider] ?: 0L
+            val cacheAge = System.currentTimeMillis() - lastFetch
+            if (cacheAge < CACHE_FRESHNESS_MS && currentState?.quota != null) return
         }
-        val codingPlanCreds = _credentials.value.filter { it.type == CredentialType.CodingPlan }
-        if (codingPlanCreds.isEmpty()) {
-            _codingPlanQuota.value = null
-            return
-        }
-        lastAutoFetchTime = System.currentTimeMillis()  // Mark fetch time
-        _isQuotaLoading.value = true
-        CodingPlanPrefetchState.setLoading(true)
-        _codingPlanQuotaError.value = null
 
-        val targetProvider = CodingPlanProviders.normalize(_selectedProvider.value)
+        val codingPlanCreds = _credentials.value.filter { it.type == CredentialType.CodingPlan }
+        if (codingPlanCreds.isEmpty()) return
+
+        lastFetchTimes[normalizedProvider] = System.currentTimeMillis()
+        updateProviderState(normalizedProvider, isLoading = true)
+        CodingPlanPrefetchState.setLoading(normalizedProvider, true)
+
         viewModelScope.launch {
             val result = withContext(Dispatchers.IO) {
-                // Filter credentials by selected provider
                 val providerCreds = codingPlanCreds.filter {
-                    CodingPlanProviders.normalize(it.metadata["provider"]?.ifBlank { it.service } ?: it.service) == targetProvider
+                    CodingPlanProviders.normalize(
+                        it.metadata["provider"]?.ifBlank { it.service } ?: it.service
+                    ) == normalizedProvider
                 }
                 var quota: CodingPlanQuota? = null
                 for (cred in providerCreds) {
                     val metadata = cred.metadata.takeIf { it.isNotEmpty() } ?: continue
-                    val fetcher = CodingPlanFetchers.forProvider(targetProvider) ?: continue
+                    val fetcher = CodingPlanFetchers.forProvider(normalizedProvider) ?: continue
                     quota = fetcher.fetchQuota(metadata)
                     if (quota != null) break
                 }
                 if (quota == null) {
                     val prefsMetadata = currentApp?.let { CodingPlanPrefs.getMetadata(it) }.orEmpty()
                     val prefsProvider = CodingPlanProviders.normalize(prefsMetadata["provider"])
-                    if (prefsProvider == targetProvider) {
-                        val fetcher = CodingPlanFetchers.forProvider(targetProvider)
-                        quota = fetcher?.fetchQuota(prefsMetadata)
+                    if (prefsProvider == normalizedProvider) {
+                        quota = CodingPlanFetchers.forProvider(normalizedProvider)?.fetchQuota(prefsMetadata)
                     }
                 }
                 quota
             }
-            _codingPlanQuota.value = result
-            CodingPlanPrefetchState.setQuota(result)
-            if (result == null && codingPlanCreds.isNotEmpty()) {
-                // Only check Qwen-specific HTTP status for qwen_bailian provider
-                val isExpired = targetProvider == "qwen_bailian" &&
-                    com.lockit.domain.qwen.QwenCodingPlan.lastHttpStatus in listOf(302, 401, 403)
-                _codingPlanQuotaError.value = if (isExpired) "COOKIE_EXPIRED" else "NO_QUOTA_DATA"
-                CodingPlanPrefetchState.setError(_codingPlanQuotaError.value)
+
+            if (result != null) {
+                currentApp?.let { CodingPlanPrefs.saveQuotaCache(it, result, normalizedProvider) }
+                CodingPlanPrefetchState.setQuota(normalizedProvider, result)
+                CodingPlanPrefetchState.setError(normalizedProvider, null)
+                updateProviderState(normalizedProvider, quota = result, error = null, isLoading = false)
             } else {
-                CodingPlanPrefetchState.setError(null)
-                // Save to cache for next startup
-                if (result != null) {
-                    currentApp?.let { CodingPlanPrefs.saveQuotaCache(it, result, targetProvider) }
+                val isExpired = normalizedProvider == "qwen_bailian" &&
+                    com.lockit.domain.qwen.QwenCodingPlan.lastHttpStatus in listOf(302, 401, 403)
+                val error = if (isExpired) "COOKIE_EXPIRED" else "NO_QUOTA_DATA"
+                CodingPlanPrefetchState.setQuota(normalizedProvider, null)
+                CodingPlanPrefetchState.setError(normalizedProvider, error)
+                updateProviderState(normalizedProvider, error = error, isLoading = false)
+            }
+            CodingPlanPrefetchState.setLoading(normalizedProvider, false)
+        }
+    }
+
+    fun fetchAllQuotas(force: Boolean = false) {
+        val providers = _credentials.value
+            .filter { it.type == CredentialType.CodingPlan }
+            .mapNotNull {
+                CodingPlanProviders.normalize(
+                    it.metadata["provider"]?.ifBlank { it.service } ?: it.service
+                ).takeIf { p -> p.isNotBlank() }
+            }.distinct()
+
+        // Load cached data instantly for each provider (no network wait)
+        providers.forEach { provider ->
+            val cached = currentApp?.let { CodingPlanPrefs.loadQuotaCache(it, provider) }
+            if (cached != null) {
+                updateProviderState(
+                    provider,
+                    quota = cached,
+                    cacheAgeMinutes = currentApp?.let {
+                        ((System.currentTimeMillis() - CodingPlanPrefs.getCacheTimestamp(it, provider)) / 60000).toInt()
+                    } ?: 0,
+                )
+            }
+            // Also check if MainActivity prefetch already has data
+            val snapshot = CodingPlanPrefetchState.getSnapshot(provider)
+            if (snapshot.quota != null) {
+                updateProviderState(provider, quota = snapshot.quota, error = snapshot.error, isLoading = snapshot.isLoading)
+                if (snapshot.cacheTimestamp > 0) {
+                    updateProviderState(provider, cacheAgeMinutes = ((System.currentTimeMillis() - snapshot.cacheTimestamp) / 60000).toInt())
                 }
             }
-            _isQuotaLoading.value = false
-            CodingPlanPrefetchState.setLoading(false)
         }
+
+        // Fetch fresh data for all providers in parallel
+        providers.forEach { provider -> fetchQuotaForProvider(provider, force) }
     }
 
-    // Auto-fetch when credentials become available (call from UI once)
+    private fun updateProviderState(
+        provider: String,
+        quota: CodingPlanQuota? = null,
+        error: String? = null,
+        isLoading: Boolean? = null,
+        cacheAgeMinutes: Int? = null,
+    ) {
+        val normalizedProvider = CodingPlanProviders.normalize(provider)
+        val current = _providerQuotas.value.toMutableMap()
+        val existing = current[normalizedProvider] ?: ProviderQuotaState()
+        current[normalizedProvider] = existing.copy(
+            quota = quota ?: existing.quota,
+            error = error ?: existing.error,
+            isLoading = isLoading ?: existing.isLoading,
+            cacheAgeMinutes = cacheAgeMinutes ?: existing.cacheAgeMinutes,
+        )
+        _providerQuotas.value = current
+    }
+
     fun autoFetchIfNeeded() {
-        // Cache freshness check - skip if data is fresh (within 5 min)
-        val cacheAge = System.currentTimeMillis() - lastAutoFetchTime
-        if (cacheAge < CACHE_FRESHNESS_MS && _codingPlanQuota.value != null) {
-            return  // Fresh data exists
-        }
-
-        // Check if prefetch is still running - will be observed via StateFlow
-        if (CodingPlanPrefetchState.isLoading.value) {
-            _isQuotaLoading.value = true
-            lastAutoFetchTime = System.currentTimeMillis()
-            // Show cached quota during background refresh (instant display)
-            _codingPlanQuota.value = CodingPlanPrefetchState.quota.value
-            return
-        }
-
-        // First check if we have prefetched quota from app startup
-        val prefetched = CodingPlanPrefetchState.quota.value
-        if (prefetched != null) {
-            _codingPlanQuota.value = prefetched
-            _codingPlanQuotaError.value = CodingPlanPrefetchState.error.value
-            _isQuotaLoading.value = false
-            lastAutoFetchTime = System.currentTimeMillis()
-            return
-        }
-
-        // If no prefetched data and not loading, fetch from credentials
         if (_credentials.value.any { it.type == CredentialType.CodingPlan }) {
-            fetchCodingPlanQuota(force = true)
+            fetchAllQuotas()
         }
-    }
-
-    // Update quota when prefetch completes (called from StateFlow observer)
-    fun updateQuotaFromPrefetch(quota: CodingPlanQuota?, error: String?) {
-        _codingPlanQuota.value = quota
-        _codingPlanQuotaError.value = error
-        _isQuotaLoading.value = false
     }
 }
 
@@ -369,35 +371,13 @@ fun ReposScreen(
     val codingPlanCredentials = credsByType[CredentialType.CodingPlan] ?: emptyList()
     val accountCredentials = credsByType[CredentialType.Account] ?: emptyList()
 
-    // Coding plan quota state from ViewModel - persists across navigation
-    val codingPlanQuota by viewModel.codingPlanQuota.collectAsStateWithLifecycle()
-    val isQuotaLoading by viewModel.isQuotaLoading.collectAsStateWithLifecycle()
-    val quotaError by viewModel.codingPlanQuotaError.collectAsStateWithLifecycle()
-    val selectedProvider by viewModel.selectedProvider.collectAsStateWithLifecycle()
+    // Coding plan quota state from ViewModel — per-provider map (no cross-talk)
+    val providerQuotas by viewModel.providerQuotas.collectAsStateWithLifecycle()
+    val expandedProvider by viewModel.expandedProvider.collectAsStateWithLifecycle()
 
     // Auto-fetch once when credentials become available
     LaunchedEffect(credentialList) {
         viewModel.autoFetchIfNeeded()
-    }
-
-    // Observe prefetch state changes via StateFlow (no polling loop needed)
-    val prefetchLoading by CodingPlanPrefetchState.isLoading.collectAsStateWithLifecycle()
-    val prefetchQuota by CodingPlanPrefetchState.quota.collectAsStateWithLifecycle()
-    val prefetchError by CodingPlanPrefetchState.error.collectAsStateWithLifecycle()
-    val prefetchCacheTimestamp by CodingPlanPrefetchState.cacheTimestamp.collectAsStateWithLifecycle()
-
-    // Calculate cache age in minutes (how old is the cached data)
-    val cacheAgeMinutes = remember(prefetchCacheTimestamp) {
-        if (prefetchCacheTimestamp > 0) {
-            ((System.currentTimeMillis() - prefetchCacheTimestamp) / 60000).toInt()
-        } else 0
-    }
-
-    // When prefetch completes (success or failure), update ViewModel quota
-    LaunchedEffect(prefetchLoading, prefetchQuota, prefetchError) {
-        if (!prefetchLoading && (prefetchQuota != null || prefetchError != null)) {
-            viewModel.updateQuotaFromPrefetch(prefetchQuota, prefetchError)
-        }
     }
 
     val displayedServiceCredentials = remember(serviceCredentials, searchQuery, selectedService) {
@@ -467,12 +447,7 @@ fun ReposScreen(
     LaunchedEffect(selectedService) {
         viewModel.selectService(selectedService)
         searchQuery = ""
-        // Reset scroll position when switching services
         serviceDetailListState.scrollToItem(0)
-        // Force quota refresh when entering CODING_PLAN board
-        if (selectedService == "CODING_PLAN") {
-            viewModel.fetchCodingPlanQuota(force = true)
-        }
     }
 
     fun onServiceRowClick(serviceName: String) {
@@ -507,7 +482,7 @@ fun ReposScreen(
                 }
                 Spacer(modifier = Modifier.height(24.dp))
 
-                // Coding Plan Board — on main page, above REGISTERED_SERVICES
+                // Coding Plan Board — compact multi-provider dashboard
                 if (codingPlanCredentials.isNotEmpty()) {
                     Text(
                         text = stringResource(R.string.repos_coding_plan_board),
@@ -518,29 +493,13 @@ fun ReposScreen(
                         color = MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.padding(bottom = 12.dp),
                     )
-                    CodingPlanBoard(
-                        quota = codingPlanQuota,
-                        isLoading = isQuotaLoading,
-                        error = quotaError,
-                        selectedProvider = selectedProvider,
-                        cacheAgeMinutes = cacheAgeMinutes,
-                        onRefresh = { viewModel.fetchCodingPlanQuota(force = true) },
+                    MultiProviderBoard(
+                        providerQuotas = providerQuotas,
+                        expandedProvider = expandedProvider,
+                        onToggleExpand = { viewModel.toggleExpandProvider(it) },
+                        onRefreshAll = { viewModel.fetchAllQuotas(force = true) },
+                        onRefreshProvider = { viewModel.fetchQuotaForProvider(it, force = true) },
                     )
-                    // Provider switcher cards - only show if 2+ providers exist
-                    Spacer(modifier = Modifier.height(8.dp))
-                    // Get unique providers from existing CodingPlan credentials
-                    val existingProviders = codingPlanCredentials.mapNotNull { cred ->
-                        CodingPlanProviders.normalize(
-                            cred.metadata["provider"]?.ifBlank { cred.service } ?: cred.service
-                        ).takeIf { it.isNotBlank() }
-                    }.distinct()
-                    if (existingProviders.size >= 2) {
-                        ProviderCardsRow(
-                            selectedProvider = selectedProvider,
-                            existingProviders = existingProviders,
-                            onSelect = { viewModel.selectProvider(it) },
-                        )
-                    }
                     Spacer(modifier = Modifier.height(16.dp))
                 }
 
@@ -1091,66 +1050,57 @@ internal fun CredentialCardModal(
 
 
 /**
- * Coding Plan Board — shows full instance info + quota usage with a refresh button.
+ * Multi-provider compact dashboard — all providers visible at once, no switching needed.
+ * Each provider shows key metrics in a compact row. Click to expand full detail inline.
  */
 @Composable
-private fun CodingPlanBoard(
-    quota: CodingPlanQuota?,
-    isLoading: Boolean,
-    error: String?,
-    selectedProvider: String,
-    cacheAgeMinutes: Int, // How old is the cached data (minutes)
-    onRefresh: () -> Unit,
+private fun MultiProviderBoard(
+    providerQuotas: Map<String, ProviderQuotaState>,
+    expandedProvider: String?,
+    onToggleExpand: (String) -> Unit,
+    onRefreshAll: () -> Unit,
+    onRefreshProvider: (String) -> Unit,
 ) {
     val colorScheme = MaterialTheme.colorScheme
-    val borderColor = colorScheme.outline
-    val normalizedProvider = CodingPlanProviders.normalize(selectedProvider)
+    val providerLabels = mapOf(
+        "qwen_bailian" to stringResource(R.string.provider_qwen),
+        "chatgpt" to stringResource(R.string.provider_chatgpt),
+        "claude" to stringResource(R.string.provider_claude),
+    )
+    val anyLoading = providerQuotas.values.any { it.isLoading }
+    val sortedProviders = providerQuotas.keys.sortedBy { it }
 
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .border(1.dp, borderColor)
+            .border(1.dp, colorScheme.outline)
             .padding(12.dp),
     ) {
-        // Single title row with REFRESH button on right
+        // Header row
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            // Title: instance name or default
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = if (quota?.instanceName?.isNotBlank() == true) quota.instanceName.uppercase() else stringResource(R.string.repos_coding_plan),
-                    fontFamily = JetBrainsMonoFamily,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-                // Show cache age indicator if data is cached (not fresh)
-                if (cacheAgeMinutes > 0 && !isLoading) {
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = "${cacheAgeMinutes}m",
-                        fontFamily = JetBrainsMonoFamily,
-                        fontSize = 9.sp,
-                        color = if (cacheAgeMinutes > 60) TacticalRed else IndustrialOrange,
-                    )
-                }
-            }
-            // REFRESH button - prominent color
-            if (isLoading) {
+            Text(
+                text = stringResource(R.string.repos_coding_plan),
+                fontFamily = JetBrainsMonoFamily,
+                fontWeight = FontWeight.Bold,
+                fontSize = 12.sp,
+                color = colorScheme.onSurface,
+            )
+            if (anyLoading) {
                 Text(
                     text = stringResource(R.string.repos_fetching),
                     fontFamily = JetBrainsMonoFamily,
                     fontSize = 9.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = colorScheme.onSurfaceVariant,
                 )
             } else {
                 Box(
                     modifier = Modifier
                         .background(TacticalRed)
-                        .clickable(onClick = onRefresh)
+                        .clickable(onClick = onRefreshAll)
                         .padding(horizontal = 8.dp, vertical = 3.dp),
                 ) {
                     Text(
@@ -1163,45 +1113,203 @@ private fun CodingPlanBoard(
                 }
             }
         }
+
         Spacer(modifier = Modifier.height(8.dp))
 
-        if (quota != null) {
-            when (normalizedProvider) {
-                CodingPlanProviders.CHATGPT -> ChatGptCodingPlanContent(quota)
-                CodingPlanProviders.QWEN_BAILIAN -> QwenCodingPlanContent(quota)
-                else -> GenericCodingPlanContent(quota)
-            }
+        if (sortedProviders.isEmpty()) {
+            // No cached data yet — show placeholder
+            Text(
+                text = stringResource(R.string.repos_quota_no_data),
+                fontFamily = JetBrainsMonoFamily,
+                fontSize = 10.sp,
+                color = colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(vertical = 4.dp),
+            )
         } else {
-            // Error or empty state
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(TacticalRed.copy(0.1f))
-                    .border(1.dp, TacticalRed)
-                    .padding(12.dp),
-            ) {
-                Column {
+            sortedProviders.forEachIndexed { index, provider ->
+                if (index > 0) BoardDivider()
+                val state = providerQuotas[provider] ?: return@forEachIndexed
+                val label = providerLabels[provider] ?: provider
+                val isExpanded = expandedProvider == provider
+
+                CompactProviderRow(
+                    provider = provider,
+                    label = label,
+                    state = state,
+                    isExpanded = isExpanded,
+                    onClick = { onToggleExpand(provider) },
+                    onRefresh = { onRefreshProvider(provider) },
+                )
+
+                // Expanded detail
+                if (isExpanded && state.quota != null) {
+                    Spacer(modifier = Modifier.height(6.dp))
+                    when (provider) {
+                        CodingPlanProviders.CHATGPT -> ChatGptCodingPlanContent(state.quota)
+                        CodingPlanProviders.QWEN_BAILIAN -> QwenCodingPlanContent(state.quota)
+                        else -> GenericCodingPlanContent(state.quota)
+                    }
+                }
+
+                // Error state (shown in-row, below compact)
+                if (state.quota == null && !state.isLoading && state.error != null) {
                     Text(
-                        text = when (error) {
-                            "NO_QUOTA_DATA" -> stringResource(R.string.repos_quota_fetch_failed)
-                            "NOT_LOGIN", "COOKIE_EXPIRED" -> stringResource(R.string.repos_quota_cookie_expired)
-                            null -> stringResource(R.string.repos_quota_no_data)
-                            else -> error
+                        text = when (state.error) {
+                            "COOKIE_EXPIRED" -> stringResource(R.string.repos_quota_cookie_expired)
+                            else -> stringResource(R.string.repos_quota_fetch_failed)
                         },
                         fontFamily = JetBrainsMonoFamily,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 11.sp,
+                        fontSize = 8.sp,
                         color = TacticalRed,
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = stringResource(R.string.repos_quota_retry_hint),
-                        fontFamily = JetBrainsMonoFamily,
-                        fontSize = 9.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(start = 64.dp, top = 2.dp),
                     )
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun CompactProviderRow(
+    provider: String,
+    label: String,
+    state: ProviderQuotaState,
+    isExpanded: Boolean,
+    onClick: () -> Unit,
+    onRefresh: () -> Unit,
+) {
+    val colorScheme = MaterialTheme.colorScheme
+    val quota = state.quota
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(vertical = 2.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        // Provider name label
+        Text(
+            text = label,
+            fontFamily = JetBrainsMonoFamily,
+            fontWeight = FontWeight.Bold,
+            fontSize = 11.sp,
+            color = if (isExpanded) IndustrialOrange else colorScheme.onSurface,
+            modifier = Modifier.width(64.dp),
+        )
+
+        if (state.isLoading) {
+            Text(
+                text = "...",
+                fontFamily = JetBrainsMonoFamily,
+                fontSize = 9.sp,
+                color = colorScheme.onSurfaceVariant,
+                modifier = Modifier.weight(1f),
+            )
+        } else if (quota != null) {
+            CompactGauge("5h", quota.sessionUsed, quota.sessionTotal, Modifier.weight(1f))
+            CompactGauge("Wk", quota.weekUsed, quota.weekTotal, Modifier.weight(1f))
+            if (quota.monthTotal > 0) {
+                CompactGauge("Mo", quota.monthUsed, quota.monthTotal, Modifier.weight(1f))
+            } else {
+                Spacer(modifier = Modifier.weight(1f))
+            }
+            // Status / plan badge
+            val badge = quota.status.takeIf { it.isNotBlank() }
+                ?: quota.tier.takeIf { it.isNotBlank() }
+                ?: quota.planName.takeIf { it.isNotBlank() }
+                ?: "—"
+            StatusChip(
+                text = badge.uppercase().take(8),
+                color = when {
+                    quota.status.equals("VALID", true) || quota.status.equals("ACTIVE", true) -> IndustrialOrange
+                    quota.status.equals("EXPIRED", true) || quota.status.equals("EXHAUSTED", true) -> TacticalRed
+                    else -> colorScheme.onSurfaceVariant
+                },
+            )
+        } else {
+            Text(
+                text = "—",
+                fontFamily = JetBrainsMonoFamily,
+                fontSize = 9.sp,
+                color = colorScheme.onSurfaceVariant,
+                modifier = Modifier.weight(1f),
+            )
+        }
+
+        // Expand/collapse arrow
+        Text(
+            text = if (isExpanded) "▼" else "▶",
+            fontFamily = JetBrainsMonoFamily,
+            fontSize = 8.sp,
+            color = colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(start = 4.dp),
+        )
+
+        // Cache age pill
+        if (state.cacheAgeMinutes > 0 && !state.isLoading) {
+            Text(
+                text = "${state.cacheAgeMinutes}m",
+                fontFamily = JetBrainsMonoFamily,
+                fontSize = 7.sp,
+                color = if (state.cacheAgeMinutes > 60) TacticalRed else IndustrialOrange,
+                modifier = Modifier.padding(start = 4.dp),
+            )
+        }
+
+        // Per-provider refresh
+        if (!state.isLoading) {
+            Text(
+                text = "↻",
+                fontFamily = JetBrainsMonoFamily,
+                fontSize = 9.sp,
+                color = colorScheme.onSurfaceVariant,
+                modifier = Modifier
+                    .padding(start = 4.dp)
+                    .clickable(onClick = onRefresh),
+            )
+        }
+    }
+}
+
+@Composable
+private fun CompactGauge(label: String, used: Int, total: Int, modifier: Modifier) {
+    val pct = if (total > 0) (used.toLong() * 100 / total).coerceIn(0, 100).toInt() else 0
+    val barColor = when {
+        pct >= 90 -> TacticalRed
+        pct >= 70 -> IndustrialOrange
+        else -> MaterialTheme.colorScheme.onSurfaceVariant
+    }
+
+    Column(modifier = modifier.padding(horizontal = 3.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = label,
+                fontFamily = JetBrainsMonoFamily,
+                fontSize = 7.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.width(2.dp))
+            Text(
+                text = "$pct%",
+                fontFamily = JetBrainsMonoFamily,
+                fontSize = 8.sp,
+                fontWeight = FontWeight.Bold,
+                color = barColor,
+            )
+        }
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(3.dp)
+                .background(MaterialTheme.colorScheme.surfaceContainerLowest),
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(if (total > 0) pct / 100f else 0f)
+                    .height(3.dp)
+                    .background(barColor),
+            )
         }
     }
 }
@@ -1481,47 +1589,3 @@ private fun QuotaGauge(
     }
 }
 
-/**
- * Provider cards row for switching between coding plan providers.
- * Shows 百炼, ChatGPT, Claude service cards.
- */
-@Composable
-private fun ProviderCardsRow(
-    selectedProvider: String,
-    existingProviders: List<String>,
-    onSelect: (String) -> Unit,
-) {
-    val colorScheme = MaterialTheme.colorScheme
-    val providerLabels = mapOf(
-        "qwen_bailian" to stringResource(R.string.provider_qwen),
-        "chatgpt" to stringResource(R.string.provider_chatgpt),
-        "claude" to stringResource(R.string.provider_claude),
-    )
-
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        existingProviders.forEach { provider ->
-            val label = providerLabels[provider] ?: provider
-            val isSelected = selectedProvider == provider
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .background(if (isSelected) IndustrialOrange.copy(alpha = 0.15f) else colorScheme.surfaceContainerHighest)
-                    .border(1.dp, if (isSelected) IndustrialOrange else colorScheme.outline)
-                    .clickable { onSelect(provider) }
-                    .padding(vertical = 8.dp, horizontal = 4.dp),
-            ) {
-                Text(
-                    text = label,
-                    fontFamily = JetBrainsMonoFamily,
-                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                    fontSize = 10.sp,
-                    color = if (isSelected) IndustrialOrange else colorScheme.onSurfaceVariant,
-                    modifier = Modifier.align(Alignment.Center),
-                )
-            }
-        }
-    }
-}

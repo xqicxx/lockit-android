@@ -121,41 +121,40 @@ class MainActivity : FragmentActivity() {
         if (!CodingPlanPrefetchState.hasPrefetched && CodingPlanPrefs.hasData(app)) {
             CodingPlanPrefetchState.hasPrefetched = true
 
-            // Step 1: Load cached quota immediately (instant display, no loading spinner)
-            val cachedQuota = CodingPlanPrefs.loadQuotaCache(app)
-            val cacheTime = CodingPlanPrefs.getCacheTimestamp(app)
-            if (cachedQuota != null) {
-                CodingPlanPrefetchState.setQuota(cachedQuota)
-                CodingPlanPrefetchState.setError(null)
-                CodingPlanPrefetchState.setCacheTimestamp(cacheTime)
-            }
+            val metadata = CodingPlanPrefs.getMetadata(app)
+            val provider = CodingPlanProviders.normalize(metadata["provider"])
+            if (provider.isNotBlank()) {
+                // Step 1: Load cached quota for this provider (instant display)
+                val cachedQuota = CodingPlanPrefs.loadQuotaCache(app, provider)
+                val cacheTime = CodingPlanPrefs.getCacheTimestamp(app, provider)
+                if (cachedQuota != null) {
+                    CodingPlanPrefetchState.setQuota(provider, cachedQuota)
+                    CodingPlanPrefetchState.setError(provider, null)
+                    CodingPlanPrefetchState.setCacheTimestamp(provider, cacheTime)
+                }
 
-            // Step 2: Start background refresh (update with fresh data)
-            CodingPlanPrefetchState.setLoading(true)
-            lifecycleScope.launch {
-                try {
-                    val metadata = CodingPlanPrefs.getMetadata(app)
-                    val provider = CodingPlanProviders.normalize(metadata["provider"])
-                    if (provider.isNotBlank()) {
+                // Step 2: Start background refresh
+                CodingPlanPrefetchState.setLoading(provider, true)
+                lifecycleScope.launch {
+                    try {
                         val fetcher = CodingPlanFetchers.forProvider(provider)
                         if (fetcher != null) {
                             val quota = withContext(Dispatchers.IO) {
                                 fetcher.fetchQuota(metadata)
                             }
-                            CodingPlanPrefetchState.setQuota(quota)
-                            CodingPlanPrefetchState.setError(if (quota == null) "NO_QUOTA_DATA" else null)
-                            CodingPlanPrefetchState.setCacheTimestamp(System.currentTimeMillis())
-                            // Save to cache for next startup
+                            CodingPlanPrefetchState.setQuota(provider, quota)
+                            CodingPlanPrefetchState.setError(provider, if (quota == null) "NO_QUOTA_DATA" else null)
+                            CodingPlanPrefetchState.setCacheTimestamp(provider, System.currentTimeMillis())
                             if (quota != null) {
                                 CodingPlanPrefs.saveQuotaCache(app, quota, provider)
                             }
                         }
+                    } catch (e: Exception) {
+                        android.util.Log.e("LockitPrefetch", "Prefetch failed: ${e.message}")
+                        CodingPlanPrefetchState.setError(provider, "FETCH_ERROR")
+                    } finally {
+                        CodingPlanPrefetchState.setLoading(provider, false)
                     }
-                } catch (e: Exception) {
-                    android.util.Log.e("LockitPrefetch", "Prefetch failed: ${e.message}")
-                    CodingPlanPrefetchState.setError("FETCH_ERROR")
-                } finally {
-                    CodingPlanPrefetchState.setLoading(false)
                 }
             }
         }
