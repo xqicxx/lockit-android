@@ -63,9 +63,6 @@ import com.lockit.ui.components.parseCredentialFields
 import com.lockit.ui.screens.auth.WebViewAuthActivity
 import com.lockit.ui.theme.IndustrialOrange
 import com.lockit.ui.theme.JetBrainsMonoFamily
-import com.lockit.ui.theme.Primary
-import com.lockit.ui.theme.SurfaceHighest
-import com.lockit.ui.theme.SurfaceLow
 import com.lockit.ui.theme.TacticalRed
 import com.lockit.ui.theme.White
 import com.lockit.utils.BiometricUtils
@@ -113,11 +110,14 @@ fun SecretDetailsScreen(
                     if (currentCred != null) {
                         // Serialize metadata as proper JSON (not Map.toString())
                         val metadataJson = JSONObject(newMetadata as Map<*, *>).toString()
-                        // Reconstruct value string to keep UI in sync with metadata
+                        // Reconstruct value string with all 5 CodingPlan fields
+                        // Format: PROVIDER // RAW_CURL // API_KEY // COOKIE // BASE_URL
                         val provider = newMetadata["provider"] ?: ""
+                        val rawCurl = newMetadata["rawCurl"] ?: ""
                         val apiKey = newMetadata["apiKey"] ?: ""
+                        val cookie = newMetadata["cookie"] ?: ""
                         val baseUrl = newMetadata["baseUrl"] ?: ""
-                        val newValue = "$provider // $apiKey // ${currentCred.key} // $baseUrl"
+                        val newValue = "$provider // $rawCurl // $apiKey // $cookie // $baseUrl"
                         app.vaultManager.updateCredential(
                             id = currentCred.id,
                             name = currentCred.name,
@@ -222,7 +222,7 @@ fun SecretDetailsScreen(
                     fontFamily = JetBrainsMonoFamily,
                     fontWeight = FontWeight.ExtraBold,
                     fontSize = 24.sp,
-                    color = Primary,
+                    color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -345,11 +345,12 @@ fun SecretDetailsScreen(
 }
 
 @Composable
-private fun PillBadge(text: String, bg: Color = SurfaceHighest, fg: Color = Primary) {
+private fun PillBadge(text: String, bg: Color? = null, fg: Color? = null) {
+    val colorScheme = MaterialTheme.colorScheme
     Box(
         modifier = Modifier
-            .background(bg)
-            .border(1.dp, Primary)
+            .background(bg ?: colorScheme.surfaceContainerHighest)
+            .border(1.dp, colorScheme.outlineVariant.copy(alpha = 0.2f))
             .padding(horizontal = 8.dp, vertical = 4.dp),
     ) {
         Text(
@@ -357,7 +358,7 @@ private fun PillBadge(text: String, bg: Color = SurfaceHighest, fg: Color = Prim
             fontFamily = JetBrainsMonoFamily,
             fontSize = 9.sp,
             fontWeight = FontWeight.Bold,
-            color = fg,
+            color = fg ?: colorScheme.onSurface,
         )
     }
 }
@@ -373,6 +374,7 @@ private fun SecretValueSection(
     onHideEmailPassword: (() -> Unit)? = null,
     onRefreshAuth: (() -> Unit)? = null,
 ) {
+    val colorScheme = MaterialTheme.colorScheme
     BrutalistCard {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(
@@ -404,7 +406,7 @@ private fun SecretValueSection(
                     // Provider info
                     Box(
                         modifier = Modifier.fillMaxWidth()
-                            .background(SurfaceLow).border(1.dp, Primary).padding(12.dp),
+                            .background(MaterialTheme.colorScheme.surfaceContainerLow).border(1.dp, colorScheme.outlineVariant.copy(alpha = 0.2f)).padding(12.dp),
                     ) {
                         Column {
                             Text(
@@ -420,7 +422,7 @@ private fun SecretValueSection(
                                 text = provider.uppercase(),
                                 fontFamily = JetBrainsMonoFamily,
                                 fontSize = 14.sp,
-                                color = Primary,
+                                color = MaterialTheme.colorScheme.onSurface,
                                 fontWeight = FontWeight.Bold,
                             )
                         }
@@ -436,7 +438,7 @@ private fun SecretValueSection(
                         Spacer(modifier = Modifier.height(8.dp))
                         Box(
                             modifier = Modifier.fillMaxWidth()
-                                .background(SurfaceLow).border(1.dp, Primary).padding(12.dp),
+                                .background(MaterialTheme.colorScheme.surfaceContainerLow).border(1.dp, colorScheme.outlineVariant.copy(alpha = 0.2f)).padding(12.dp),
                         ) {
                             Column {
                                 Text(
@@ -452,7 +454,7 @@ private fun SecretValueSection(
                                     text = if (isRevealed) apiKey else "•".repeat(20),
                                     fontFamily = JetBrainsMonoFamily,
                                     fontSize = 12.sp,
-                                    color = if (isRevealed) Primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    color = if (isRevealed) colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
                                     maxLines = if (isRevealed) 3 else 1,
                                     overflow = TextOverflow.Ellipsis,
                                 )
@@ -470,7 +472,7 @@ private fun SecretValueSection(
                         Spacer(modifier = Modifier.height(8.dp))
                         Box(
                             modifier = Modifier.fillMaxWidth()
-                                .background(SurfaceLow).border(1.dp, Primary).padding(12.dp),
+                                .background(MaterialTheme.colorScheme.surfaceContainerLow).border(1.dp, colorScheme.outlineVariant.copy(alpha = 0.2f)).padding(12.dp),
                         ) {
                             Column {
                                 Text(
@@ -486,7 +488,7 @@ private fun SecretValueSection(
                                     text = baseUrl,
                                     fontFamily = JetBrainsMonoFamily,
                                     fontSize = 11.sp,
-                                    color = Primary,
+                                    color = MaterialTheme.colorScheme.onSurface,
                                 )
                             }
                         }
@@ -504,7 +506,7 @@ private fun SecretValueSection(
                     // Phone number
                     Box(
                         modifier = Modifier.fillMaxWidth()
-                            .background(SurfaceLow).border(1.dp, Primary).padding(12.dp),
+                            .background(MaterialTheme.colorScheme.surfaceContainerLow).border(1.dp, colorScheme.outlineVariant.copy(alpha = 0.2f)).padding(12.dp),
                     ) {
                         Column {
                             Text(
@@ -520,7 +522,7 @@ private fun SecretValueSection(
                                 text = phoneNumber,
                                 fontFamily = JetBrainsMonoFamily,
                                 fontSize = 14.sp,
-                                color = Primary,
+                                color = MaterialTheme.colorScheme.onSurface,
                                 fontWeight = FontWeight.Bold,
                             )
                         }
@@ -530,7 +532,7 @@ private fun SecretValueSection(
                         Spacer(modifier = Modifier.height(8.dp))
                         Box(
                             modifier = Modifier.fillMaxWidth()
-                                .background(SurfaceLow).border(1.dp, Primary).padding(12.dp),
+                                .background(MaterialTheme.colorScheme.surfaceContainerLow).border(1.dp, colorScheme.outlineVariant.copy(alpha = 0.2f)).padding(12.dp),
                         ) {
                             Column {
                                 Text(
@@ -546,7 +548,7 @@ private fun SecretValueSection(
                                     text = region,
                                     fontFamily = JetBrainsMonoFamily,
                                     fontSize = 13.sp,
-                                    color = Primary,
+                                    color = MaterialTheme.colorScheme.onSurface,
                                 )
                             }
                         }
@@ -556,7 +558,7 @@ private fun SecretValueSection(
                         Spacer(modifier = Modifier.height(8.dp))
                         Box(
                             modifier = Modifier.fillMaxWidth()
-                                .background(SurfaceLow).border(1.dp, Primary).padding(12.dp),
+                                .background(MaterialTheme.colorScheme.surfaceContainerLow).border(1.dp, colorScheme.outlineVariant.copy(alpha = 0.2f)).padding(12.dp),
                         ) {
                             Column {
                                 Text(
@@ -572,7 +574,7 @@ private fun SecretValueSection(
                                     text = note,
                                     fontFamily = JetBrainsMonoFamily,
                                     fontSize = 12.sp,
-                                    color = Primary,
+                                    color = MaterialTheme.colorScheme.onSurface,
                                     maxLines = 5,
                                     overflow = TextOverflow.Ellipsis,
                                 )
@@ -587,7 +589,7 @@ private fun SecretValueSection(
                     // Email address
                     Box(
                         modifier = Modifier.fillMaxWidth()
-                            .background(SurfaceLow).border(1.dp, Primary).padding(12.dp),
+                            .background(MaterialTheme.colorScheme.surfaceContainerLow).border(1.dp, colorScheme.outlineVariant.copy(alpha = 0.2f)).padding(12.dp),
                     ) {
                         Column {
                             Text(
@@ -603,7 +605,7 @@ private fun SecretValueSection(
                                 text = emailAddress,
                                 fontFamily = JetBrainsMonoFamily,
                                 fontSize = 14.sp,
-                                color = Primary,
+                                color = MaterialTheme.colorScheme.onSurface,
                                 fontWeight = FontWeight.Bold,
                             )
                         }
@@ -616,7 +618,7 @@ private fun SecretValueSection(
                     val displayPassword = revealedEmailPassword ?: passwordValue
                     Box(
                         modifier = Modifier.fillMaxWidth()
-                            .background(SurfaceLow).border(1.dp, Primary).padding(12.dp),
+                            .background(MaterialTheme.colorScheme.surfaceContainerLow).border(1.dp, colorScheme.outlineVariant.copy(alpha = 0.2f)).padding(12.dp),
                     ) {
                         Column {
                             Row(
@@ -651,7 +653,7 @@ private fun SecretValueSection(
                                 text = if (passwordRevealed) displayPassword else "\u2022".repeat(20),
                                 fontFamily = JetBrainsMonoFamily,
                                 fontSize = 13.sp,
-                                color = if (passwordRevealed) Primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                color = if (passwordRevealed) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
                                 maxLines = if (passwordRevealed) 5 else 1,
                                 overflow = TextOverflow.Ellipsis,
                             )
@@ -672,7 +674,7 @@ private fun SecretValueSection(
                             displayFields.forEach { (label, value) ->
                                 Box(
                                     modifier = Modifier.fillMaxWidth()
-                                        .background(SurfaceLow).border(1.dp, Primary).padding(12.dp),
+                                        .background(MaterialTheme.colorScheme.surfaceContainerLow).border(1.dp, colorScheme.outlineVariant.copy(alpha = 0.2f)).padding(12.dp),
                                 ) {
                                     Column {
                                         Text(
@@ -688,7 +690,7 @@ private fun SecretValueSection(
                                             text = value ?: "",
                                             fontFamily = JetBrainsMonoFamily,
                                             fontSize = 12.sp,
-                                            color = Primary,
+                                            color = MaterialTheme.colorScheme.onSurface,
                                         )
                                     }
                                 }
@@ -705,13 +707,13 @@ private fun SecretValueSection(
 
                     Box(
                         modifier = Modifier.fillMaxWidth()
-                            .background(SurfaceLow).border(1.dp, Primary).padding(16.dp),
+                            .background(MaterialTheme.colorScheme.surfaceContainerLow).border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f)).padding(16.dp),
                     ) {
                         Text(
                             text = displayValue,
                             fontFamily = JetBrainsMonoFamily,
                             fontSize = 14.sp,
-                            color = if (isRevealed) Primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                            color = if (isRevealed) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
                 }
@@ -790,7 +792,7 @@ private fun MetaCard(label: String, value: String, modifier: Modifier = Modifier
                 fontFamily = JetBrainsMonoFamily,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Bold,
-                color = Primary,
+                color = MaterialTheme.colorScheme.onSurface,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -800,6 +802,7 @@ private fun MetaCard(label: String, value: String, modifier: Modifier = Modifier
 
 @Composable
 private fun AuditLogSection(app: LockitApp, credential: Credential) {
+    val colorScheme = MaterialTheme.colorScheme
     val logs = remember(credential.id) {
         app.auditLogger.getRecentEntries(days = 30)
             .filter { it.action.contains("CREDENTIAL") }
@@ -811,7 +814,7 @@ private fun AuditLogSection(app: LockitApp, credential: Credential) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(Primary)
+                    .background(colorScheme.onSurface)
                     .padding(horizontal = 16.dp, vertical = 12.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
@@ -821,14 +824,14 @@ private fun AuditLogSection(app: LockitApp, credential: Credential) {
                     fontFamily = JetBrainsMonoFamily,
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Bold,
-                    color = White,
+                    color = colorScheme.surface,
                     letterSpacing = 2.sp,
                 )
                 Text(
                     text = "${logs.size} events",
                     fontFamily = JetBrainsMonoFamily,
                     fontSize = 10.sp,
-                    color = White.copy(0.7f),
+                    color = colorScheme.surface.copy(alpha = 0.7f),
                 )
             }
 
@@ -853,7 +856,7 @@ private fun AuditLogSection(app: LockitApp, credential: Credential) {
                         else -> "INFO"
                     }
                     val color = when (entry.severity) {
-                        AuditSeverity.Info -> Primary
+                        AuditSeverity.Info -> colorScheme.onSurface
                         AuditSeverity.Warning -> IndustrialOrange
                         AuditSeverity.Danger -> TacticalRed
                     }
@@ -906,7 +909,7 @@ private fun AuditLogSection(app: LockitApp, credential: Credential) {
                         )
                     }
                     if (index < logs.size - 1) {
-                        HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.15f), thickness = 1.dp)
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f), thickness = 1.dp)
                     }
                 }
             }

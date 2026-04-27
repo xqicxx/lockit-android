@@ -56,6 +56,7 @@ fun DropdownWithCustomInput(
     error: String? = null,
     editable: Boolean = true,
 ) {
+    val colorScheme = MaterialTheme.colorScheme
     var expanded by remember { mutableStateOf(false) }
     val isInPreset = presets.contains(selectedValue)
 
@@ -90,7 +91,7 @@ fun DropdownWithCustomInput(
                 Icon(
                     imageVector = if (expanded) Icons.Outlined.ArrowDropUp else Icons.Default.ArrowDropDown,
                     contentDescription = "Toggle dropdown",
-                    tint = MaterialTheme.colorScheme.primary,
+                    tint = colorScheme.onSurface,
                 )
             }
 
@@ -98,8 +99,8 @@ fun DropdownWithCustomInput(
                 expanded = expanded,
                 onDismissRequest = { expanded = false },
                 modifier = Modifier
-                    .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                    .border(1.dp, MaterialTheme.colorScheme.primary),
+                    .background(colorScheme.surfaceContainerHigh)
+                    .border(1.dp, colorScheme.outlineVariant.copy(alpha = 0.2f)),
             ) {
                 presets.forEach { preset ->
                     DropdownMenuItem(
@@ -123,7 +124,7 @@ fun DropdownWithCustomInput(
                                 text = "+ CUSTOM",
                                 fontFamily = JetBrainsMonoFamily,
                                 fontSize = 12.sp,
-                                color = Primary,
+                                color = colorScheme.onSurface,
                             )
                         },
                         onClick = {
@@ -224,10 +225,11 @@ private fun Chip(
     selected: Boolean,
     onClick: () -> Unit,
 ) {
+    val colorScheme = MaterialTheme.colorScheme
     Box(
         modifier = Modifier
-            .border(1.dp, if (selected) Primary else MaterialTheme.colorScheme.outline)
-            .background(if (selected) Primary else Color.Transparent)
+            .border(1.dp, if (selected) colorScheme.onSurface else colorScheme.outlineVariant.copy(alpha = 0.2f))
+            .background(if (selected) colorScheme.onSurface.copy(alpha = 0.15f) else Color.Transparent)
             .clickable(onClick = onClick)
             .padding(horizontal = 10.dp, vertical = 4.dp),
         contentAlignment = Alignment.Center,
@@ -251,6 +253,7 @@ fun CredentialTypeDropdown(
     customTypes: List<String> = emptyList(),
     onAddCustomType: (String) -> Unit = {},
 ) {
+    val colorScheme = MaterialTheme.colorScheme
     var showAddDialog by remember { mutableStateOf(false) }
     var customTypeName by remember { mutableStateOf("") }
 
@@ -283,7 +286,7 @@ fun CredentialTypeDropdown(
                 Icon(
                     imageVector = if (expanded) Icons.Outlined.ArrowDropUp else Icons.Default.ArrowDropDown,
                     contentDescription = "Toggle dropdown",
-                    tint = MaterialTheme.colorScheme.primary,
+                    tint = colorScheme.onSurface,
                 )
             }
 
@@ -291,8 +294,8 @@ fun CredentialTypeDropdown(
                 expanded = expanded,
                 onDismissRequest = { onExpandedChange(false) },
                 modifier = Modifier
-                    .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                    .border(1.dp, MaterialTheme.colorScheme.primary),
+                    .background(colorScheme.surfaceContainerHigh)
+                    .border(1.dp, colorScheme.outlineVariant.copy(alpha = 0.2f)),
             ) {
                 CredentialType.entries.forEach { type ->
                     DropdownMenuItem(
@@ -338,7 +341,7 @@ fun CredentialTypeDropdown(
                         Icon(
                             imageVector = Icons.Default.Add,
                             contentDescription = null,
-                            tint = Primary,
+                            tint = colorScheme.onSurface,
                             modifier = Modifier.size(16.dp),
                         )
                     },
@@ -347,7 +350,7 @@ fun CredentialTypeDropdown(
                             text = "ADD_TYPE",
                             fontFamily = JetBrainsMonoFamily,
                             fontSize = 12.sp,
-                            color = Primary,
+                            color = colorScheme.onSurface,
                         )
                     },
                     onClick = {
@@ -366,7 +369,7 @@ fun CredentialTypeDropdown(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                    .border(2.dp, MaterialTheme.colorScheme.primary)
+                    .border(2.dp, colorScheme.outlineVariant.copy(alpha = 0.2f))
                     .padding(24.dp),
             ) {
                 Text(
@@ -374,7 +377,7 @@ fun CredentialTypeDropdown(
                     fontFamily = JetBrainsMonoFamily,
                     fontWeight = FontWeight.Bold,
                     fontSize = 14.sp,
-                    color = Primary,
+                    color = colorScheme.onSurface,
                 )
                 androidx.compose.foundation.layout.Spacer(modifier = androidx.compose.ui.Modifier.height(16.dp))
                 BrutalistTextField(

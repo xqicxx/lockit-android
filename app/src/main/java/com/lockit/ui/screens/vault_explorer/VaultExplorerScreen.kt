@@ -62,10 +62,8 @@ import com.lockit.ui.components.parseCredentialFields
 import com.lockit.ui.theme.IndustrialOrange
 import com.lockit.ui.theme.JetBrainsMonoFamily
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.width
 import com.lockit.ui.components.BrutalistButton
-import com.lockit.ui.components.BrutalistTextField
 import com.lockit.ui.components.ButtonVariant
 import com.lockit.ui.theme.TacticalRed
 import com.lockit.ui.theme.Primary
@@ -270,7 +268,8 @@ fun VaultExplorerScreen(
         }
     }
 
-    Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)) {
+    val colorScheme = MaterialTheme.colorScheme
+    Column(modifier = Modifier.fillMaxSize().background(colorScheme.surface)) {
         BrutalistTopBar(
             rightContent = {
                 TopBarAddButton(onClick = onNavigateToAdd)
@@ -283,7 +282,7 @@ fun VaultExplorerScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(TacticalRed)
-                    .border(2.dp, Primary)
+                    .border(2.dp, colorScheme.outlineVariant.copy(alpha = 0.2f))
                     .padding(16.dp)
                     .clickable { showRecoveryDialog = true },
             ) {
@@ -335,7 +334,7 @@ fun VaultExplorerScreen(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .border(1.dp, Primary)
+                        .border(1.dp, colorScheme.outlineVariant.copy(alpha = 0.2f))
                         .padding(16.dp),
                 ) {
                     Column {

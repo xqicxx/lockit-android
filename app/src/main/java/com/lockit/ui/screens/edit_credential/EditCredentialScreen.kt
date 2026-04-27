@@ -35,6 +35,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lockit.LockitApp
 import com.lockit.R
+import com.lockit.domain.CodingPlanProviders
+import com.lockit.data.vault.CodingPlanPrefs
 import com.lockit.domain.model.Credential
 import com.lockit.domain.model.CredentialType
 import com.lockit.domain.model.CodingPlanFields
@@ -134,15 +136,19 @@ private fun EditCredentialForm(
         if (credential.type == CredentialType.CodingPlan) {
             val fields = parseCredentialFields(credential.value)
             // Overlay metadata values if available
-            val meta = runCatching { JSONObject(credential.metadata) }.getOrNull()
-            val cookie = meta?.optString("cookie")
-            val rawCurl = meta?.optString("rawCurl")
-            val baseUrl = meta?.optString("baseUrl")
+            val meta = credential.metadata
+            val provider = CodingPlanProviders.normalize(
+                meta["provider"] ?: credential.service.takeIf { it.isNotBlank() } ?: credential.name
+            )
+            val cookie = meta["cookie"] ?: meta["accountId"] ?: meta["orgId"]
+            val rawCurl = meta["rawCurl"]
+            val baseUrl = meta["baseUrl"]
+            val authValue = meta["apiKey"] ?: meta["accessToken"] ?: meta["sessionKey"]
 
             mutableStateListOf(
-                credential.name,                                           // PROVIDER
+                provider,                                                   // PROVIDER
                 if (rawCurl?.isNotBlank() == true) rawCurl else fields.getOrElse(CodingPlanFields.RAW_CURL) { "" },  // RAW_CURL
-                fields.getOrElse(CodingPlanFields.API_KEY) { "" },        // API_KEY
+                authValue?.takeIf { it.isNotBlank() } ?: fields.getOrElse(CodingPlanFields.API_KEY) { "" },        // API_KEY
                 if (cookie?.isNotBlank() == true) cookie else fields.getOrElse(CodingPlanFields.COOKIE) { "" },     // COOKIE
                 if (baseUrl?.isNotBlank() == true) baseUrl else fields.getOrElse(CodingPlanFields.BASE_URL) { "" }, // BASE_URL
             )
@@ -173,6 +179,7 @@ private fun EditCredentialForm(
     var nameWarning by remember { mutableStateOf<String?>(null) }
 
     var authCredentialStatus by remember { mutableStateOf<String?>(null) }
+    var authExtraData by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
 
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
@@ -198,14 +205,14 @@ private fun EditCredentialForm(
                 }
 
                 // Set provider field based on returned provider
-                val provider = dataMap["provider"] ?: ""
+                val provider = CodingPlanProviders.normalize(dataMap["provider"])
                 if (provider.isNotBlank()) {
                     fieldValues[CodingPlanFields.PROVIDER] = provider
                 }
 
                 // Fill in credentials based on provider
                 when (provider) {
-                    "qwen", "qwen_bailian" -> {
+                    CodingPlanProviders.QWEN_BAILIAN -> {
                         fieldValues[CodingPlanFields.RAW_CURL] = dataMap["rawCurl"] ?: ""
                         fieldValues[CodingPlanFields.API_KEY] = dataMap["apiKey"] ?: ""
                         fieldValues[CodingPlanFields.COOKIE] = dataMap["cookie"] ?: ""
@@ -213,14 +220,18 @@ private fun EditCredentialForm(
                         android.util.Log.d("EditCredential", "Bailian: apiKey=${if (dataMap["apiKey"]?.isNotBlank() == true) "OK" else "EMPTY"}")
                         android.util.Log.d("EditCredential", "fieldValues after fill: provider=${fieldValues[CodingPlanFields.PROVIDER]}")
                     }
-                    "openai", "chatgpt" -> {
+                    CodingPlanProviders.CHATGPT -> {
                         fieldValues[CodingPlanFields.API_KEY] = dataMap["apiKey"] ?: ""
+                        fieldValues[CodingPlanFields.COOKIE] = dataMap["accountId"] ?: ""
                         fieldValues[CodingPlanFields.BASE_URL] = dataMap["baseUrl"] ?: ""
+                        authExtraData = dataMap
                         android.util.Log.d("EditCredential", "ChatGPT: apiKey=${if (dataMap["apiKey"]?.isNotBlank() == true) "OK" else "EMPTY"}")
                     }
-                    "anthropic", "claude" -> {
+                    CodingPlanProviders.CLAUDE -> {
                         fieldValues[CodingPlanFields.API_KEY] = dataMap["apiKey"] ?: ""
+                        fieldValues[CodingPlanFields.COOKIE] = dataMap["orgId"] ?: ""
                         fieldValues[CodingPlanFields.BASE_URL] = dataMap["baseUrl"] ?: ""
+                        authExtraData = dataMap
                         android.util.Log.d("EditCredential", "Claude: apiKey=${if (dataMap["apiKey"]?.isNotBlank() == true) "OK" else "EMPTY"}")
                     }
                 }
@@ -489,33 +500,62 @@ private fun EditCredentialForm(
                                     name = finalName,
                                     type = selectedType,
                                     service = if (selectedType == CredentialType.CodingPlan) {
-                                        getField(0).takeIf { it.isNotBlank() } ?: selectedType.displayName
+                                        CodingPlanProviders.normalize(getField(0))
                                     } else {
                                         getField(1)
                                     },
                                     key = if (selectedType == CredentialType.CodingPlan) {
-                                        ""
+                                        getField(CodingPlanFields.API_KEY)
                                     } else {
                                         getField(2)
                                     },
                                     value = fieldValues.joinToString(" // ") { it.ifBlank { "-" } },
                                     metadata = if (selectedType == CredentialType.CodingPlan) {
-                                        val cookie = getField(3).takeIf { it.isNotBlank() }
-                                            ?: extractCookieFromCurl(getField(1))
-                                        val rawProvider = getField(0)
-                                        // Normalize provider key for fetcher registry
-                                        val provider = when (rawProvider) {
-                                            "qwen" -> "qwen_bailian"
-                                            "anthropic" -> "claude"
-                                            "openai" -> "chatgpt"
-                                            else -> rawProvider
+                                        val provider = CodingPlanProviders.normalize(getField(CodingPlanFields.PROVIDER))
+                                        val rawCurl = getField(CodingPlanFields.RAW_CURL)
+                                        val authValue = getField(CodingPlanFields.API_KEY)
+                                        val auxiliaryValue = getField(CodingPlanFields.COOKIE).takeIf { it.isNotBlank() }
+                                            ?: extractCookieFromCurl(rawCurl)
+                                        val baseUrl = getField(CodingPlanFields.BASE_URL)
+
+                                        val prefsData = when (provider) {
+                                            CodingPlanProviders.QWEN_BAILIAN -> mapOf(
+                                                "cookie" to (auxiliaryValue ?: ""),
+                                                "api_key" to authValue,
+                                            )
+                                            CodingPlanProviders.CHATGPT -> mapOf(
+                                                "accessToken" to authValue,
+                                                "accountId" to (auxiliaryValue ?: authExtraData["accountId"] ?: ""),
+                                            )
+                                            CodingPlanProviders.CLAUDE -> mapOf(
+                                                "sessionKey" to authValue,
+                                                "orgId" to (auxiliaryValue ?: authExtraData["orgId"] ?: ""),
+                                            )
+                                            else -> mapOf("api_key" to authValue)
                                         }
+                                        CodingPlanPrefs.saveProviderData(app, provider, prefsData)
+
                                         JSONObject().apply {
                                             put("provider", provider)
-                                            put("rawCurl", getField(1))
-                                            put("apiKey", getField(2))
-                                            put("cookie", cookie)
-                                            put("baseUrl", getField(4))
+                                            put("baseUrl", baseUrl)
+                                            when (provider) {
+                                                CodingPlanProviders.QWEN_BAILIAN -> {
+                                                    put("rawCurl", rawCurl)
+                                                    put("apiKey", authValue)
+                                                    put("cookie", auxiliaryValue ?: "")
+                                                }
+                                                CodingPlanProviders.CHATGPT -> {
+                                                    put("accessToken", authValue)
+                                                    put("accountId", auxiliaryValue ?: authExtraData["accountId"] ?: "")
+                                                }
+                                                CodingPlanProviders.CLAUDE -> {
+                                                    put("sessionKey", authValue)
+                                                    put("orgId", auxiliaryValue ?: authExtraData["orgId"] ?: "")
+                                                }
+                                                else -> {
+                                                    put("apiKey", authValue)
+                                                }
+                                            }
                                         }.toString()
                                     } else {
                                         null

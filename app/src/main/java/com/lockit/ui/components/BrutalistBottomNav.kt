@@ -3,7 +3,6 @@ package com.lockit.ui.components
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -30,7 +29,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lockit.R
-import com.lockit.ui.theme.DarkSurface
 import com.lockit.ui.theme.JetBrainsMonoFamily
 import com.lockit.ui.theme.Primary
 import com.lockit.ui.theme.White
@@ -49,15 +47,13 @@ fun BrutalistBottomNav(
     modifier: Modifier = Modifier,
 ) {
     val colorScheme = MaterialTheme.colorScheme
-    // Explicitly use theme-aware background colors
-    // Light mode: White background with black border
-    // Dark mode: DarkSurface background with white border
-    val isDarkTheme = isSystemInDarkTheme()
-    val backgroundColor = if (isDarkTheme) DarkSurface else White
-    val borderColor = colorScheme.primary
-    val selectedBgColor = colorScheme.primary
-    val selectedContentColor = colorScheme.onPrimary
-    val unselectedContentColor = colorScheme.onSurfaceVariant
+    val isLight = colorScheme.background.red > 0.5f // Detect light theme from background brightness
+
+    val backgroundColor = if (isLight) White else colorScheme.background
+    val borderColor = colorScheme.onSurface
+    val selectedBgColor = colorScheme.onSurface
+    val selectedContentColor = colorScheme.surface
+    val unselectedContentColor = colorScheme.onSurface.copy(alpha = 0.6f)
 
     Row(
         modifier = modifier
@@ -103,7 +99,7 @@ fun BrutalistBottomNav(
                     modifier = Modifier
                         .width(1.dp)
                         .fillMaxHeight()
-                        .background(borderColor),
+                        .background(colorScheme.outlineVariant.copy(alpha = 0.2f)),
                 )
             }
         }
