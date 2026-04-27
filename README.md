@@ -81,6 +81,12 @@ Open in Android Studio: `File → Open → select lockit-android/`
 ./gradlew assembleDebug
 ```
 
+Release build:
+
+```bash
+./gradlew assembleRelease
+```
+
 ### 3. Install
 
 ```bash
@@ -88,6 +94,19 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 ```
 
 Or use Android Studio's Run button.
+
+### 4. Verify Release Parity
+
+Before uploading a release APK, verify the local artifact and compare its signer with an existing GitHub release:
+
+```bash
+./scripts/verify-release-parity.sh app/build/outputs/apk/release/app-release.apk v0.4.0
+```
+
+The script prints:
+- local APK SHA-256
+- release signer certificate SHA-256
+- optional GitHub release APK SHA-256 and signer comparison
 
 ## Project Structure
 

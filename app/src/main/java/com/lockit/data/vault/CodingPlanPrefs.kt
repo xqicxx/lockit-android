@@ -197,6 +197,13 @@ object CodingPlanPrefs {
             .apply()
     }
 
+    private fun JSONObject.optInstantOrNull(key: String): Instant? {
+        val raw = optString(key)
+        return raw
+            .takeIf { it.isNotBlank() && it != "null" }
+            ?.let { Instant.parse(it) }
+    }
+
     private fun quotaToJson(quota: CodingPlanQuota): String {
         return JSONObject().apply {
             put("sessionUsed", quota.sessionUsed)
@@ -249,8 +256,7 @@ object CodingPlanPrefs {
                         usedPercent = mq.optDouble("usedPercent", 0.0),
                         weekUsed = mq.optInt("weekUsed", 0),
                         weekTotal = mq.optInt("weekTotal", 0),
-                        resetsAt = mq.optString("resetsAt", null)?.takeIf { it.isNotBlank() }
-                            ?.let { Instant.parse(it) }
+                        resetsAt = mq.optInstantOrNull("resetsAt")
                     )
                 }
             }
@@ -276,12 +282,9 @@ object CodingPlanPrefs {
                 autoRenewFlag = obj.optBoolean("autoRenewFlag", false),
                 accountEmail = obj.optString("accountEmail", ""),
                 loginMethod = obj.optString("loginMethod", ""),
-                sessionResetsAt = obj.optString("sessionResetsAt", null)?.takeIf { it.isNotBlank() }
-                    ?.let { Instant.parse(it) },
-                weekResetsAt = obj.optString("weekResetsAt", null)?.takeIf { it.isNotBlank() }
-                    ?.let { Instant.parse(it) },
-                monthResetsAt = obj.optString("monthResetsAt", null)?.takeIf { it.isNotBlank() }
-                    ?.let { Instant.parse(it) },
+                sessionResetsAt = obj.optInstantOrNull("sessionResetsAt"),
+                weekResetsAt = obj.optInstantOrNull("weekResetsAt"),
+                monthResetsAt = obj.optInstantOrNull("monthResetsAt"),
                 modelQuotas = modelQuotas
             )
         } catch (e: Exception) {
