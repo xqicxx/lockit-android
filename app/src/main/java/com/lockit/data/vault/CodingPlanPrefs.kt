@@ -33,7 +33,16 @@ object CodingPlanPrefs {
     private const val KEY_QUOTA_CACHE_PROVIDER = "quota_cache_provider"
     private const val KEY_VAULT_UNLOCKED = "vault_unlocked"
 
-    private val PROVIDER_FIELDS = listOf("cookie", "api_key", "accessToken", "accountId", "sessionKey", "orgId")
+    private val PROVIDER_FIELDS = listOf(
+        "cookie",
+        "api_key",
+        "accessToken",
+        "accountId",
+        "sessionKey",
+        "orgId",
+        "accountEmail",
+        "loginMethod",
+    )
 
     // Cached instances (memoization for performance)
     @Volatile

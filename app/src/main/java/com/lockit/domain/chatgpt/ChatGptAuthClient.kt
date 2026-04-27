@@ -44,12 +44,16 @@ object ChatGptAuthClient {
                 val json = JSONObject(response)
                 val accessToken = json.optString("accessToken", "")
                 val accountId = fetchAccountId(accessToken).ifBlank { extractAccountId(json) }
+                val accountEmail = extractAccountEmail(json)
+                val loginMethod = extractLoginMethod(json)
 
                 if (accessToken.isNotBlank()) {
                     mapOf(
                         "provider" to "chatgpt",
                         "accessToken" to accessToken,
                         "accountId" to accountId,
+                        "accountEmail" to accountEmail,
+                        "loginMethod" to loginMethod,
                         "baseUrl" to "https://chatgpt.com/backend-api/wham/usage",
                         "apiKey" to accessToken  // For API_KEY field compatibility
                     )
@@ -96,6 +100,20 @@ object ChatGptAuthClient {
 
         return json.optString("account_id")
             .ifBlank { json.optString("accountId") }
+    }
+
+    private fun extractAccountEmail(json: JSONObject): String {
+        val user = json.optJSONObject("user")
+        return user?.optString("email").orEmpty()
+            .ifBlank { json.optString("email") }
+    }
+
+    private fun extractLoginMethod(json: JSONObject): String {
+        val user = json.optJSONObject("user")
+        return user?.optString("auth_provider").orEmpty()
+            .ifBlank { user?.optString("login_method").orEmpty() }
+            .ifBlank { json.optString("authProvider") }
+            .ifBlank { json.optString("loginMethod") }
     }
 
     private fun fetchAccountId(accessToken: String): String {
