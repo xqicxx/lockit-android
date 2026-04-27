@@ -350,7 +350,7 @@ fun CredentialTypeDropdown(
                             text = "ADD_TYPE",
                             fontFamily = JetBrainsMonoFamily,
                             fontSize = 12.sp,
-                            color = Primary,
+                            color = colorScheme.onSurface,
                         )
                     },
                     onClick = {
@@ -377,7 +377,7 @@ fun CredentialTypeDropdown(
                     fontFamily = JetBrainsMonoFamily,
                     fontWeight = FontWeight.Bold,
                     fontSize = 14.sp,
-                    color = Primary,
+                    color = colorScheme.onSurface,
                 )
                 androidx.compose.foundation.layout.Spacer(modifier = androidx.compose.ui.Modifier.height(16.dp))
                 BrutalistTextField(
