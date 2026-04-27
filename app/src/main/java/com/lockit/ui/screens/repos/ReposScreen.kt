@@ -1104,7 +1104,7 @@ private fun CodingPlanBoard(
 ) {
     val colorScheme = MaterialTheme.colorScheme
     val borderColor = colorScheme.outline
-    val showUsageNumbers = selectedProvider != CodingPlanProviders.CHATGPT
+    val normalizedProvider = CodingPlanProviders.normalize(selectedProvider)
 
     Column(
         modifier = Modifier
@@ -1166,102 +1166,10 @@ private fun CodingPlanBoard(
         Spacer(modifier = Modifier.height(8.dp))
 
         if (quota != null) {
-            val infoItems = buildList {
-                add(stringResource(R.string.repos_quota_plan) to quota.tier.ifBlank { quota.planName.ifBlank { "--" } })
-                add(stringResource(R.string.repos_quota_account) to quota.accountEmail.ifBlank { "--" })
-                add(stringResource(R.string.repos_quota_remaining_label) to quota.remainingDays.takeIf { it > 0 }?.let {
-                    stringResource(R.string.repos_quota_days_value, it)
-                }.orEmpty().ifBlank { "--" })
-                add(stringResource(R.string.repos_quota_status_label) to quota.status.ifBlank { "--" })
-                add(stringResource(R.string.repos_quota_login_method) to quota.loginMethod.ifBlank { "--" })
-                add(stringResource(R.string.repos_quota_renew_label) to when {
-                    quota.autoRenewFlag -> stringResource(R.string.repos_quota_auto_renew)
-                    quota.chargeType.isNotBlank() -> stringResource(R.string.repos_quota_manual_renew)
-                    else -> "--"
-                })
-            }
-            val gaugeSpecs = buildList {
-                add(QuotaGaugeSpec(stringResource(R.string.quota_5h), quota.sessionUsed, quota.sessionTotal, quota.sessionResetsAt))
-                add(QuotaGaugeSpec(stringResource(R.string.quota_week), quota.weekUsed, quota.weekTotal, quota.weekResetsAt))
-                if (quota.monthTotal > 0 || quota.monthUsed > 0 || quota.monthResetsAt != null || selectedProvider != CodingPlanProviders.CHATGPT) {
-                    add(QuotaGaugeSpec(stringResource(R.string.quota_month), quota.monthUsed, quota.monthTotal, quota.monthResetsAt))
-                }
-            }
-
-            Column(modifier = Modifier.fillMaxWidth()) {
-                infoItems.chunked(2).forEachIndexed { index, rowItems ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        rowItems.forEach { (label, value) ->
-                            QuotaInfoCell(
-                                label = label,
-                                value = value,
-                                modifier = Modifier.weight(1f),
-                            )
-                        }
-                        if (rowItems.size == 1) {
-                            Spacer(modifier = Modifier.weight(1f))
-                        }
-                    }
-                    if (index != infoItems.chunked(2).lastIndex) {
-                        Spacer(modifier = Modifier.height(6.dp))
-                    }
-                }
-                Spacer(modifier = Modifier.height(6.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    if (quota.planName.isNotBlank()) {
-                        StatusChip(
-                            text = quota.planName.uppercase(),
-                            color = IndustrialOrange,
-                        )
-                    }
-                    if (quota.tier.isNotBlank()) {
-                        StatusChip(
-                            text = quota.tier.uppercase(),
-                            color = IndustrialOrange,
-                        )
-                    }
-                    if (quota.autoRenewFlag) {
-                        StatusChip(
-                            text = stringResource(R.string.repos_quota_auto_renew),
-                            color = IndustrialOrange,
-                        )
-                    }
-                    if (quota.status.isNotBlank()) {
-                        val isActive = quota.status.equals("VALID", ignoreCase = true) ||
-                            quota.status.equals("ACTIVE", ignoreCase = true)
-                        StatusChip(
-                            text = quota.status.uppercase(),
-                            color = if (isActive) IndustrialOrange else TacticalRed,
-                            filled = isActive,
-                        )
-                    }
-                }
-            }
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Separator
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(1.dp)
-                    .background(colorScheme.surfaceContainerHighest),
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                gaugeSpecs.forEach { spec ->
-                    QuotaGauge(
-                        label = spec.label,
-                        used = spec.used,
-                        total = spec.total,
-                        resetAt = spec.resetAt,
-                        showUsageNumbers = showUsageNumbers,
-                        modifier = Modifier.weight(1f),
-                    )
-                }
+            when (normalizedProvider) {
+                CodingPlanProviders.CHATGPT -> ChatGptCodingPlanContent(quota)
+                CodingPlanProviders.QWEN_BAILIAN -> QwenCodingPlanContent(quota)
+                else -> GenericCodingPlanContent(quota)
             }
         } else {
             // Error or empty state
@@ -1298,12 +1206,140 @@ private fun CodingPlanBoard(
     }
 }
 
-private data class QuotaGaugeSpec(
-    val label: String,
-    val used: Int,
-    val total: Int,
-    val resetAt: Instant?,
-)
+@Composable
+private fun ChatGptCodingPlanContent(quota: CodingPlanQuota) {
+    val tier = quota.tier.ifBlank { quota.instanceType.ifBlank { "--" } }
+    val planName = quota.planName.ifBlank { "ChatGPT" }
+    val remainingDays = quota.remainingDays.takeIf { it > 0 }?.let {
+        stringResource(R.string.repos_quota_days_value, it)
+    } ?: "--"
+    val renewText = when {
+        quota.autoRenewFlag -> stringResource(R.string.repos_quota_auto_renew)
+        quota.chargeType.equals("subscription", ignoreCase = true) -> stringResource(R.string.repos_quota_manual_renew)
+        quota.chargeType.isNotBlank() -> quota.chargeType.uppercase()
+        else -> "--"
+    }
+
+    InfoGrid(
+        items = listOf(
+            stringResource(R.string.repos_quota_plan) to tier,
+            stringResource(R.string.repos_quota_account) to quota.accountEmail.ifBlank { "--" },
+            stringResource(R.string.repos_quota_remaining_label) to remainingDays,
+            stringResource(R.string.repos_quota_login_method) to quota.loginMethod.ifBlank { "--" },
+            stringResource(R.string.repos_quota_status_label) to quota.status.ifBlank { "--" },
+            stringResource(R.string.repos_quota_renew_label) to renewText,
+        )
+    )
+    Spacer(modifier = Modifier.height(6.dp))
+    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        StatusChip(text = planName.uppercase(), color = IndustrialOrange)
+        if (tier != "--") {
+            StatusChip(text = tier.uppercase(), color = IndustrialOrange)
+        }
+    }
+    BoardDivider()
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+        QuotaGauge(
+            label = stringResource(R.string.quota_5h),
+            used = quota.sessionUsed,
+            total = quota.sessionTotal,
+            resetAt = quota.sessionResetsAt,
+            showUsageNumbers = false,
+            showReset = true,
+            modifier = Modifier.weight(1f),
+        )
+        QuotaGauge(
+            label = stringResource(R.string.quota_week),
+            used = quota.weekUsed,
+            total = quota.weekTotal,
+            resetAt = quota.weekResetsAt,
+            showUsageNumbers = false,
+            showReset = true,
+            modifier = Modifier.weight(1f),
+        )
+    }
+}
+
+@Composable
+private fun QwenCodingPlanContent(quota: CodingPlanQuota) {
+    InfoGrid(
+        items = listOf(
+            stringResource(R.string.repos_quota_plan) to quota.planName.ifBlank { "--" },
+            stringResource(R.string.repos_quota_remaining_label) to quota.remainingDays.takeIf { it > 0 }?.let {
+                stringResource(R.string.repos_quota_days_value, it)
+            }.orEmpty().ifBlank { "--" },
+            stringResource(R.string.repos_quota_cost_label) to if (quota.chargeAmount > 0.0) "¥${quota.chargeAmount}" else "--",
+            stringResource(R.string.repos_quota_status_label) to quota.status.ifBlank { "--" },
+        )
+    )
+    Spacer(modifier = Modifier.height(6.dp))
+    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        if (quota.autoRenewFlag) {
+            StatusChip(text = stringResource(R.string.repos_quota_auto_renew), color = IndustrialOrange)
+        }
+        if (quota.chargeType.isNotBlank()) {
+            StatusChip(text = quota.chargeType.uppercase(), color = IndustrialOrange)
+        }
+        if (quota.status.isNotBlank()) {
+            val isActive = quota.status.equals("VALID", ignoreCase = true) ||
+                quota.status.equals("ACTIVE", ignoreCase = true)
+            StatusChip(
+                text = quota.status.uppercase(),
+                color = if (isActive) IndustrialOrange else TacticalRed,
+                filled = isActive,
+            )
+        }
+    }
+    BoardDivider()
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+        QuotaGauge(stringResource(R.string.quota_5h), quota.sessionUsed, quota.sessionTotal, null, true, false, Modifier.weight(1f))
+        QuotaGauge(stringResource(R.string.quota_week), quota.weekUsed, quota.weekTotal, null, true, false, Modifier.weight(1f))
+        QuotaGauge(stringResource(R.string.quota_month), quota.monthUsed, quota.monthTotal, null, true, false, Modifier.weight(1f))
+    }
+}
+
+@Composable
+private fun GenericCodingPlanContent(quota: CodingPlanQuota) {
+    InfoGrid(
+        items = listOf(
+            stringResource(R.string.repos_quota_plan) to quota.tier.ifBlank { quota.planName.ifBlank { "--" } },
+            stringResource(R.string.repos_quota_account) to quota.accountEmail.ifBlank { "--" },
+            stringResource(R.string.repos_quota_remaining_label) to quota.remainingDays.takeIf { it > 0 }?.let {
+                stringResource(R.string.repos_quota_days_value, it)
+            }.orEmpty().ifBlank { "--" },
+            stringResource(R.string.repos_quota_status_label) to quota.status.ifBlank { "--" },
+        )
+    )
+    BoardDivider()
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+        QuotaGauge(stringResource(R.string.quota_5h), quota.sessionUsed, quota.sessionTotal, quota.sessionResetsAt, true, true, Modifier.weight(1f))
+        QuotaGauge(stringResource(R.string.quota_week), quota.weekUsed, quota.weekTotal, quota.weekResetsAt, true, true, Modifier.weight(1f))
+        QuotaGauge(stringResource(R.string.quota_month), quota.monthUsed, quota.monthTotal, quota.monthResetsAt, true, true, Modifier.weight(1f))
+    }
+}
+
+@Composable
+private fun InfoGrid(items: List<Pair<String, String>>) {
+    val rows = items.chunked(2)
+    Column(modifier = Modifier.fillMaxWidth()) {
+        rows.forEachIndexed { index, rowItems ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                rowItems.forEach { (label, value) ->
+                    QuotaInfoCell(label = label, value = value, modifier = Modifier.weight(1f))
+                }
+                if (rowItems.size == 1) {
+                    Spacer(modifier = Modifier.weight(1f))
+                }
+            }
+            if (index != rows.lastIndex) {
+                Spacer(modifier = Modifier.height(6.dp))
+            }
+        }
+    }
+}
 
 @Composable
 private fun QuotaInfoCell(label: String, value: String, modifier: Modifier = Modifier) {
@@ -1326,6 +1362,18 @@ private fun QuotaInfoCell(label: String, value: String, modifier: Modifier = Mod
             overflow = TextOverflow.Ellipsis,
         )
     }
+}
+
+@Composable
+private fun BoardDivider() {
+    Spacer(modifier = Modifier.height(8.dp))
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(1.dp)
+            .background(MaterialTheme.colorScheme.surfaceContainerHighest),
+    )
+    Spacer(modifier = Modifier.height(8.dp))
 }
 
 @Composable
@@ -1362,6 +1410,7 @@ private fun QuotaGauge(
     total: Int,
     resetAt: Instant?,
     showUsageNumbers: Boolean,
+    showReset: Boolean,
     modifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier) {
@@ -1419,14 +1468,16 @@ private fun QuotaGauge(
             maxLines = 1,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        Spacer(modifier = Modifier.height(2.dp))
-        Text(
-            text = stringResource(R.string.repos_quota_reset_at, formatResetTime(resetAt)),
-            fontFamily = JetBrainsMonoFamily,
-            fontSize = 8.sp,
-            maxLines = 1,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        if (showReset) {
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text = stringResource(R.string.repos_quota_reset_at, formatResetTime(resetAt)),
+                fontFamily = JetBrainsMonoFamily,
+                fontSize = 8.sp,
+                maxLines = 1,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
     }
 }
 
