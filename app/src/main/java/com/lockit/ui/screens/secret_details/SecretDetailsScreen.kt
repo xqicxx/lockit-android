@@ -824,14 +824,14 @@ private fun AuditLogSection(app: LockitApp, credential: Credential) {
                     fontFamily = JetBrainsMonoFamily,
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Bold,
-                    color = White,
+                    color = colorScheme.surface,
                     letterSpacing = 2.sp,
                 )
                 Text(
                     text = "${logs.size} events",
                     fontFamily = JetBrainsMonoFamily,
                     fontSize = 10.sp,
-                    color = White.copy(0.7f),
+                    color = colorScheme.surface.copy(alpha = 0.7f),
                 )
             }
 

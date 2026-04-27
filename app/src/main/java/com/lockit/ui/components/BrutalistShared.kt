@@ -206,7 +206,7 @@ fun BrutalistToast(
                 text = "TAP",
                 fontFamily = JetBrainsMonoFamily,
                 fontSize = 10.sp,
-                color = White,
+                color = colorScheme.onSurface,
                 fontWeight = FontWeight.Bold,
             )
         }
