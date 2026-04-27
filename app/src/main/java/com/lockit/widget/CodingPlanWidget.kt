@@ -64,11 +64,12 @@ class CodingPlanWidget : GlanceAppWidget() {
  * Widget runs in a separate process and cannot access Room database or LockitApp DI.
  */
 private fun loadWidgetData(context: Context): Pair<String, CodingPlanQuota?> {
-    // Check if vault is unlocked via a simple flag in prefs
-    val cacheTimestamp = CodingPlanPrefs.getCacheTimestamp(context)
-    val hasCache = cacheTimestamp > 0
+    if (!CodingPlanPrefs.isVaultUnlocked(context)) {
+        return WidgetStatus.LOCKED to null
+    }
 
-    if (!hasCache) {
+    val cacheTimestamp = CodingPlanPrefs.getCacheTimestamp(context)
+    if (cacheTimestamp == 0L) {
         return WidgetStatus.NO_CACHE to null
     }
 
