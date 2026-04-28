@@ -53,13 +53,16 @@ import com.lockit.LockitApp
 import com.lockit.R
 import com.lockit.data.database.LockitDatabase
 import com.lockit.data.biometric.BiometricPinStorage
+import com.lockit.data.sync.BackupMeta
 import com.lockit.data.sync.GoogleDriveBackend
 import com.lockit.data.sync.SharedPrefsSyncStateStore
 import com.lockit.data.sync.SqliteVaultFileProvider
 import com.lockit.data.sync.SyncConflictException
 import com.lockit.data.sync.SyncCrypto
 import com.lockit.data.sync.SyncKeyManager
+import com.lockit.data.sync.SyncOutcome
 import com.lockit.data.sync.SyncStatus
+import com.lockit.data.sync.VaultBackupManager
 import com.lockit.data.sync.VaultSyncEngine
 import com.lockit.data.sync.WebDavBackend
 import com.lockit.data.updater.AppUpdater
@@ -198,20 +201,46 @@ fun ConfigScreen(
         webDavConfigured = webDavBackend.isConfigured()
     }
 
-    // Google Sign-In launcher
+    // Google Sign-In + Drive scope permission launcher
+    val driveScope = remember { com.google.android.gms.common.api.Scope(com.google.api.services.drive.DriveScopes.DRIVE_APPDATA) }
+
+    val doConfigureDrive: () -> Unit = {
+        scope.launch {
+            val cfgResult = googleDriveBackend.configure(emptyMap())
+            if (cfgResult.isSuccess) {
+                toastMessage = "GOOGLE_SIGNED_IN: ${signedInAccount?.email}"
+                googleSyncStatus = googleSyncEngine.getSyncStatus()
+            } else {
+                toastMessage = "DRIVE_INIT_FAILED: ${cfgResult.exceptionOrNull()?.message}"
+                googleDriveBackend.signOut()
+                signedInAccount = null
+            }
+        }
+    }
+
     val signInLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult(),
     ) { result ->
         val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
-        if (task.isSuccessful) {
-            signedInAccount = task.result
-            toastMessage = "GOOGLE_SIGNED_IN: ${task.result?.email}"
-            // Configure GoogleDriveBackend after sign-in
-            scope.launch {
-                googleDriveBackend.configure(emptyMap())
+        if (task.isSuccessful && task.result != null) {
+            val account = task.result!!
+            signedInAccount = account
+            if (GoogleSignIn.hasPermissions(account, driveScope)) {
+                doConfigureDrive()
+            } else {
+                GoogleSignIn.requestPermissions(
+                    getActivity()!!, 9001, account, driveScope,
+                )
             }
         } else {
-            toastMessage = "GOOGLE_SIGN_IN_FAILED: ${task.exception?.message}"
+            val ex = task.exception
+            if (ex is com.google.android.gms.common.api.ApiException && ex.statusCode == 9001) {
+                toastMessage = "DRIVE_PERMISSION_DENIED"
+                googleDriveBackend.signOut()
+                signedInAccount = null
+            } else {
+                toastMessage = "GOOGLE_SIGN_IN_FAILED: ${ex?.message}"
+            }
         }
     }
 
@@ -673,6 +702,44 @@ fun ConfigScreen(
                             )
                         } else {
                             val canSync = googleSyncEngine.hasSyncKey()
+                            var syncOutcome by remember { mutableStateOf<SyncOutcome?>(null) }
+                            // SYNC button
+                            BrutalistButton(
+                                text = "SYNC",
+                                onClick = {
+                                    isSyncing = true
+                                    syncOutcome = null
+                                    scope.launch {
+                                        val result = googleSyncEngine.sync()
+                                        isSyncing = false
+                                        syncOutcome = result.getOrNull() ?: SyncOutcome.Error
+                                        googleSyncStatus = googleSyncEngine.getSyncStatus()
+                                    }
+                                },
+                                variant = ButtonVariant.Primary,
+                                modifier = Modifier.fillMaxWidth(),
+                                useMonoFont = true,
+                                enabled = !isSyncing && canSync,
+                            )
+                            syncOutcome?.let { outcome ->
+                                Text(
+                                    text = when (outcome) {
+                                        SyncOutcome.AlreadyUpToDate -> "Already up to date"
+                                        SyncOutcome.Pushed -> "Pushed to cloud"
+                                        SyncOutcome.Pulled -> "Pulled from cloud"
+                                        SyncOutcome.LocalWon -> "Conflict -> kept local"
+                                        SyncOutcome.CloudWon -> "Conflict -> kept cloud"
+                                        SyncOutcome.Error -> "Sync failed"
+                                    },
+                                    fontFamily = JetBrainsMonoFamily,
+                                    fontSize = 9.sp,
+                                    color = when (outcome) {
+                                        SyncOutcome.Error -> TacticalRed
+                                        else -> IndustrialOrange
+                                    },
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                            }
                             // Push button
                             BrutalistButton(
                                 text = stringResource(R.string.config_sync_push),
@@ -752,6 +819,74 @@ fun ConfigScreen(
                                 fontFamily = JetBrainsMonoFamily,
                                 fontSize = 9.sp,
                                 color = if (status.contains("ERROR")) TacticalRed else IndustrialOrange,
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // Backup & Restore
+                        val backupManager = remember { VaultBackupManager(context) }
+                        var showBackupList by remember { mutableStateOf(false) }
+                        var backupList by remember { mutableStateOf<List<BackupMeta>>(emptyList()) }
+                        var showRestoreConfirm by remember { mutableStateOf<BackupMeta?>(null) }
+                        val dtf = remember { java.time.format.DateTimeFormatter.ofPattern("MM-dd HH:mm").withZone(java.time.ZoneId.systemDefault()) }
+
+                        BrutalistButton(
+                            text = if (showBackupList) "HIDE BACKUPS" else "RESTORE BACKUPS",
+                            onClick = {
+                                showBackupList = !showBackupList
+                                if (showBackupList) backupList = backupManager.list()
+                            },
+                            variant = ButtonVariant.Secondary,
+                            modifier = Modifier.fillMaxWidth(),
+                            useMonoFont = true,
+                        )
+
+                        if (showBackupList) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            if (backupList.isEmpty()) {
+                                Text(
+                                    "No backups — created automatically when you edit credentials.",
+                                    fontFamily = JetBrainsMonoFamily,
+                                    fontSize = 10.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            } else {
+                                backupList.take(10).forEach { meta ->
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .border(1.dp, MaterialTheme.colorScheme.outline)
+                                            .clickable { showRestoreConfirm = meta }
+                                            .padding(8.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                    ) {
+                                        Text(dtf.format(meta.timestamp), fontFamily = JetBrainsMonoFamily, fontSize = 10.sp)
+                                        Text(
+                                            if (meta.entryCount >= 0) "${meta.entryCount} items" else "${meta.sizeBytes / 1024} KB",
+                                            fontFamily = JetBrainsMonoFamily, fontSize = 10.sp,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.height(2.dp))
+                                }
+                            }
+                        }
+
+                        showRestoreConfirm?.let { meta ->
+                            BrutalistConfirmDialog(
+                                title = "Restore Backup",
+                                message = "Restore vault to ${dtf.format(meta.timestamp)}?\n\nYour current vault will be snapshotted first.",
+                                confirmText = "RESTORE",
+                                onConfirm = {
+                                    scope.launch {
+                                        backupManager.restore(meta.id)
+                                            .onSuccess { toastMessage = "Restored to ${dtf.format(meta.timestamp)}" }
+                                            .onFailure { toastMessage = "Restore failed: ${it.message}" }
+                                        showRestoreConfirm = null
+                                    }
+                                },
+                                onDismiss = { showRestoreConfirm = null },
                             )
                         }
                     }

@@ -16,6 +16,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.ByteArrayOutputStream
 import java.text.SimpleDateFormat
+import java.time.Duration
+import java.time.Instant
 import java.util.Locale
 
 /**
@@ -27,7 +29,7 @@ import java.util.Locale
  * - lockit-sync/vault.enc  ← encrypted vault.db
  * - lockit-sync/manifest.json ← sync metadata
  */
-class GoogleDriveBackend(private val context: Context) : SyncBackend {
+class GoogleDriveBackend(private val context: Context) : SyncBackend, CloudBackupStore {
 
     override val name = "Google Drive"
 
@@ -36,6 +38,8 @@ class GoogleDriveBackend(private val context: Context) : SyncBackend {
         private const val VAULT_FILE_NAME = "vault.enc"
         private const val MANIFEST_FILE_NAME = "manifest.json"
         private const val MIME_TYPE = "application/octet-stream"
+        private const val BACKUP_FOLDER_NAME = "backups"
+        private const val BACKUP_MIME_TYPE = "application/octet-stream"
     }
 
     private var driveService: Drive? = null
@@ -44,6 +48,7 @@ class GoogleDriveBackend(private val context: Context) : SyncBackend {
     private val signInClient: GoogleSignInClient by lazy {
         val options = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
             .requestEmail()
+            .requestScopes(com.google.android.gms.common.api.Scope(DriveScopes.DRIVE_APPDATA))
             .build()
         GoogleSignIn.getClient(context, options)
     }
@@ -267,9 +272,117 @@ class GoogleDriveBackend(private val context: Context) : SyncBackend {
         signOut()
     }
 
-    /**
-     * Get last backup time from cloud manifest.
-     */
+    // --- CloudBackupStore implementation ---
+
+    override suspend fun uploadBackup(encryptedData: ByteArray, timestamp: Instant): Result<Unit> {
+        return withContext(Dispatchers.IO) {
+            try {
+                val drive = driveService ?: return@withContext Result.failure(IllegalStateException("Drive not initialized"))
+                val fid = ensureBackupFolder(drive)
+
+                val name = "vault_${SimpleDateFormat("yyyy-MM-dd_HH-mm-ss", Locale.US).format(java.util.Date.from(timestamp))}.enc"
+                val metadata = DriveFile().apply {
+                    this.name = name
+                    mimeType = BACKUP_MIME_TYPE
+                    parents = listOf(fid)
+                }
+                val content = ByteArrayContent(BACKUP_MIME_TYPE, encryptedData)
+                drive.files().create(metadata, content).setFields("id").execute()
+                Result.success(Unit)
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
+        }
+    }
+
+    override suspend fun listBackups(): Result<List<CloudBackupMeta>> {
+        return withContext(Dispatchers.IO) {
+            try {
+                val drive = driveService ?: return@withContext Result.failure(IllegalStateException("Drive not initialized"))
+                val backupFolder = findBackupFolder(drive)
+                if (backupFolder == null) return@withContext Result.success(emptyList())
+
+                val files = drive.files().list()
+                    .setSpaces("appDataFolder")
+                    .setQ("'${backupFolder.id}' in parents and name contains 'vault_'")
+                    .setFields("files(id,name,size)")
+                    .execute()
+                    .files
+
+                val sdf = SimpleDateFormat("yyyy-MM-dd_HH-mm-ss", Locale.US)
+                Result.success(files.mapNotNull { f ->
+                    val nameWithoutExt = f.name.removeSuffix(".enc")
+                    val id = nameWithoutExt
+                    val ts = try {
+                        Instant.ofEpochMilli(sdf.parse(nameWithoutExt.removePrefix("vault_"))!!.time)
+                    } catch (_: Exception) { null }
+                    if (ts != null) CloudBackupMeta(id = id, timestamp = ts, sizeBytes = f.size?.toLong() ?: 0L) else null
+                })
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
+        }
+    }
+
+    override suspend fun deleteBackup(backupId: String): Result<Unit> {
+        return withContext(Dispatchers.IO) {
+            try {
+                val drive = driveService ?: return@withContext Result.failure(IllegalStateException("Drive not initialized"))
+                val backupFolder = findBackupFolder(drive) ?: return@withContext Result.success(Unit)
+
+                val existing = drive.files().list()
+                    .setSpaces("appDataFolder")
+                    .setQ("name='${backupId}.enc' and '${backupFolder.id}' in parents")
+                    .setFields("files(id)")
+                    .execute()
+                    .files
+                    .firstOrNull()
+
+                if (existing != null) drive.files().delete(existing.id).execute()
+                Result.success(Unit)
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
+        }
+    }
+
+    override suspend fun cleanupOld(maxAge: Duration): Result<Unit> {
+        return withContext(Dispatchers.IO) {
+            listBackups().fold(
+                onSuccess = { backups ->
+                    val cutoff = Instant.now().minus(maxAge)
+                    backups.filter { it.timestamp.isBefore(cutoff) }.forEach { meta ->
+                        deleteBackup(meta.id)
+                    }
+                    Result.success(Unit)
+                },
+                onFailure = { Result.failure(it) },
+            )
+        }
+    }
+
+    private fun ensureBackupFolder(drive: Drive): String {
+        findBackupFolder(drive)?.let { return it.id }
+        val parentId = folderId
+            ?: throw IllegalStateException("Sync folder not initialized — call initDriveService first")
+
+        val backupMeta = DriveFile().apply {
+            name = BACKUP_FOLDER_NAME
+            mimeType = "application/vnd.google-apps.folder"
+            parents = listOf(parentId)
+        }
+        return drive.files().create(backupMeta).setFields("id").execute().id
+    }
+
+    private fun findBackupFolder(drive: Drive): DriveFile? {
+        val parentId = folderId ?: return null
+        return drive.files().list()
+            .setSpaces("appDataFolder")
+            .setQ("name='$BACKUP_FOLDER_NAME' and '$parentId' in parents")
+            .setFields("files(id)")
+            .execute().files.firstOrNull()
+    }
+
     suspend fun getLastBackupTime(): Result<String?> {
         return withContext(Dispatchers.IO) {
             getManifest().map { manifest ->
