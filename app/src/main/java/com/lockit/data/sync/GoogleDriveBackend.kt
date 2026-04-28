@@ -6,8 +6,10 @@ import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInAccount
 import com.google.android.gms.auth.api.signin.GoogleSignInClient
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
-import com.google.api.client.googleapis.extensions.android.gms.auth.GoogleAccountCredential
+import com.google.android.gms.auth.GoogleAuthUtil
 import com.google.api.client.http.ByteArrayContent
+import com.google.api.client.http.HttpRequestInitializer
+import com.google.api.client.http.javanet.NetHttpTransport
 import com.google.api.client.json.gson.GsonFactory
 import com.google.api.services.drive.Drive
 import com.google.api.services.drive.DriveScopes
@@ -78,14 +80,16 @@ class GoogleDriveBackend(private val context: Context) : SyncBackend, CloudBacku
     private suspend fun initDriveService(account: GoogleSignInAccount): Result<Unit> {
         return withContext(Dispatchers.IO) {
             try {
-                val credential = GoogleAccountCredential.usingOAuth2(
+                val token = GoogleAuthUtil.getToken(
                     context,
-                    listOf(DriveScopes.DRIVE_APPDATA)
-                ).apply {
-                    selectedAccount = account.account
+                    account.email!!,
+                    "oauth2:${DriveScopes.DRIVE_APPDATA}"
+                )
+                val credential = HttpRequestInitializer { request ->
+                    request.headers.authorization = "Bearer $token"
                 }
                 driveService = Drive.Builder(
-                    com.google.api.client.http.javanet.NetHttpTransport(),
+                    NetHttpTransport(),
                     GsonFactory.getDefaultInstance(),
                     credential,
                 ).setApplicationName("Lockit").build()
