@@ -5,6 +5,10 @@ import android.content.Context
 import com.lockit.data.audit.AuditLogger
 import com.lockit.data.crypto.KeyManager
 import com.lockit.data.database.LockitDatabase
+import com.lockit.data.sync.CloudBackupStore
+import com.lockit.data.sync.SyncManager
+import com.lockit.data.sync.VaultAutoSync
+import com.lockit.data.sync.VaultBackupManager
 import com.lockit.data.vault.VaultManager
 import com.lockit.utils.LocaleHelper
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -17,6 +21,13 @@ class LockitApp : Application() {
     val auditLogger: AuditLogger by lazy { AuditLogger(this) }
     val vaultManager: VaultManager by lazy {
         VaultManager(this, database.credentialDao(), keyManager, auditLogger)
+    }
+    val vaultBackupManager: VaultBackupManager by lazy { VaultBackupManager(this) }
+
+    /** Call after SyncManager is created to wire auto-sync on CRUD. */
+    fun configureAutoSync(syncManager: SyncManager, cloudBackupStore: CloudBackupStore?) {
+        val autoSync = VaultAutoSync(vaultBackupManager, syncManager, cloudBackupStore)
+        vaultManager.setOnChangeListener { autoSync.onCredentialChanged() }
     }
 
     // Shared state for vault recovery detection
