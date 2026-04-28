@@ -31,6 +31,12 @@ class VaultManager(
 
     private val crypto = LockitCrypto()
 
+    private var onChangeListener: (() -> Unit)? = null
+
+    fun setOnChangeListener(listener: (() -> Unit)?) {
+        onChangeListener = listener
+    }
+
     /**
      * Initialize a new vault with a master password.
      * Uses OWASP-recommended Argon2 parameters (64MB, 3 iterations, 4 parallelism).
@@ -277,6 +283,7 @@ class VaultManager(
         )
         dao.insert(entity)
         auditLogger.log("CREDENTIAL_CREATED", "$name - service: $service", AuditSeverity.Info)
+        onChangeListener?.invoke()
     }
 
     suspend fun updateCredential(
@@ -306,6 +313,7 @@ class VaultManager(
             updatedAt = now,
         )
         auditLogger.log("CREDENTIAL_UPDATED", "$name - value modified", AuditSeverity.Warning)
+        onChangeListener?.invoke()
     }
 
     suspend fun deleteCredential(credential: Credential) {
@@ -331,6 +339,7 @@ class VaultManager(
             }
         }
         auditLogger.log("CREDENTIAL_DELETED", "${credential.name} - permanent removal", AuditSeverity.Danger)
+        onChangeListener?.invoke()
     }
 
     /**
