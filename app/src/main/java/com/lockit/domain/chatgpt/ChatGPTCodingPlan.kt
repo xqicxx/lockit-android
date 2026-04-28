@@ -15,15 +15,19 @@ import java.time.Instant
 /**
  * ChatGPT Coding Plan quota fetcher.
  *
- * All data (plan_type, email, rate limits) comes from the single
- * /backend-api/wham/usage endpoint. The account check API is not called
- * because it always times out and the usage API already returns everything.
+ * Usage data comes from /backend-api/wham/usage. Account metadata is fetched
+ * opportunistically so the UI can show subscription/expiry details when present.
  */
 object ChatGPTCodingPlan : CodingPlanFetcher {
     override val providerKey: String = "chatgpt"
 
     private const val USAGE_API = "https://chatgpt.com/backend-api/wham/usage"
-    private val FETCH_TIMEOUT_MS = 10_000L
+    private const val FETCH_TIMEOUT_MS = 5_000L
+    internal const val ACCOUNT_INFO_TIMEOUT_MS = 1_800L
+    private const val USAGE_CONNECT_TIMEOUT_MS = 1_500
+    private const val USAGE_READ_TIMEOUT_MS = 2_500
+    private const val ACCOUNT_CONNECT_TIMEOUT_MS = 800
+    private const val ACCOUNT_READ_TIMEOUT_MS = 1_200
 
     override suspend fun fetchQuota(metadata: Map<String, String>): CodingPlanQuota? =
         withContext(Dispatchers.IO) {
@@ -33,18 +37,22 @@ object ChatGPTCodingPlan : CodingPlanFetcher {
 
             try {
                 withTimeout(FETCH_TIMEOUT_MS) {
-                    // Usage API is essential — must succeed
+                    val accountInfoDeferred = async {
+                        try {
+                            withTimeout(ACCOUNT_INFO_TIMEOUT_MS) {
+                                fetchAccountInfo(accessToken, accountId)
+                            }
+                        } catch (_: Exception) {
+                            ChatGptAccountInfo()
+                        }
+                    }
+
+                    // Usage API is essential; account enrichment is optional and already running.
                     val usageResponse = fetchUsageResponse(accessToken, accountId)
                         ?: return@withTimeout null
 
-                    // Account API is optional — try in parallel for remaining days
-                    val remainingDaysDeferred = async {
-                        try { withTimeout(8000L) { fetchRemainingDays(accessToken, accountId) } }
-                        catch (_: Exception) { 0 }
-                    }
-
-                    val remainingDays = remainingDaysDeferred.await()
-                    parseResponse(usageResponse, remainingDays)
+                    val accountInfo = accountInfoDeferred.await()
+                    parseResponse(usageResponse, metadata, accountInfo)
                 }
             } catch (e: SocketTimeoutException) {
                 android.util.Log.e("ChatGPT", "Network timeout — VPN required")
@@ -59,8 +67,8 @@ object ChatGPTCodingPlan : CodingPlanFetcher {
         val url = URL(USAGE_API)
         val conn = url.openConnection() as HttpURLConnection
         try {
-            conn.connectTimeout = 2000
-            conn.readTimeout = 3000
+            conn.connectTimeout = USAGE_CONNECT_TIMEOUT_MS
+            conn.readTimeout = USAGE_READ_TIMEOUT_MS
             conn.useCaches = false
             conn.setRequestMethod("GET")
             conn.setRequestProperty("Accept", "application/json")
@@ -74,20 +82,52 @@ object ChatGPTCodingPlan : CodingPlanFetcher {
                 return null
             }
             val body = conn.inputStream.bufferedReader().use { it.readText() }
-            android.util.Log.d("ChatGPT", "=== USAGE API ===\n$body\n=== END ===")
+            android.util.Log.d("ChatGPT", "Usage API response received (${body.length} chars)")
             return body
         } finally {
             conn.disconnect()
         }
     }
 
-    // All identity + plan fields from usage API top-level. remainingDays from optional account API.
-    private fun parseResponse(response: String, remainingDays: Int = 0): CodingPlanQuota? {
+    private data class ChatGptAccountInfo(
+        val remainingDays: Int = 0,
+        val accountEmail: String = "",
+        val loginMethod: String = "",
+        val planName: String = "",
+        val tier: String = "",
+        val status: String = "",
+        val chargeAmount: Double = 0.0,
+        val chargeType: String = "",
+        val autoRenewFlag: Boolean = false,
+    )
+
+    private fun parseResponse(
+        response: String,
+        metadata: Map<String, String>,
+        accountInfo: ChatGptAccountInfo = ChatGptAccountInfo(),
+    ): CodingPlanQuota? {
         if (response.isBlank()) return null
 
         val json = JSONObject(response)
-        val planType = json.optString("plan_type", "")
-        val email = json.optString("email", "")
+        val planType = firstNonBlank(
+            json.optString("plan_type", ""),
+            json.optString("plan", ""),
+            json.optString("subscription_plan", ""),
+            accountInfo.planName,
+            metadata["planType"],
+        )
+        val email = firstNonBlank(
+            json.optString("email", ""),
+            json.optString("account_email", ""),
+            accountInfo.accountEmail,
+            metadata["accountEmail"],
+        )
+        val loginMethod = firstNonBlank(
+            json.optString("login_method", ""),
+            json.optString("auth_provider", ""),
+            accountInfo.loginMethod,
+            metadata["loginMethod"],
+        )
 
         val rateLimit = json.optJSONObject("rate_limit")
         val primaryWindow = rateLimit?.optJSONObject("primary_window")
@@ -99,11 +139,18 @@ object ChatGPTCodingPlan : CodingPlanFetcher {
         val limitReached = rateLimit?.optBoolean("limit_reached", false) ?: false
         val spendReached = json.optJSONObject("spend_control")?.optBoolean("reached", false) ?: false
         val status = when {
+            accountInfo.status.isNotBlank() -> accountInfo.status
             limitReached -> "LIMITED"
             spendReached -> "SPEND_LIMIT"
             planType.isNotBlank() -> "ACTIVE"
             else -> ""
         }
+        val spendControl = json.optJSONObject("spend_control")
+        val creditsRemaining = firstPositiveDouble(
+            json.optDoubleOrNull("credits_remaining"),
+            json.optDoubleOrNull("credit_balance"),
+            spendControl?.optDoubleOrNull("remaining"),
+        )
 
         return CodingPlanQuota(
             sessionUsed = primaryUsed,
@@ -112,39 +159,83 @@ object ChatGPTCodingPlan : CodingPlanFetcher {
             weekTotal = secondaryTotal,
             sessionResetsAt = parseResetTime(primaryWindow),
             weekResetsAt = parseResetTime(secondaryWindow),
-            tier = planType.uppercase(),
+            tier = firstNonBlank(accountInfo.tier, planType.uppercase()),
             planName = planType,
             instanceType = planType,
             status = status,
             accountEmail = email,
-            remainingDays = remainingDays,
+            loginMethod = loginMethod,
+            remainingDays = parseRemainingDays(json, accountInfo.remainingDays),
+            creditsRemaining = creditsRemaining,
+            chargeAmount = accountInfo.chargeAmount,
+            chargeType = accountInfo.chargeType,
+            autoRenewFlag = accountInfo.autoRenewFlag,
         )
     }
 
-    // Account check for subscription expiry — longer timeouts since GFW may slow it down
-    private fun fetchRemainingDays(accessToken: String, accountId: String?): Int {
+    // Account check for subscription details — longer timeouts since GFW may slow it down.
+    private fun fetchAccountInfo(accessToken: String, accountId: String?): ChatGptAccountInfo {
         val url = URL("https://chatgpt.com/backend-api/accounts/check/v4-2023-04-27?timezone_offset_min=0")
         val conn = url.openConnection() as HttpURLConnection
         return try {
-            conn.connectTimeout = 5000
-            conn.readTimeout = 10000
+            conn.connectTimeout = ACCOUNT_CONNECT_TIMEOUT_MS
+            conn.readTimeout = ACCOUNT_READ_TIMEOUT_MS
             conn.setRequestMethod("GET")
             conn.setRequestProperty("Authorization", "Bearer $accessToken")
             conn.setRequestProperty("User-Agent", "Lockit-Android")
             if (!accountId.isNullOrBlank()) conn.setRequestProperty("ChatGPT-Account-Id", accountId)
-            if (conn.responseCode != 200) return 0
+            if (conn.responseCode != 200) return ChatGptAccountInfo()
             val json = JSONObject(conn.inputStream.bufferedReader().use { it.readText() })
             val account = resolveAccountObject(json, accountId)
-            val expiresAt = parseExpiresAt(account)
-            if (expiresAt == null) 0
-            else maxOf(0, java.time.temporal.ChronoUnit.DAYS.between(Instant.now(), expiresAt).toInt())
-        } catch (_: Exception) { 0 }
+            val planName = firstNonBlank(
+                account?.optString("subscription_plan"),
+                account?.optString("plan_type"),
+                account?.optString("plan_name"),
+                account?.optString("workspace_plan_type"),
+            )
+            ChatGptAccountInfo(
+                remainingDays = parseRemainingDays(json),
+                accountEmail = firstNonBlank(
+                    account?.optString("email"),
+                    account?.optString("account_email"),
+                    json.optString("email"),
+                ),
+                loginMethod = firstNonBlank(
+                    account?.optString("auth_provider"),
+                    account?.optString("login_method"),
+                    json.optString("login_method"),
+                ),
+                planName = planName,
+                tier = planName.uppercase(),
+                status = firstNonBlank(
+                    account?.optString("status"),
+                    account?.optString("account_status"),
+                ),
+                chargeAmount = firstPositiveDouble(
+                    account?.optDoubleOrNull("charge_amount"),
+                    account?.optDoubleOrNull("amount"),
+                    account?.optDoubleOrNull("price"),
+                ),
+                chargeType = firstNonBlank(
+                    account?.optString("charge_type"),
+                    account?.optString("billing_period"),
+                    account?.optString("renewal_interval"),
+                ),
+                autoRenewFlag = account?.optBoolean("auto_renew", false) == true ||
+                    account?.optBoolean("will_renew", false) == true,
+            )
+        } catch (_: Exception) { ChatGptAccountInfo() }
         finally { conn.disconnect() }
     }
 
     private fun resolveAccountObject(json: JSONObject, requestedAccountId: String?): JSONObject? {
         val accounts = json.optJSONObject("accounts") ?: return null
+        val requested = requestedAccountId
+            ?.takeIf { it.isNotBlank() }
+            ?.let { accounts.optJSONObject(it)?.optJSONObject("account") ?: accounts.optJSONObject(it) }
+        if (requested != null) return requested
         val def = accounts.optJSONObject("default")?.optJSONObject("account")
+            ?: accounts.optJSONObject("default")
         if (def != null) return def
         accounts.keys().forEach { key ->
             val acc = accounts.optJSONObject(key)?.optJSONObject("account") ?: accounts.optJSONObject(key)
@@ -153,9 +244,26 @@ object ChatGPTCodingPlan : CodingPlanFetcher {
         return null
     }
 
-    private fun parseExpiresAt(account: JSONObject?): Instant? {
-        if (account == null) return null
-        val raw = account.opt("subscription_expires_at") ?: account.opt("expires_at") ?: return null
+    internal fun parseRemainingDays(json: JSONObject, fallback: Int = 0): Int {
+        val direct = listOf("remainingDays", "remaining_days", "days_remaining", "subscription_remaining_days")
+            .firstNotNullOfOrNull { key ->
+                json.optIntOrNull(key)?.takeIf { it >= 0 }
+            }
+        if (direct != null) return direct
+
+        val expiresAt = parseExpiresAt(json) ?: parseExpiresAt(resolveAccountObject(json, null))
+        return expiresAt
+            ?.let { maxOf(0, java.time.temporal.ChronoUnit.DAYS.between(Instant.now(), it).toInt()) }
+            ?: fallback
+    }
+
+    private fun parseExpiresAt(obj: JSONObject?): Instant? {
+        if (obj == null) return null
+        val raw = obj.opt("subscription_expires_at")
+            ?: obj.opt("expires_at")
+            ?: obj.opt("subscription_expires")
+            ?: obj.opt("expiration_time")
+            ?: return null
         return when (raw) {
             is Number -> { val v = raw.toLong(); if (v > 1_000_000_000_000L) Instant.ofEpochMilli(v) else Instant.ofEpochSecond(v) }
             is String -> raw.toLongOrNull()?.let { if (it > 1_000_000_000_000L) Instant.ofEpochMilli(it) else Instant.ofEpochSecond(it) } ?: runCatching { Instant.parse(raw) }.getOrNull()
@@ -218,5 +326,37 @@ object ChatGPTCodingPlan : CodingPlanFetcher {
         val resetAfter = window.optLong("reset_after_seconds", 0)
         if (resetAfter > 0) return Instant.now().plusSeconds(resetAfter)
         return null
+    }
+
+    private fun JSONObject.optIntOrNull(key: String): Int? {
+        if (!has(key) || isNull(key)) return null
+        return when (val raw = opt(key)) {
+            is Number -> raw.toInt()
+            is String -> raw.toIntOrNull()
+            else -> null
+        }
+    }
+
+    private fun JSONObject.optDoubleOrNull(key: String): Double? {
+        if (!has(key) || isNull(key)) return null
+        return when (val raw = opt(key)) {
+            is Number -> raw.toDouble()
+            is String -> raw.toDoubleOrNull()
+            else -> null
+        }?.takeIf { it.isFinite() }
+    }
+
+    private fun firstNonBlank(vararg values: String?): String {
+        values.forEach { value ->
+            if (!value.isNullOrBlank() && value != "null") return value
+        }
+        return ""
+    }
+
+    private fun firstPositiveDouble(vararg values: Double?): Double {
+        values.forEach { value ->
+            if (value != null && value > 0.0) return value
+        }
+        return 0.0
     }
 }

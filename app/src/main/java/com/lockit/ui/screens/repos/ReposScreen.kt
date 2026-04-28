@@ -65,6 +65,7 @@ import com.lockit.domain.CodingPlanProviders
 import com.lockit.domain.CodingPlanQuota
 import com.lockit.domain.CodingPlanFetchers
 import com.lockit.domain.CodingPlanPrefetchState
+import com.lockit.domain.CodingPlanRefreshPolicy
 import com.lockit.data.vault.CodingPlanPrefs
 import com.lockit.domain.model.Credential
 import com.lockit.domain.model.CredentialType
@@ -89,6 +90,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -134,15 +136,10 @@ class ReposViewModel(app: LockitApp) : ViewModel() {
     private val _expandedProvider = MutableStateFlow<String?>(null)
     val expandedProvider: StateFlow<String?> = _expandedProvider.asStateFlow()
 
-    // Cache freshness threshold (5 minutes)
-    private val CACHE_FRESHNESS_MS = 5 * 60 * 1000L
-
     // Per-provider last fetch timestamp (avoids redundant refetches)
     private val lastFetchTimes = mutableMapOf<String, Long>()
 
-    var lastAutoFetchTime = 0L
     private var currentApp: LockitApp? = null
-    private var previousService: String? = null
 
     init {
         // Will be set when app is passed in
@@ -154,15 +151,21 @@ class ReposViewModel(app: LockitApp) : ViewModel() {
             .catch { _credentials.value = emptyList() }
             .onEach { _credentials.value = it }
             .launchIn(viewModelScope)
+        CodingPlanFetchers.supportedProviders().forEach { provider ->
+            combine(
+                CodingPlanPrefetchState.isLoading(provider),
+                CodingPlanPrefetchState.quota(provider),
+                CodingPlanPrefetchState.error(provider),
+                CodingPlanPrefetchState.cacheTimestamp(provider),
+            ) { isLoading, quota, error, cacheTimestamp ->
+                CodingPlanPrefetchState.Snapshot(isLoading, quota, error, cacheTimestamp)
+            }.onEach { snapshot ->
+                mergePrefetchSnapshot(provider, snapshot)
+            }.launchIn(viewModelScope)
+        }
     }
 
     fun selectService(service: String?) {
-        // Reset fetch timestamps when leaving CODING_PLAN board
-        if (previousService == "CODING_PLAN" && service != "CODING_PLAN") {
-            lastAutoFetchTime = 0L
-            lastFetchTimes.clear()
-        }
-        previousService = _selectedService.value
         _selectedService.value = service
     }
 
@@ -185,23 +188,21 @@ class ReposViewModel(app: LockitApp) : ViewModel() {
         currentApp?.vaultManager?.logCredentialCopied(name)
     }
 
-    fun fetchQuotaForProvider(provider: String, force: Boolean = false) {
+    fun refreshQuotaForProvider(provider: String, force: Boolean = false) {
         val normalizedProvider = CodingPlanProviders.normalize(provider)
         val currentState = _providerQuotas.value[normalizedProvider]
 
         // Prevent concurrent requests
         if (currentState?.isLoading == true) return
 
-        // Cache freshness check — applies even on previous failure to prevent re-fetch loops
-        if (!force) {
-            val lastFetch = lastFetchTimes[normalizedProvider] ?: 0L
-            if (System.currentTimeMillis() - lastFetch < CACHE_FRESHNESS_MS) return
-        }
+        val now = System.currentTimeMillis()
+        val lastFetch = latestKnownFetchTimestamp(normalizedProvider)
+        if (!CodingPlanRefreshPolicy.shouldFetch(lastFetch, now, force)) return
 
         val codingPlanCreds = _credentials.value.filter { it.type == CredentialType.CodingPlan }
         if (codingPlanCreds.isEmpty()) return
 
-        lastFetchTimes[normalizedProvider] = System.currentTimeMillis()
+        lastFetchTimes[normalizedProvider] = now
         updateProviderState(normalizedProvider, isLoading = true)
         CodingPlanPrefetchState.setLoading(normalizedProvider, true)
 
@@ -233,6 +234,7 @@ class ReposViewModel(app: LockitApp) : ViewModel() {
                 currentApp?.let { CodingPlanPrefs.saveQuotaCache(it, result, normalizedProvider) }
                 CodingPlanPrefetchState.setQuota(normalizedProvider, result)
                 CodingPlanPrefetchState.setError(normalizedProvider, null)
+                CodingPlanPrefetchState.setCacheTimestamp(normalizedProvider, System.currentTimeMillis())
                 updateProviderState(normalizedProvider, quota = result, error = null, isLoading = false)
             } else {
                 val isExpired = normalizedProvider == "qwen_bailian" &&
@@ -246,14 +248,12 @@ class ReposViewModel(app: LockitApp) : ViewModel() {
         }
     }
 
+    fun fetchQuotaForProvider(provider: String, force: Boolean = false) {
+        refreshQuotaForProvider(provider, force)
+    }
+
     fun fetchAllQuotas(force: Boolean = false) {
-        val providers = _credentials.value
-            .filter { it.type == CredentialType.CodingPlan }
-            .mapNotNull {
-                CodingPlanProviders.normalize(
-                    it.metadata["provider"]?.ifBlank { it.service } ?: it.service
-                ).takeIf { p -> p.isNotBlank() }
-            }.distinct()
+        val providers = codingPlanProviders()
 
         // Remove stale providers that no longer have credentials
         val current = _providerQuotas.value.toMutableMap()
@@ -268,22 +268,29 @@ class ReposViewModel(app: LockitApp) : ViewModel() {
                     provider,
                     quota = cached,
                     cacheAgeMinutes = currentApp?.let {
-                        ((System.currentTimeMillis() - CodingPlanPrefs.getCacheTimestamp(it, provider)) / 60000).toInt()
+                        CodingPlanRefreshPolicy.cacheAgeMinutes(CodingPlanPrefs.getCacheTimestamp(it, provider))
                     } ?: 0,
                 )
             }
             // Also check if MainActivity prefetch already has data
             val snapshot = CodingPlanPrefetchState.getSnapshot(provider)
             if (snapshot.quota != null) {
-                updateProviderState(provider, quota = snapshot.quota, error = snapshot.error, isLoading = snapshot.isLoading)
+                // Don't propagate snapshot.isLoading — it's about PrefetchState's own
+                // background prefetch, not the ViewModel's fetch lifecycle. Copying it
+                // would block user-initiated refresh (guard sees isLoading=true and skips).
+                updateProviderState(provider, quota = snapshot.quota, error = snapshot.error)
                 if (snapshot.cacheTimestamp > 0) {
-                    updateProviderState(provider, cacheAgeMinutes = ((System.currentTimeMillis() - snapshot.cacheTimestamp) / 60000).toInt())
+                    updateProviderState(provider, cacheAgeMinutes = CodingPlanRefreshPolicy.cacheAgeMinutes(snapshot.cacheTimestamp))
                 }
             }
         }
 
         // Fetch fresh data for all providers in parallel
-        providers.forEach { provider -> fetchQuotaForProvider(provider, force) }
+        providers.forEach { provider -> refreshQuotaForProvider(provider, force) }
+    }
+
+    fun refreshAllQuotas(force: Boolean = false) {
+        fetchAllQuotas(force)
     }
 
     private fun updateProviderState(
@@ -305,10 +312,68 @@ class ReposViewModel(app: LockitApp) : ViewModel() {
         _providerQuotas.value = current
     }
 
-    fun autoFetchIfNeeded() {
-        if (_credentials.value.any { it.type == CredentialType.CodingPlan }) {
-            fetchAllQuotas()
+    // Load cached data on screen entry — no network, instant display.
+    // Fresh data only via user-initiated REFRESH or vault-unlock prefetch.
+    fun loadCachedQuotas() {
+        val providers = codingPlanProviders()
+
+        // Remove stale providers
+        val current = _providerQuotas.value.toMutableMap()
+        current.keys.filter { it !in providers }.forEach { current.remove(it) }
+        _providerQuotas.value = current
+
+        // Load from CodingPlanPrefs cache and PrefetchState (no network)
+        providers.forEach { provider ->
+            val cached = currentApp?.let { CodingPlanPrefs.loadQuotaCache(it, provider) }
+            if (cached != null) {
+                updateProviderState(provider, quota = cached,
+                    cacheAgeMinutes = currentApp?.let {
+                        CodingPlanRefreshPolicy.cacheAgeMinutes(CodingPlanPrefs.getCacheTimestamp(it, provider))
+                    } ?: 0)
+            }
+            val snapshot = CodingPlanPrefetchState.getSnapshot(provider)
+            if (snapshot.quota != null) {
+                // Don't propagate snapshot.isLoading — same reason as fetchAllQuotas.
+                updateProviderState(provider, quota = snapshot.quota, error = snapshot.error)
+                if (snapshot.cacheTimestamp > 0)
+                    updateProviderState(provider, cacheAgeMinutes = CodingPlanRefreshPolicy.cacheAgeMinutes(snapshot.cacheTimestamp))
+            }
         }
+    }
+
+    private fun latestKnownFetchTimestamp(provider: String): Long {
+        val inMemory = lastFetchTimes[provider] ?: 0L
+        val prefetch = CodingPlanPrefetchState.getSnapshot(provider).cacheTimestamp
+        val persisted = currentApp?.let { CodingPlanPrefs.getCacheTimestamp(it, provider) } ?: 0L
+        return maxOf(inMemory, prefetch, persisted)
+    }
+
+    private fun codingPlanProviders(): List<String> {
+        return _credentials.value
+            .filter { it.type == CredentialType.CodingPlan }
+            .mapNotNull {
+                CodingPlanProviders.normalize(
+                    it.metadata["provider"]?.ifBlank { it.service } ?: it.service
+                ).takeIf { p -> p.isNotBlank() }
+            }
+            .distinct()
+    }
+
+    private fun mergePrefetchSnapshot(
+        provider: String,
+        snapshot: CodingPlanPrefetchState.Snapshot,
+    ) {
+        val normalizedProvider = CodingPlanProviders.normalize(provider)
+        if (snapshot.quota == null && snapshot.error == null && !snapshot.isLoading) return
+        val current = _providerQuotas.value.toMutableMap()
+        val existing = current[normalizedProvider] ?: ProviderQuotaState()
+        current[normalizedProvider] = existing.copy(
+            quota = snapshot.quota ?: existing.quota,
+            error = snapshot.error,
+            isLoading = snapshot.isLoading,
+            cacheAgeMinutes = CodingPlanRefreshPolicy.cacheAgeMinutes(snapshot.cacheTimestamp),
+        )
+        _providerQuotas.value = current
     }
 }
 
@@ -371,9 +436,9 @@ fun ReposScreen(
     val providerQuotas by viewModel.providerQuotas.collectAsStateWithLifecycle()
     val expandedProvider by viewModel.expandedProvider.collectAsStateWithLifecycle()
 
-    // Auto-fetch once when credentials become available
+    // Load cached/prefetched data on screen entry; this never starts a network request.
     LaunchedEffect(credentialList) {
-        viewModel.autoFetchIfNeeded()
+        viewModel.loadCachedQuotas()
     }
 
     val displayedServiceCredentials = remember(serviceCredentials, searchQuery, selectedService) {
@@ -430,6 +495,15 @@ fun ReposScreen(
             }
         } else {
             accountCredentials
+        }
+    }
+
+    val isCodingPlanBoardVisible = selectedService == null && codingPlanCredentials.isNotEmpty()
+    LaunchedEffect(isCodingPlanBoardVisible, codingPlanCredentials.size) {
+        if (!isCodingPlanBoardVisible) return@LaunchedEffect
+        while (true) {
+            delay(CodingPlanRefreshPolicy.AUTO_REFRESH_INTERVAL_MS)
+            viewModel.refreshAllQuotas(force = false)
         }
     }
 
@@ -493,7 +567,7 @@ fun ReposScreen(
                         providerQuotas = providerQuotas,
                         expandedProvider = expandedProvider,
                         onToggleExpand = { viewModel.toggleExpandProvider(it) },
-                        onRefreshAll = { viewModel.fetchAllQuotas(force = true) },
+                        onRefreshAll = { viewModel.refreshAllQuotas(force = true) },
                     )
                     Spacer(modifier = Modifier.height(16.dp))
                 }
@@ -1042,4 +1116,3 @@ internal fun CredentialCardModal(
         }
     }
 }
-

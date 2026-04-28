@@ -15,6 +15,8 @@ import com.google.api.services.drive.model.File as DriveFile
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.ByteArrayOutputStream
+import java.text.SimpleDateFormat
+import java.util.Locale
 
 /**
  * Google Drive backend for vault sync.
@@ -263,5 +265,16 @@ class GoogleDriveBackend(private val context: Context) : SyncBackend {
 
     override suspend fun disconnect() {
         signOut()
+    }
+
+    /**
+     * Get last backup time from cloud manifest.
+     */
+    suspend fun getLastBackupTime(): Result<String?> {
+        return withContext(Dispatchers.IO) {
+            getManifest().map { manifest ->
+                manifest?.updatedAt?.let { SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(it) }
+            }
+        }
     }
 }

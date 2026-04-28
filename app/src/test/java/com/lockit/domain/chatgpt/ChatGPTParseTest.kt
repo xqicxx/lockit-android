@@ -3,6 +3,7 @@ package com.lockit.domain.chatgpt
 import org.json.JSONObject
 import org.junit.Test
 import org.junit.Assert.*
+import java.time.Instant
 
 /**
  * Local parse tests for ChatGPT usage API response formats.
@@ -102,5 +103,32 @@ class ChatGPTParseTest {
         assertEquals(15, r.total)
         assertEquals(8.0 / 15.0 * 100.0, r.usedPercent, 0.01)
         println("PASS flat: $r")
+    }
+
+    @Test
+    fun `parse remaining days from direct usage response field`() {
+        val json = JSONObject("""{"remaining_days": 9}""")
+
+        val days = ChatGPTCodingPlan.parseRemainingDays(json)
+
+        assertEquals(9, days)
+    }
+
+    @Test
+    fun `parse remaining days from account expiry timestamp`() {
+        val expiresAt = Instant.now().plusSeconds(14 * 24 * 60 * 60 + 60)
+        val json = JSONObject("""{"accounts":{"default":{"account":{"subscription_expires_at":"$expiresAt"}}}}""")
+
+        val days = ChatGPTCodingPlan.parseRemainingDays(json)
+
+        assertEquals(14, days)
+    }
+
+    @Test
+    fun `account enrichment has short timeout budget`() {
+        assertTrue(
+            "Optional account enrichment must not block ChatGPT quota refresh for many seconds",
+            ChatGPTCodingPlan.ACCOUNT_INFO_TIMEOUT_MS <= 2_000L,
+        )
     }
 }

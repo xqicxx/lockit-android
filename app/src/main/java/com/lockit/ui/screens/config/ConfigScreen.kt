@@ -54,11 +54,13 @@ import com.lockit.R
 import com.lockit.data.database.LockitDatabase
 import com.lockit.data.biometric.BiometricPinStorage
 import com.lockit.data.sync.GoogleDriveBackend
-import com.lockit.data.sync.GoogleDriveSyncManager
+import com.lockit.data.sync.SharedPrefsSyncStateStore
+import com.lockit.data.sync.SqliteVaultFileProvider
 import com.lockit.data.sync.SyncConflictException
 import com.lockit.data.sync.SyncCrypto
-import com.lockit.data.sync.SyncManager
+import com.lockit.data.sync.SyncKeyManager
 import com.lockit.data.sync.SyncStatus
+import com.lockit.data.sync.VaultSyncEngine
 import com.lockit.data.sync.WebDavBackend
 import com.lockit.data.updater.AppUpdater
 import com.lockit.data.updater.GitHubRelease
@@ -160,9 +162,12 @@ fun ConfigScreen(
     android.util.Log.d("ConfigScreen", "needsRecovery state: $needsRecovery")
 
     // Google Drive sync
+    val syncPrefs = remember { context.getSharedPreferences("lockit_sync", Context.MODE_PRIVATE) }
+    val googleKeyManager = remember { SyncKeyManager(syncPrefs) }
+    val googleStateStore = remember { SharedPrefsSyncStateStore(syncPrefs) }
+    val googleVaultFile = remember { SqliteVaultFileProvider(context) }
     val googleDriveBackend = remember { GoogleDriveBackend(context) }
-    val googleSyncManager = remember { SyncManager(context, googleDriveBackend) }
-    val oldSyncManager = remember { GoogleDriveSyncManager(context) } // for sign-in intent only
+    val googleSyncEngine = remember { VaultSyncEngine(googleDriveBackend, googleKeyManager, googleStateStore, googleVaultFile) }
     var signedInAccount by remember { mutableStateOf(googleDriveBackend.getSignedInAccount()) }
     var isSyncing by remember { mutableStateOf(false) }
     var syncStatusMessage by remember { mutableStateOf<String?>(null) }
@@ -173,9 +178,12 @@ fun ConfigScreen(
     var syncKeyInput by remember { mutableStateOf("") }
     var showSyncKeyInput by remember { mutableStateOf(false) }
 
-    // WebDAV sync
+    // WebDAV sync — shares sync key and state store via same prefs
+    val webDavKeyManager = remember { SyncKeyManager(syncPrefs) }
+    val webDavStateStore = remember { SharedPrefsSyncStateStore(syncPrefs) }
+    val webDavVaultFile = remember { SqliteVaultFileProvider(context) }
     val webDavBackend = remember { WebDavBackend(context) }
-    val webDavSyncManager = remember { SyncManager(context, webDavBackend) }
+    val webDavSyncEngine = remember { VaultSyncEngine(webDavBackend, webDavKeyManager, webDavStateStore, webDavVaultFile) }
     var webDavConfigured by remember { mutableStateOf(false) }
     var webDavConfiguring by remember { mutableStateOf(false) }
     var showWebDavDialog by remember { mutableStateOf(false) }
@@ -217,11 +225,11 @@ fun ConfigScreen(
         if (signedInAccount != null && !isSyncing) {
             // Refresh sync status
             try {
-                googleSyncStatus = googleSyncManager.getSyncStatus()
+                googleSyncStatus = googleSyncEngine.getSyncStatus()
             } catch (_: Exception) { }
-            // Also load last backup time from old manager for migration display
+            // Also load last backup time
             val account = signedInAccount ?: return@LaunchedEffect
-            val timeResult = oldSyncManager.getLastBackupTime(account)
+            val timeResult = googleDriveBackend.getLastBackupTime()
             lastBackupTime = timeResult.getOrNull()
         }
     }
@@ -484,7 +492,7 @@ fun ConfigScreen(
                 title = stringResource(R.string.config_sync_key_title),
                 content = {
                     Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        val hasSyncKey = googleSyncManager.hasSyncKey()
+                        val hasSyncKey = googleSyncEngine.hasSyncKey()
                         // Sync Key status
                         Row(
                             modifier = Modifier
@@ -508,7 +516,7 @@ fun ConfigScreen(
                                 text = stringResource(R.string.config_sync_key_generate),
                                 onClick = {
                                     val key = SyncCrypto.generateSyncKey()
-                                    googleSyncManager.setSyncKey(SyncCrypto.encodeSyncKey(key))
+                                    googleSyncEngine.setSyncKey(SyncCrypto.encodeSyncKey(key))
                                     toastMessage = context.getString(R.string.toast_sync_key_generated)
                                 },
                                 variant = ButtonVariant.Primary,
@@ -531,7 +539,7 @@ fun ConfigScreen(
                                     text = stringResource(R.string.config_sync_key_save),
                                     onClick = {
                                         try {
-                                            googleSyncManager.setSyncKey(syncKeyInput)
+                                            googleSyncEngine.setSyncKey(syncKeyInput)
                                             showSyncKeyInput = false
                                             toastMessage = context.getString(R.string.toast_sync_key_saved)
                                         } catch (_: Exception) {
@@ -560,7 +568,7 @@ fun ConfigScreen(
                             BrutalistButton(
                                 text = stringResource(R.string.config_sync_key_clear),
                                 onClick = {
-                                    googleSyncManager.clearSyncKey()
+                                    googleSyncEngine.clearSyncKey()
                                     toastMessage = context.getString(R.string.toast_sync_key_cleared)
                                 },
                                 variant = ButtonVariant.Warning,
@@ -641,7 +649,7 @@ fun ConfigScreen(
                             onClick = {
                                 scope.launch {
                                     try {
-                                        googleSyncStatus = googleSyncManager.getSyncStatus()
+                                        googleSyncStatus = googleSyncEngine.getSyncStatus()
                                     } catch (_: Exception) {
                                         googleSyncStatus = SyncStatus.Error
                                     }
@@ -664,18 +672,18 @@ fun ConfigScreen(
                                 useMonoFont = true,
                             )
                         } else {
-                            val canSync = googleSyncManager.hasSyncKey()
+                            val canSync = googleSyncEngine.hasSyncKey()
                             // Push button
                             BrutalistButton(
                                 text = stringResource(R.string.config_sync_push),
                                 onClick = {
                                     isSyncing = true
                                     scope.launch {
-                                        val result = googleSyncManager.push()
+                                        val result = googleSyncEngine.push()
                                         isSyncing = false
                                         if (result.isSuccess) {
                                             toastMessage = context.getString(R.string.toast_sync_push_complete)
-                                            googleSyncStatus = googleSyncManager.getSyncStatus()
+                                            googleSyncStatus = googleSyncEngine.getSyncStatus()
                                         } else {
                                             val err = result.exceptionOrNull()
                                             if (err is com.lockit.data.sync.SyncConflictException) {
@@ -699,11 +707,11 @@ fun ConfigScreen(
                                 onClick = {
                                     isSyncing = true
                                     scope.launch {
-                                        val result = googleSyncManager.pull()
+                                        val result = googleSyncEngine.pull()
                                         isSyncing = false
                                         if (result.isSuccess) {
                                             toastMessage = context.getString(R.string.toast_sync_pull_complete)
-                                            googleSyncStatus = googleSyncManager.getSyncStatus()
+                                            googleSyncStatus = googleSyncEngine.getSyncStatus()
                                         } else {
                                             val err = result.exceptionOrNull()
                                             if (err is com.lockit.data.sync.SyncConflictException) {
@@ -811,7 +819,7 @@ fun ConfigScreen(
                                 onClick = {
                                     scope.launch {
                                         try {
-                                            webDavSyncStatus = webDavSyncManager.getSyncStatus()
+                                            webDavSyncStatus = webDavSyncEngine.getSyncStatus()
                                         } catch (_: Exception) {
                                             webDavSyncStatus = SyncStatus.Error
                                         }
@@ -822,18 +830,18 @@ fun ConfigScreen(
                                 useMonoFont = true,
                             )
 
-                            val canSync = webDavSyncManager.hasSyncKey()
+                            val canSync = webDavSyncEngine.hasSyncKey()
                             // Push button
                             BrutalistButton(
                                 text = stringResource(R.string.config_sync_push),
                                 onClick = {
                                     isSyncing = true
                                     scope.launch {
-                                        val result = webDavSyncManager.push()
+                                        val result = webDavSyncEngine.push()
                                         isSyncing = false
                                         if (result.isSuccess) {
                                             toastMessage = context.getString(R.string.toast_sync_push_complete)
-                                            webDavSyncStatus = webDavSyncManager.getSyncStatus()
+                                            webDavSyncStatus = webDavSyncEngine.getSyncStatus()
                                         } else {
                                             val err = result.exceptionOrNull()
                                             if (err is SyncConflictException) {
@@ -857,11 +865,11 @@ fun ConfigScreen(
                                 onClick = {
                                     isSyncing = true
                                     scope.launch {
-                                        val result = webDavSyncManager.pull()
+                                        val result = webDavSyncEngine.pull()
                                         isSyncing = false
                                         if (result.isSuccess) {
                                             toastMessage = context.getString(R.string.toast_sync_pull_complete)
-                                            webDavSyncStatus = webDavSyncManager.getSyncStatus()
+                                            webDavSyncStatus = webDavSyncEngine.getSyncStatus()
                                         } else {
                                             val err = result.exceptionOrNull()
                                             if (err is SyncConflictException) {

@@ -18,6 +18,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -234,9 +235,14 @@ internal fun CompactProviderRow(
         if (quota != null && !state.isLoading) {
             val metaParts = mutableListOf<String>()
             if (state.cacheAgeMinutes > 0) metaParts.add("${state.cacheAgeMinutes}m ago")
+            if (quota.remainingDays > 0) {
+                metaParts.add(stringResource(R.string.repos_quota_remaining, quota.remainingDays))
+            }
             quota.sessionResetsAt?.let { metaParts.add("5h ${formatResetTime(it)}") }
             quota.weekResetsAt?.let { metaParts.add("Wk ${formatResetTime(it)}") }
-            if (quota.accountEmail.isNotBlank()) metaParts.add(quota.accountEmail.take(20))
+            if (quota.loginMethod.isNotBlank()) metaParts.add(quota.loginMethod.take(12))
+            val compactEmailName = quota.accountEmail.substringBefore("@").take(20)
+            if (compactEmailName.isNotBlank()) metaParts.add(compactEmailName)
             if (metaParts.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(2.dp))
                 Row(
@@ -252,6 +258,8 @@ internal fun CompactProviderRow(
                             fontSize = 7.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f, fill = false),
                         )
                     }
                 }
@@ -261,23 +269,22 @@ internal fun CompactProviderRow(
 }
 
 @Composable
-internal fun CompactGauge(label: String, used: Int, total: Int, modifier: Modifier, showNumbers: Boolean = true) {
+internal fun CompactGauge(label: String, used: Int, total: Int, modifier: Modifier) {
     val pct = if (total > 0) (used.toLong() * 100 / total).coerceIn(0, 100).toInt() else 0
-    val barColor = when {
-        pct >= 90 -> TacticalRed
-        pct >= 70 -> IndustrialOrange
-        else -> MaterialTheme.colorScheme.onSurfaceVariant
-    }
+    val barColor = quotaProgressColor(pct)
 
     Column(modifier = modifier.padding(horizontal = 3.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
             Text(
                 text = label,
                 fontFamily = JetBrainsMonoFamily,
                 fontSize = 7.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            Spacer(Modifier.width(2.dp))
             Text(
                 text = "$pct%",
                 fontFamily = JetBrainsMonoFamily,
@@ -290,21 +297,13 @@ internal fun CompactGauge(label: String, used: Int, total: Int, modifier: Modifi
             modifier = Modifier
                 .fillMaxWidth()
                 .height(3.dp)
-                .background(MaterialTheme.colorScheme.surfaceContainerLowest),
+                .background(MaterialTheme.colorScheme.surfaceContainerHighest),
         ) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth(if (total > 0) pct / 100f else 0f)
                     .height(3.dp)
                     .background(barColor),
-            )
-        }
-        if (showNumbers) {
-            Text(
-                text = "$used/$total",
-                fontFamily = JetBrainsMonoFamily,
-                fontSize = 7.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
     }
@@ -407,11 +406,7 @@ internal fun QuotaGauge(
 ) {
     Column(modifier = modifier) {
         val pct = if (total > 0) (used.toLong() * 100 / total).coerceIn(0, 100).toInt() else 0
-        val barColor = when {
-            pct >= 90 -> TacticalRed
-            pct >= 70 -> IndustrialOrange
-            else -> MaterialTheme.colorScheme.onSurfaceVariant
-        }
+        val barColor = quotaProgressColor(pct)
 
         // Label row with percentage on the right (above progress bar)
         Row(
@@ -441,7 +436,7 @@ internal fun QuotaGauge(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(8.dp)
-                .background(MaterialTheme.colorScheme.surfaceContainerLowest),
+                .background(MaterialTheme.colorScheme.surfaceContainerHighest),
         ) {
             // Progress bar fill
             Box(
@@ -470,5 +465,16 @@ internal fun QuotaGauge(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+    }
+}
+
+@Composable
+private fun quotaProgressColor(pct: Int): Color {
+    val isDarkTheme = MaterialTheme.colorScheme.background.luminance() < 0.5f
+    return when {
+        pct >= 90 -> TacticalRed
+        pct >= 70 -> IndustrialOrange
+        isDarkTheme -> MaterialTheme.colorScheme.onSurface
+        else -> MaterialTheme.colorScheme.onSurfaceVariant
     }
 }

@@ -21,7 +21,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -41,7 +40,6 @@ import com.lockit.ui.theme.LockitTheme
 import com.lockit.ui.theme.ThemePreference
 import com.lockit.data.vault.CodingPlanPrefs
 import com.lockit.domain.CodingPlanFetchers
-import com.lockit.domain.CodingPlanProviders
 import com.lockit.domain.CodingPlanPrefetchState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -115,17 +113,26 @@ class MainActivity : FragmentActivity() {
             )
         }
 
-        // Prefetch ALL coding plan providers on app startup — while user is typing password.
-        // Strategy: fire network requests immediately, cache loads as fallback.
-        CodingPlanFetchers.supportedProviders().forEach { provider ->
-            // Load cached data instantly (shown while network request is in flight)
-            val cachedQuota = CodingPlanPrefs.loadQuotaCache(app, provider)
-            if (cachedQuota != null) {
-                CodingPlanPrefetchState.setQuota(provider, cachedQuota)
-                CodingPlanPrefetchState.setCacheTimestamp(provider, CodingPlanPrefs.getCacheTimestamp(app, provider))
-            }
+        // Prefetch from CodingPlanPrefs on startup (runs before vault unlock)
+        doPrefetch(app)
 
-            // Fire fresh network fetch for every provider with stored credentials
+        setContent {
+            val themeMode = ThemePreference.getThemeMode(this)
+            LockitTheme(themeMode = themeMode) {
+                MainFlow(app = app)
+            }
+        }
+    }
+
+    // Prefetch from CodingPlanPrefs — runs before vault unlock
+    private fun doPrefetch(app: LockitApp) {
+        CodingPlanFetchers.supportedProviders().forEach { provider ->
+            val cached = CodingPlanPrefs.loadQuotaCache(app, provider)
+            val cacheTimestamp = CodingPlanPrefs.getCacheTimestamp(app, provider)
+            if (cached != null) {
+                CodingPlanPrefetchState.setQuota(provider, cached)
+                CodingPlanPrefetchState.setCacheTimestamp(provider, cacheTimestamp)
+            }
             val metadata = CodingPlanPrefs.getProviderData(app, provider) + ("provider" to provider)
             if (metadata.size > 1) {
                 CodingPlanPrefetchState.setLoading(provider, true)
@@ -144,13 +151,6 @@ class MainActivity : FragmentActivity() {
                         CodingPlanPrefetchState.setLoading(provider, false)
                     }
                 }
-            }
-        }
-
-        setContent {
-            val themeMode = ThemePreference.getThemeMode(this)
-            LockitTheme(themeMode = themeMode) {
-                MainFlow(app = app)
             }
         }
     }
@@ -177,7 +177,6 @@ private fun MainFlow(app: LockitApp) {
     var previousScreen by rememberSaveable { mutableStateOf(AppScreen.VaultExplorer) }
 
     var isVaultUnlocked by remember { mutableStateOf(app.vaultManager.isUnlocked()) }
-    val scope = rememberCoroutineScope()
     val lifecycleOwner = LocalLifecycleOwner.current
     val context = LocalContext.current
 
