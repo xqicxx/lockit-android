@@ -9,6 +9,8 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import com.google.android.gms.auth.api.signin.GoogleSignIn
+import com.google.api.services.drive.DriveScopes
+import com.google.android.gms.common.api.Scope
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -193,28 +195,51 @@ fun ConfigScreen(
         webDavConfigured = webDavBackend.isConfigured()
     }
 
-    // Google Sign-In launcher
+    // Google Sign-In + Drive scope permission launcher
+    val driveScope = remember { Scope(DriveScopes.DRIVE_APPDATA) }
+
+    val doConfigureDrive: () -> Unit = {
+        scope.launch {
+            val cfgResult = googleDriveBackend.configure(emptyMap())
+            if (cfgResult.isSuccess) {
+                toastMessage = "GOOGLE_SIGNED_IN: ${signedInAccount?.email}"
+                googleSyncStatus = googleSyncManager.getSyncStatus()
+            } else {
+                toastMessage = "DRIVE_INIT_FAILED: ${cfgResult.exceptionOrNull()?.message}"
+                googleDriveBackend.signOut()
+                signedInAccount = null
+            }
+        }
+    }
+
     val signInLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult(),
     ) { result ->
         val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
-        if (task.isSuccessful) {
-            signedInAccount = task.result
-            // Configure GoogleDriveBackend after sign-in
-            scope.launch {
-                val cfgResult = googleDriveBackend.configure(emptyMap())
-                if (cfgResult.isSuccess) {
-                    toastMessage = "GOOGLE_SIGNED_IN: ${task.result?.email}"
-                    googleSyncStatus = googleSyncManager.getSyncStatus()
-                } else {
-                    toastMessage = "DRIVE_INIT_FAILED: ${cfgResult.exceptionOrNull()?.message}"
-                    // Sign out on failure so user can retry
-                    googleDriveBackend.signOut()
-                    signedInAccount = null
-                }
+        if (task.isSuccessful && task.result != null) {
+            val account = task.result!!
+            signedInAccount = account
+            if (GoogleSignIn.hasPermissions(account, driveScope)) {
+                doConfigureDrive()
+            } else {
+                // Request Drive scope — result comes back to this same launcher
+                GoogleSignIn.requestPermissions(
+                    getActivity()!!,
+                    9001,
+                    account,
+                    driveScope,
+                )
             }
         } else {
-            toastMessage = "GOOGLE_SIGN_IN_FAILED: ${task.exception?.message}"
+            val ex = task.exception
+            if (ex is com.google.android.gms.common.api.ApiException && ex.statusCode == 9001) {
+                // This was the permissions result — user denied or it failed
+                toastMessage = "DRIVE_PERMISSION_DENIED"
+                googleDriveBackend.signOut()
+                signedInAccount = null
+            } else {
+                toastMessage = "GOOGLE_SIGN_IN_FAILED: ${ex?.message}"
+            }
         }
     }
 
