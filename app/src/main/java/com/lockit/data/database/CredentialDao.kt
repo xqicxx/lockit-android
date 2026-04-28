@@ -70,4 +70,7 @@ interface CredentialDao {
 
     @Query("SELECT COUNT(DISTINCT service) FROM credentials")
     fun getServiceCount(): Flow<Int>
+
+    @Query("SELECT * FROM credentials ORDER BY updatedAt DESC")
+    suspend fun getAllRaw(): List<CredentialEntity>
 }

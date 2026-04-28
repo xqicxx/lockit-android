@@ -107,5 +107,17 @@ abstract class LockitDatabase : RoomDatabase() {
         fun getDatabaseFile(context: Context): java.io.File {
             return context.applicationContext.getDatabasePath(DB_NAME)
         }
+
+        /**
+         * Open a read-only database instance from an arbitrary file path.
+         * Used by VaultBackupManager to count entries in backup files.
+         */
+        fun getRawReadOnly(context: Context, file: java.io.File): LockitDatabase {
+            return Room.databaseBuilder(
+                context.applicationContext,
+                LockitDatabase::class.java,
+                file.absolutePath
+            ).build()
+        }
     }
 }
