@@ -7,7 +7,7 @@ package com.lockit.domain.model
 object CodingPlanFields {
     const val PROVIDER = 0   // Provider name (e.g., "qwen_bailian", "openai")
     const val RAW_CURL = 1   // Raw curl command for auth extraction
-    const val API_KEY = 2    // API key / access token
+    const val API_KEY = 2    // Token / API key / access token — display label is "TOKEN"
     const val COOKIE = 3     // Cookie string (for some providers)
     const val BASE_URL = 4   // Base URL for API calls
 

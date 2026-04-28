@@ -39,13 +39,16 @@ object ChatGptAuthClient {
                 val response = conn.inputStream.bufferedReader().use { it.readText() }
                 conn.disconnect()
 
-                Log.d(TAG, "Session response: OK (${response.length} chars)")
-
                 val json = JSONObject(response)
+                // Log full session response to debug subscription/plan fields
+                Log.d(TAG, "=== SESSION API ===\n$response\n=== END ===")
+
                 val accessToken = json.optString("accessToken", "")
                 val accountId = fetchAccountId(accessToken).ifBlank { extractAccountId(json) }
                 val accountEmail = extractAccountEmail(json)
                 val loginMethod = extractLoginMethod(json)
+                // Extract plan/subscription info from session API (if available)
+                val planType = extractPlanType(json)
 
                 if (accessToken.isNotBlank()) {
                     mapOf(
@@ -54,8 +57,9 @@ object ChatGptAuthClient {
                         "accountId" to accountId,
                         "accountEmail" to accountEmail,
                         "loginMethod" to loginMethod,
+                        "planType" to planType,
                         "baseUrl" to "https://chatgpt.com/backend-api/wham/usage",
-                        "apiKey" to accessToken  // For API_KEY field compatibility
+                        "apiKey" to accessToken
                     )
                 } else {
                     Log.e(TAG, "Missing accessToken")
@@ -114,6 +118,24 @@ object ChatGptAuthClient {
             .ifBlank { user?.optString("login_method").orEmpty() }
             .ifBlank { json.optString("authProvider") }
             .ifBlank { json.optString("loginMethod") }
+    }
+
+    // Extract plan type from session API (e.g., "team", "pro", "plus", "free")
+    private fun extractPlanType(json: JSONObject): String {
+        // Try common locations for plan/subscription info in session response
+        val accounts = json.optJSONObject("accounts")
+        val defaultAccount = accounts?.optJSONObject("default")?.optJSONObject("account")
+        return firstNonBlank(
+            defaultAccount?.optString("subscription_plan"),
+            defaultAccount?.optString("plan_type"),
+            json.optString("plan_type"),
+            json.optString("subscription_plan"),
+        )
+    }
+
+    private fun firstNonBlank(vararg values: String?): String {
+        values.forEach { if (!it.isNullOrBlank() && it != "null") return it }
+        return ""
     }
 
     private fun fetchAccountId(accessToken: String): String {

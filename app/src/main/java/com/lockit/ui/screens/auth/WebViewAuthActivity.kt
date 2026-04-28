@@ -372,36 +372,40 @@ class AuthWebViewClient(
             val maxAttempts = 30 // 60 seconds max
 
             while (!hasExtracted && attempts < maxAttempts) {
-                kotlinx.coroutines.delay(2000)
+                // First check is immediate, then every 2s
+                if (attempts > 0) {
+                    kotlinx.coroutines.delay(2000)
+                }
                 attempts++
 
-                android.util.Log.d("WebViewAuth", "Cookie poll attempt $attempts for $provider")
-
-                // Use base domain URL for cookie retrieval - SPA redirects may change page URL
-                // but cookies are set at domain level, not page level
                 val baseDomainUrl = when (provider) {
                     "chatgpt" -> "https://chatgpt.com"
                     "claude" -> "https://claude.ai"
-                    else -> ""  // Unknown provider - skip polling
+                    else -> return@launch
                 }
-                if (baseDomainUrl.isEmpty()) return@launch  // Early exit for unknown providers
 
                 val cookieManager = CookieManager.getInstance()
                 val cookies = cookieManager.getCookie(baseDomainUrl) ?: ""
 
-                // Don't log full cookies - security risk, only log length
-                android.util.Log.d("WebViewAuth", "Cookie length: ${cookies.length}")
+                // Log cookie keys only (not values) for debugging
+                val cookieKeys = cookies.split(";").map { it.trim().split("=").firstOrNull().orEmpty() }.filter { it.isNotBlank() }
+                android.util.Log.d("WebViewAuth", "Poll $attempts: url=${view?.url}, cookieKeys=$cookieKeys")
 
-                // Check login status based on provider
                 val currentUrl = view?.url ?: ""
                 val isLoggedIn = when (provider) {
                     "claude" -> {
-                        // Guard against stale sessionKey from previous session
                         !currentUrl.contains("/login") && cookies.contains("sessionKey=")
                     }
                     "chatgpt" -> {
-                        !currentUrl.contains("/auth") &&
-                        cookies.contains("__Secure-next-auth.session-token=")
+                        // URL: must be past the auth screen
+                        val pastAuth = !currentUrl.contains("/auth") &&
+                            !currentUrl.contains("/login")
+                        // Cookie: accept multiple session token formats
+                        val hasSession = cookies.contains("__Secure-next-auth.session-token=") ||
+                            cookies.contains("__Host-next-auth.session-token=") ||
+                            cookies.contains("next-auth.session-token=") ||
+                            (cookies.contains("__Secure-") && cookies.contains("session"))
+                        pastAuth && hasSession
                     }
                     else -> false
                 }
@@ -409,7 +413,6 @@ class AuthWebViewClient(
                 if (isLoggedIn) {
                     hasExtracted = true
                     android.util.Log.d("WebViewAuth", "Login detected after $attempts polls!")
-                    // Use base domain URL for credential extraction too
                     extractCredentials(view, baseDomainUrl)
                     break
                 }

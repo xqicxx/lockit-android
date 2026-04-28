@@ -115,42 +115,30 @@ class MainActivity : FragmentActivity() {
             )
         }
 
-        // Prefetch coding plan quota IMMEDIATELY on app startup - runs during lock screen
-        // Uses EncryptedSharedPreferences (no vault unlock needed)
-        // Strategy: Load cache first (instant display), then refresh in background
-        if (!CodingPlanPrefetchState.hasPrefetched && CodingPlanPrefs.hasData(app)) {
-            CodingPlanPrefetchState.hasPrefetched = true
+        // Prefetch ALL coding plan providers on app startup — while user is typing password.
+        // Strategy: fire network requests immediately, cache loads as fallback.
+        CodingPlanFetchers.supportedProviders().forEach { provider ->
+            // Load cached data instantly (shown while network request is in flight)
+            val cachedQuota = CodingPlanPrefs.loadQuotaCache(app, provider)
+            if (cachedQuota != null) {
+                CodingPlanPrefetchState.setQuota(provider, cachedQuota)
+                CodingPlanPrefetchState.setCacheTimestamp(provider, CodingPlanPrefs.getCacheTimestamp(app, provider))
+            }
 
-            val metadata = CodingPlanPrefs.getMetadata(app)
-            val provider = CodingPlanProviders.normalize(metadata["provider"])
-            if (provider.isNotBlank()) {
-                // Step 1: Load cached quota for this provider (instant display)
-                val cachedQuota = CodingPlanPrefs.loadQuotaCache(app, provider)
-                val cacheTime = CodingPlanPrefs.getCacheTimestamp(app, provider)
-                if (cachedQuota != null) {
-                    CodingPlanPrefetchState.setQuota(provider, cachedQuota)
-                    CodingPlanPrefetchState.setError(provider, null)
-                    CodingPlanPrefetchState.setCacheTimestamp(provider, cacheTime)
-                }
-
-                // Step 2: Start background refresh
+            // Fire fresh network fetch for every provider with stored credentials
+            val metadata = CodingPlanPrefs.getProviderData(app, provider) + ("provider" to provider)
+            if (metadata.size > 1) {
                 CodingPlanPrefetchState.setLoading(provider, true)
                 lifecycleScope.launch {
                     try {
-                        val fetcher = CodingPlanFetchers.forProvider(provider)
-                        if (fetcher != null) {
-                            val quota = withContext(Dispatchers.IO) {
-                                fetcher.fetchQuota(metadata)
-                            }
-                            CodingPlanPrefetchState.setQuota(provider, quota)
-                            CodingPlanPrefetchState.setError(provider, if (quota == null) "NO_QUOTA_DATA" else null)
-                            CodingPlanPrefetchState.setCacheTimestamp(provider, System.currentTimeMillis())
-                            if (quota != null) {
-                                CodingPlanPrefs.saveQuotaCache(app, quota, provider)
-                            }
-                        }
+                        val fetcher = CodingPlanFetchers.forProvider(provider) ?: return@launch
+                        val quota = withContext(Dispatchers.IO) { fetcher.fetchQuota(metadata) }
+                        CodingPlanPrefetchState.setQuota(provider, quota)
+                        CodingPlanPrefetchState.setError(provider, if (quota == null) "NO_QUOTA_DATA" else null)
+                        CodingPlanPrefetchState.setCacheTimestamp(provider, System.currentTimeMillis())
+                        if (quota != null) CodingPlanPrefs.saveQuotaCache(app, quota, provider)
                     } catch (e: Exception) {
-                        android.util.Log.e("LockitPrefetch", "Prefetch failed: ${e.message}")
+                        android.util.Log.e("LockitPrefetch", "$provider failed: ${e.message}")
                         CodingPlanPrefetchState.setError(provider, "FETCH_ERROR")
                     } finally {
                         CodingPlanPrefetchState.setLoading(provider, false)

@@ -322,6 +322,14 @@ class VaultManager(
                 updatedAt = credential.updatedAt.toEpochMilli(),
             ),
         )
+        // Also clear CodingPlanPrefs data so stale board entries don't linger
+        if (credential.type == CredentialType.CodingPlan) {
+            val provider = credential.metadata["provider"]?.ifBlank { credential.service }
+            if (!provider.isNullOrBlank()) {
+                CodingPlanPrefs.clearProvider(context, provider)
+                CodingPlanPrefs.clearQuotaCache(context)
+            }
+        }
         auditLogger.log("CREDENTIAL_DELETED", "${credential.name} - permanent removal", AuditSeverity.Danger)
     }
 
