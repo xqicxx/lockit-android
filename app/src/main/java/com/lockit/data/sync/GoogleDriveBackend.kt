@@ -347,12 +347,16 @@ class GoogleDriveBackend(private val context: Context) : SyncBackend, CloudBacku
 
     override suspend fun cleanupOld(maxAge: Duration): Result<Unit> {
         return withContext(Dispatchers.IO) {
-            listBackups().onSuccess { backups ->
-                val cutoff = Instant.now().minus(maxAge)
-                backups.filter { it.timestamp.isBefore(cutoff) }.forEach { meta ->
-                    deleteBackup(meta.id)
-                }
-            }
+            listBackups().fold(
+                onSuccess = { backups ->
+                    val cutoff = Instant.now().minus(maxAge)
+                    backups.filter { it.timestamp.isBefore(cutoff) }.forEach { meta ->
+                        deleteBackup(meta.id)
+                    }
+                    Result.success(Unit)
+                },
+                onFailure = { Result.failure(it) },
+            )
         }
     }
 
