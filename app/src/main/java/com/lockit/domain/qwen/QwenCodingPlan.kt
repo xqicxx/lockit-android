@@ -120,6 +120,9 @@ object QwenCodingPlan : CodingPlanFetcher {
         val instance = instances.getJSONObject(0)
         val quotaInfo = instance.optJSONObject("codingPlanQuotaInfo") ?: return null
 
+        val planName = instance.optString("planName", "")
+        val instanceType = instance.optString("instanceType", "")
+
         return CodingPlanQuota(
             sessionUsed = quotaInfo.optInt("per5HourUsedQuota", 0),
             sessionTotal = quotaInfo.optInt("per5HourTotalQuota", 0),
@@ -128,13 +131,16 @@ object QwenCodingPlan : CodingPlanFetcher {
             monthUsed = quotaInfo.optInt("perBillMonthUsedQuota", 0),
             monthTotal = quotaInfo.optInt("perBillMonthTotalQuota", 0),
             instanceName = instance.optString("instanceName", ""),
-            instanceType = instance.optString("instanceType", ""),
+            instanceType = instanceType,
             status = instance.optString("status", ""),
             remainingDays = instance.optInt("remainingDays", 0),
-            planName = instance.optString("planName", ""),
+            planName = planName,
+            tier = planName.ifBlank { instanceType },
             chargeAmount = instance.optDouble("chargeAmount", 0.0),
             chargeType = instance.optString("chargeType", ""),
             autoRenewFlag = instance.optBoolean("autoRenewFlag", false),
+            accountEmail = "", // Bailian uses cookie auth, no email identity
+            loginMethod = "COOKIE", // Bailian auth is always cookie-based
         )
     }
 
