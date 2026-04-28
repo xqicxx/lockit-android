@@ -601,7 +601,6 @@ fun ConfigScreen(
                         }
 
                         if (hasSyncKey) {
-                            // Copy sync key button
                             BrutalistButton(
                                 text = stringResource(R.string.config_sync_key_copy),
                                 onClick = {
@@ -616,31 +615,6 @@ fun ConfigScreen(
                                 modifier = Modifier.fillMaxWidth(),
                                 useMonoFont = true,
                             )
-
-                            var showClearConfirm by remember { mutableStateOf(false) }
-                            // Clear with confirmation
-                            BrutalistButton(
-                                text = stringResource(R.string.config_sync_key_clear),
-                                onClick = { showClearConfirm = true },
-                                variant = ButtonVariant.Warning,
-                                modifier = Modifier.fillMaxWidth(),
-                                useMonoFont = true,
-                            )
-
-                            if (showClearConfirm) {
-                                BrutalistConfirmDialog(
-                                    title = "CLEAR SYNC KEY?",
-                                    message = "Your cloud vault is encrypted with this key.\n\nIf you clear it, new data will NOT match the cloud — and previous cloud backups will be unrecoverable.\n\nAre you sure?",
-                                    confirmText = "CLEAR",
-                                    confirmVariant = ButtonVariant.Danger,
-                                    onConfirm = {
-                                        googleSyncEngine.clearSyncKey()
-                                        showClearConfirm = false
-                                        toastMessage = context.getString(R.string.toast_sync_key_cleared)
-                                    },
-                                    onDismiss = { showClearConfirm = false },
-                                )
-                            }
                         }
                     }
                 },
