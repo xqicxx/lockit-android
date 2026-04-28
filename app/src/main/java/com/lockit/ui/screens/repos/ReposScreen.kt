@@ -971,7 +971,7 @@ private fun ServiceRow(
             Spacer(modifier = Modifier.width(8.dp))
             Box(
                 modifier = Modifier
-                    .background(if (isLocal) MaterialTheme.colorScheme.surfaceContainerHighest else MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.2f))
+                    .background(if (isLocal) MaterialTheme.colorScheme.surfaceContainerHighest else MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.4f))
                     .border(1.dp, if (isLocal) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline)
                     .padding(horizontal = 6.dp, vertical = 2.dp),
             ) {

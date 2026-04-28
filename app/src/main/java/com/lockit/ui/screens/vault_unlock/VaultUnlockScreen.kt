@@ -371,7 +371,7 @@ fun VaultUnlockScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .border(1.dp, colorScheme.outlineVariant.copy(alpha = 0.2f))
+                        .border(1.dp, colorScheme.outlineVariant.copy(alpha = 0.4f))
                         .background(colorScheme.surface),
                 ) {
                     // PIN Input Display
@@ -379,7 +379,7 @@ fun VaultUnlockScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .drawBehind {
-                                drawLine(colorScheme.outlineVariant.copy(alpha = 0.2f), Offset(0f, size.height), Offset(size.width, size.height), 1.dp.toPx())
+                                drawLine(colorScheme.outlineVariant.copy(alpha = 0.4f), Offset(0f, size.height), Offset(size.width, size.height), 1.dp.toPx())
                             }
                                 .padding(vertical = 12.dp),
                             horizontalAlignment = Alignment.CenterHorizontally,
@@ -413,7 +413,7 @@ fun VaultUnlockScreen(
                                     Box(
                                         modifier = Modifier
                                             .requiredSize(8.dp)
-                                            .border(1.dp, colorScheme.outlineVariant.copy(alpha = 0.2f))
+                                            .border(1.dp, colorScheme.outlineVariant.copy(alpha = 0.4f))
                                             .background(if (isFilled) colorScheme.onSurface else colorScheme.background),
                                     )
                                 }
@@ -433,7 +433,7 @@ fun VaultUnlockScreen(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .drawBehind {
-                                    drawLine(colorScheme.outlineVariant.copy(alpha = 0.2f), Offset(0f, 0f), Offset(size.width, 0f), 1.dp.toPx())
+                                    drawLine(colorScheme.outlineVariant.copy(alpha = 0.4f), Offset(0f, 0f), Offset(size.width, 0f), 1.dp.toPx())
                                 }
                                 .padding(12.dp),
                             verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -526,7 +526,7 @@ fun VaultUnlockScreen(
                     modifier = Modifier
                         .fillMaxWidth(0.85f)
                         .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                        .border(2.dp, colorScheme.outlineVariant.copy(alpha = 0.2f))
+                        .border(2.dp, colorScheme.outlineVariant.copy(alpha = 0.4f))
                         .padding(20.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
@@ -681,7 +681,7 @@ private fun KeypadKey(
 ) {
     val colorScheme = MaterialTheme.colorScheme
     val bgColor = colorScheme.surface
-    val ghostBorder = colorScheme.outlineVariant.copy(alpha = 0.2f)
+    val ghostBorder = colorScheme.outlineVariant.copy(alpha = 0.4f)
 
     Box(
         modifier = modifier
@@ -807,7 +807,7 @@ private fun BrutalistSmallButton(
     Row(
         modifier = modifier
             .height(32.dp)
-            .border(1.dp, if (isDanger) TacticalRed else colorScheme.outlineVariant.copy(alpha = 0.2f))
+            .border(1.dp, if (isDanger) TacticalRed else colorScheme.outlineVariant.copy(alpha = 0.4f))
             .clickable(onClick = onClick)
             .background(if (isDanger) TacticalRed else colorScheme.surface),
         horizontalArrangement = Arrangement.Center,

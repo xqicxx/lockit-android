@@ -1059,7 +1059,7 @@ fun ConfigScreen(
                         modifier = Modifier
                             .fillMaxWidth(0.9f)
                             .background(MaterialTheme.colorScheme.surface)
-                            .border(2.dp, colorScheme.outlineVariant.copy(alpha = 0.2f))
+                            .border(2.dp, colorScheme.outlineVariant.copy(alpha = 0.4f))
                             .padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
@@ -1229,7 +1229,7 @@ fun ConfigScreen(
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .border(1.dp, colorScheme.outlineVariant.copy(alpha = 0.2f))
+                                .border(1.dp, colorScheme.outlineVariant.copy(alpha = 0.4f))
                                 .clickable { languageExpanded = true }
                                 .padding(12.dp),
                         ) {
@@ -1254,7 +1254,7 @@ fun ConfigScreen(
                             DropdownMenu(
                                 expanded = languageExpanded,
                                 onDismissRequest = { languageExpanded = false },
-                                modifier = Modifier.background(MaterialTheme.colorScheme.background).border(1.dp, colorScheme.outlineVariant.copy(alpha = 0.2f)),
+                                modifier = Modifier.background(MaterialTheme.colorScheme.background).border(1.dp, colorScheme.outlineVariant.copy(alpha = 0.4f)),
                             ) {
                                 languageOptions.forEach { (langCode, langLabel) ->
                                     DropdownMenuItem(
@@ -1309,7 +1309,7 @@ fun ConfigScreen(
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .border(1.dp, colorScheme.outlineVariant.copy(alpha = 0.2f))
+                                .border(1.dp, colorScheme.outlineVariant.copy(alpha = 0.4f))
                                 .clickable { themeExpanded = true }
                                 .padding(12.dp),
                         ) {
@@ -1334,7 +1334,7 @@ fun ConfigScreen(
                             DropdownMenu(
                                 expanded = themeExpanded,
                                 onDismissRequest = { themeExpanded = false },
-                                modifier = Modifier.background(MaterialTheme.colorScheme.background).border(1.dp, colorScheme.outlineVariant.copy(alpha = 0.2f)),
+                                modifier = Modifier.background(MaterialTheme.colorScheme.background).border(1.dp, colorScheme.outlineVariant.copy(alpha = 0.4f)),
                             ) {
                                 themeOptions.forEach { (mode, modeLabel) ->
                                     DropdownMenuItem(
@@ -1801,7 +1801,7 @@ private fun ChangePasswordDialog(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                .border(2.dp, colorScheme.outlineVariant.copy(alpha = 0.2f))
+                .border(2.dp, colorScheme.outlineVariant.copy(alpha = 0.4f))
                 .padding(24.dp),
         ) {
             Text(
@@ -1940,7 +1940,7 @@ private fun LinkBiometricDialog(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                .border(2.dp, colorScheme.outlineVariant.copy(alpha = 0.2f))
+                .border(2.dp, colorScheme.outlineVariant.copy(alpha = 0.4f))
                 .padding(24.dp),
         ) {
             Text(
@@ -2161,7 +2161,7 @@ private fun ConfigSection(
                 modifier = Modifier
                     .height(1.dp)
                     .weight(1f)
-                    .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f)),
+                    .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
             )
         }
 
@@ -2210,7 +2210,7 @@ private fun UpdateDialog(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                .border(2.dp, colorScheme.outlineVariant.copy(alpha = 0.2f))
+                .border(2.dp, colorScheme.outlineVariant.copy(alpha = 0.4f))
                 .padding(24.dp),
         ) {
             Text(
@@ -2304,7 +2304,7 @@ private fun GitHubTokenConfigDialog(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                .border(2.dp, colorScheme.outlineVariant.copy(alpha = 0.2f))
+                .border(2.dp, colorScheme.outlineVariant.copy(alpha = 0.4f))
                 .padding(24.dp),
         ) {
             Text(

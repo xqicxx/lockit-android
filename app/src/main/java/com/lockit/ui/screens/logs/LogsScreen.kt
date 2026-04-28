@@ -271,7 +271,7 @@ private fun LogRow(entry: AuditEntry) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f))
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
             .background(
                 when (entry.severity) {
                     AuditSeverity.Info -> Color.Transparent

@@ -350,7 +350,7 @@ private fun PillBadge(text: String, bg: Color? = null, fg: Color? = null) {
     Box(
         modifier = Modifier
             .background(bg ?: colorScheme.surfaceContainerHighest)
-            .border(1.dp, colorScheme.outlineVariant.copy(alpha = 0.2f))
+            .border(1.dp, colorScheme.outlineVariant.copy(alpha = 0.4f))
             .padding(horizontal = 8.dp, vertical = 4.dp),
     ) {
         Text(
@@ -406,7 +406,7 @@ private fun SecretValueSection(
                     // Provider info
                     Box(
                         modifier = Modifier.fillMaxWidth()
-                            .background(MaterialTheme.colorScheme.surfaceContainerLow).border(1.dp, colorScheme.outlineVariant.copy(alpha = 0.2f)).padding(12.dp),
+                            .background(MaterialTheme.colorScheme.surfaceContainerLow).border(1.dp, colorScheme.outlineVariant.copy(alpha = 0.4f)).padding(12.dp),
                     ) {
                         Column {
                             Text(
@@ -438,7 +438,7 @@ private fun SecretValueSection(
                         Spacer(modifier = Modifier.height(8.dp))
                         Box(
                             modifier = Modifier.fillMaxWidth()
-                                .background(MaterialTheme.colorScheme.surfaceContainerLow).border(1.dp, colorScheme.outlineVariant.copy(alpha = 0.2f)).padding(12.dp),
+                                .background(MaterialTheme.colorScheme.surfaceContainerLow).border(1.dp, colorScheme.outlineVariant.copy(alpha = 0.4f)).padding(12.dp),
                         ) {
                             Column {
                                 Text(
@@ -472,7 +472,7 @@ private fun SecretValueSection(
                         Spacer(modifier = Modifier.height(8.dp))
                         Box(
                             modifier = Modifier.fillMaxWidth()
-                                .background(MaterialTheme.colorScheme.surfaceContainerLow).border(1.dp, colorScheme.outlineVariant.copy(alpha = 0.2f)).padding(12.dp),
+                                .background(MaterialTheme.colorScheme.surfaceContainerLow).border(1.dp, colorScheme.outlineVariant.copy(alpha = 0.4f)).padding(12.dp),
                         ) {
                             Column {
                                 Text(
@@ -506,7 +506,7 @@ private fun SecretValueSection(
                     // Phone number
                     Box(
                         modifier = Modifier.fillMaxWidth()
-                            .background(MaterialTheme.colorScheme.surfaceContainerLow).border(1.dp, colorScheme.outlineVariant.copy(alpha = 0.2f)).padding(12.dp),
+                            .background(MaterialTheme.colorScheme.surfaceContainerLow).border(1.dp, colorScheme.outlineVariant.copy(alpha = 0.4f)).padding(12.dp),
                     ) {
                         Column {
                             Text(
@@ -532,7 +532,7 @@ private fun SecretValueSection(
                         Spacer(modifier = Modifier.height(8.dp))
                         Box(
                             modifier = Modifier.fillMaxWidth()
-                                .background(MaterialTheme.colorScheme.surfaceContainerLow).border(1.dp, colorScheme.outlineVariant.copy(alpha = 0.2f)).padding(12.dp),
+                                .background(MaterialTheme.colorScheme.surfaceContainerLow).border(1.dp, colorScheme.outlineVariant.copy(alpha = 0.4f)).padding(12.dp),
                         ) {
                             Column {
                                 Text(
@@ -558,7 +558,7 @@ private fun SecretValueSection(
                         Spacer(modifier = Modifier.height(8.dp))
                         Box(
                             modifier = Modifier.fillMaxWidth()
-                                .background(MaterialTheme.colorScheme.surfaceContainerLow).border(1.dp, colorScheme.outlineVariant.copy(alpha = 0.2f)).padding(12.dp),
+                                .background(MaterialTheme.colorScheme.surfaceContainerLow).border(1.dp, colorScheme.outlineVariant.copy(alpha = 0.4f)).padding(12.dp),
                         ) {
                             Column {
                                 Text(
@@ -589,7 +589,7 @@ private fun SecretValueSection(
                     // Email address
                     Box(
                         modifier = Modifier.fillMaxWidth()
-                            .background(MaterialTheme.colorScheme.surfaceContainerLow).border(1.dp, colorScheme.outlineVariant.copy(alpha = 0.2f)).padding(12.dp),
+                            .background(MaterialTheme.colorScheme.surfaceContainerLow).border(1.dp, colorScheme.outlineVariant.copy(alpha = 0.4f)).padding(12.dp),
                     ) {
                         Column {
                             Text(
@@ -618,7 +618,7 @@ private fun SecretValueSection(
                     val displayPassword = revealedEmailPassword ?: passwordValue
                     Box(
                         modifier = Modifier.fillMaxWidth()
-                            .background(MaterialTheme.colorScheme.surfaceContainerLow).border(1.dp, colorScheme.outlineVariant.copy(alpha = 0.2f)).padding(12.dp),
+                            .background(MaterialTheme.colorScheme.surfaceContainerLow).border(1.dp, colorScheme.outlineVariant.copy(alpha = 0.4f)).padding(12.dp),
                     ) {
                         Column {
                             Row(
@@ -674,7 +674,7 @@ private fun SecretValueSection(
                             displayFields.forEach { (label, value) ->
                                 Box(
                                     modifier = Modifier.fillMaxWidth()
-                                        .background(MaterialTheme.colorScheme.surfaceContainerLow).border(1.dp, colorScheme.outlineVariant.copy(alpha = 0.2f)).padding(12.dp),
+                                        .background(MaterialTheme.colorScheme.surfaceContainerLow).border(1.dp, colorScheme.outlineVariant.copy(alpha = 0.4f)).padding(12.dp),
                                 ) {
                                     Column {
                                         Text(
@@ -707,7 +707,7 @@ private fun SecretValueSection(
 
                     Box(
                         modifier = Modifier.fillMaxWidth()
-                            .background(MaterialTheme.colorScheme.surfaceContainerLow).border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f)).padding(16.dp),
+                            .background(MaterialTheme.colorScheme.surfaceContainerLow).border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)).padding(16.dp),
                     ) {
                         Text(
                             text = displayValue,
@@ -909,7 +909,7 @@ private fun AuditLogSection(app: LockitApp, credential: Credential) {
                         )
                     }
                     if (index < logs.size - 1) {
-                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f), thickness = 1.dp)
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f), thickness = 1.dp)
                     }
                 }
             }

@@ -282,7 +282,7 @@ fun VaultExplorerScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(TacticalRed)
-                    .border(2.dp, colorScheme.outlineVariant.copy(alpha = 0.2f))
+                    .border(2.dp, colorScheme.outlineVariant.copy(alpha = 0.4f))
                     .padding(16.dp)
                     .clickable { showRecoveryDialog = true },
             ) {
@@ -334,7 +334,7 @@ fun VaultExplorerScreen(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .border(1.dp, colorScheme.outlineVariant.copy(alpha = 0.2f))
+                        .border(1.dp, colorScheme.outlineVariant.copy(alpha = 0.4f))
                         .padding(16.dp),
                 ) {
                     Column {

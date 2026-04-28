@@ -51,7 +51,7 @@ fun BrutalistButton(
     val colorScheme = MaterialTheme.colorScheme
     val colors = when (variant) {
         ButtonVariant.Primary -> Triple(colorScheme.onSurface, colorScheme.surface, colorScheme.onSurface.copy(alpha = 0.4f))
-        ButtonVariant.Secondary -> Triple(colorScheme.surface, colorScheme.onSurface, colorScheme.outlineVariant.copy(alpha = 0.2f))
+        ButtonVariant.Secondary -> Triple(colorScheme.surface, colorScheme.onSurface, colorScheme.outlineVariant.copy(alpha = 0.5f))
         ButtonVariant.Danger -> Triple(TacticalRed, White, TacticalRed)
         ButtonVariant.Warning -> Triple(IndustrialOrange, White, IndustrialOrange)
         ButtonVariant.Revoke -> Triple(colorScheme.surface, TacticalRed, TacticalRed)

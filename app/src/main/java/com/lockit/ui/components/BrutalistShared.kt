@@ -37,7 +37,7 @@ fun SeparatorLine(modifier: Modifier = Modifier) {
         modifier = modifier
             .fillMaxWidth()
             .height(1.dp)
-            .background(colorScheme.outlineVariant.copy(alpha = 0.2f)),
+            .background(colorScheme.outlineVariant.copy(alpha = 0.4f)),
     )
 }
 
@@ -81,7 +81,7 @@ fun InfoTag(
     Box(
         modifier = modifier
             .background(colorScheme.surfaceContainerHighest)
-            .border(1.dp, colorScheme.outlineVariant.copy(alpha = 0.2f))
+            .border(1.dp, colorScheme.outlineVariant.copy(alpha = 0.4f))
             .padding(horizontal = 6.dp, vertical = 3.dp),
     ) {
         Text(
@@ -105,7 +105,7 @@ fun TerminalFooter(
         modifier = modifier
             .fillMaxWidth()
             .background(colorScheme.surfaceContainerHighest)
-            .border(1.dp, colorScheme.outlineVariant.copy(alpha = 0.2f))
+            .border(1.dp, colorScheme.outlineVariant.copy(alpha = 0.4f))
             .padding(12.dp),
     ) {
         Column {

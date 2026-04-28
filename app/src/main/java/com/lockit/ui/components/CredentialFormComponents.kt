@@ -100,7 +100,7 @@ fun DropdownWithCustomInput(
                 onDismissRequest = { expanded = false },
                 modifier = Modifier
                     .background(colorScheme.surfaceContainerHigh)
-                    .border(1.dp, colorScheme.outlineVariant.copy(alpha = 0.2f)),
+                    .border(1.dp, colorScheme.outlineVariant.copy(alpha = 0.4f)),
             ) {
                 presets.forEach { preset ->
                     DropdownMenuItem(
@@ -228,7 +228,7 @@ private fun Chip(
     val colorScheme = MaterialTheme.colorScheme
     Box(
         modifier = Modifier
-            .border(1.dp, if (selected) colorScheme.onSurface else colorScheme.outlineVariant.copy(alpha = 0.2f))
+            .border(1.dp, if (selected) colorScheme.onSurface else colorScheme.outlineVariant.copy(alpha = 0.4f))
             .background(if (selected) colorScheme.onSurface.copy(alpha = 0.15f) else Color.Transparent)
             .clickable(onClick = onClick)
             .padding(horizontal = 10.dp, vertical = 4.dp),
@@ -295,7 +295,7 @@ fun CredentialTypeDropdown(
                 onDismissRequest = { onExpandedChange(false) },
                 modifier = Modifier
                     .background(colorScheme.surfaceContainerHigh)
-                    .border(1.dp, colorScheme.outlineVariant.copy(alpha = 0.2f)),
+                    .border(1.dp, colorScheme.outlineVariant.copy(alpha = 0.4f)),
             ) {
                 CredentialType.entries.forEach { type ->
                     DropdownMenuItem(
@@ -369,7 +369,7 @@ fun CredentialTypeDropdown(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                    .border(2.dp, colorScheme.outlineVariant.copy(alpha = 0.2f))
+                    .border(2.dp, colorScheme.outlineVariant.copy(alpha = 0.4f))
                     .padding(24.dp),
             ) {
                 Text(

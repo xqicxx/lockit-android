@@ -230,7 +230,7 @@ fun CredentialCard(
 
     Column(
         modifier = modifier
-            .border(1.dp, colorScheme.outlineVariant.copy(alpha = 0.2f))
+            .border(1.dp, colorScheme.outlineVariant.copy(alpha = 0.4f))
             .clickable(onClick = onClick)
             .pointerInput(localRevealed) {
                 detectTapGestures(
@@ -326,7 +326,7 @@ fun IconButtonBox(
     val colorScheme = MaterialTheme.colorScheme
     Box(
         modifier = Modifier
-            .border(1.dp, colorScheme.outlineVariant.copy(alpha = 0.2f))
+            .border(1.dp, colorScheme.outlineVariant.copy(alpha = 0.4f))
             .clickable(onClick = onClick)
             .padding(6.dp),
         contentAlignment = Alignment.Center,
@@ -493,7 +493,7 @@ private fun CredentialContent(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(MaterialTheme.colorScheme.surfaceContainerLow)
-                    .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f))
+                    .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
                     .padding(12.dp)
                     .pointerInput(Unit) {
                         detectTapGestures(
@@ -700,7 +700,7 @@ private fun FieldValueBox(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(colorScheme.surfaceContainerLow)
-                .border(1.dp, colorScheme.outlineVariant.copy(alpha = 0.2f))
+                .border(1.dp, colorScheme.outlineVariant.copy(alpha = 0.4f))
                 .padding(12.dp),
         ) {
             Text(
@@ -774,7 +774,7 @@ private fun RevealableValueBox(
         modifier = Modifier
             .fillMaxWidth()
             .background(colorScheme.surfaceContainerLow)
-            .border(1.dp, colorScheme.outlineVariant.copy(alpha = 0.2f))
+            .border(1.dp, colorScheme.outlineVariant.copy(alpha = 0.4f))
             .padding(12.dp)
             .pointerInput(isRevealed) {
                 detectTapGestures(
