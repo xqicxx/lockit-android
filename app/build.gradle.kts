@@ -26,8 +26,8 @@ android {
         applicationId = "com.lockit"
         minSdk = 26
         targetSdk = 35
-        versionCode = 4005
-        versionName = "0.4.5"
+        versionCode = 4006
+        versionName = "0.4.6"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {

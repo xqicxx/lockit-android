@@ -93,33 +93,59 @@ object ChatGPTCodingPlan : CodingPlanFetcher {
     ): CodingPlanQuota? {
         if (response.isBlank()) return null
 
+        // Log raw response for debugging (truncated to avoid log overflow)
+        android.util.Log.d("ChatGPTCodingPlan", "Raw usage response: ${response.take(500)}")
+
         val json = JSONObject(response)
 
         val rateLimit = json.optJSONObject("rate_limit")
         val primaryWindow = rateLimit?.optJSONObject("primary_window")
         val secondaryWindow = rateLimit?.optJSONObject("secondary_window")
 
-        val primaryUsedPercent = primaryWindow?.optDouble("used_percent", 0.0) ?: 0.0
-        val secondaryUsedPercent = secondaryWindow?.optDouble("used_percent", 0.0) ?: 0.0
-        val primaryWindowSeconds = primaryWindow?.optLong("limit_window_seconds", 0L) ?: 0L
-        val secondaryWindowSeconds = secondaryWindow?.optLong("limit_window_seconds", 0L) ?: 0L
-        val primaryResetAfter = primaryWindow?.optLong("reset_after_seconds", 0L) ?: 0L
-        val secondaryResetAfter = secondaryWindow?.optLong("reset_after_seconds", 0L) ?: 0L
+        // Fallback: ChatGPT API may return flat "daily_limit" / "weekly_limit" outside rate_limit
+        val hasFlatFields = json.has("daily_limit") || json.has("weekly_limit")
 
-        val primaryTotal = if (primaryWindowSeconds > 0) 100 else 0
-        val secondaryTotal = if (secondaryWindowSeconds > 0) 100 else 0
-        val primaryUsed = primaryUsedPercent.toInt().coerceIn(0, 100)
-        val secondaryUsed = secondaryUsedPercent.toInt().coerceIn(0, 100)
+        // Parse primary (session / 5h) window
+        val (primaryUsed, primaryTotal, primaryUsedPercent) = parseWindow(
+            primaryWindow,
+            flatLimit = if (hasFlatFields) json.optInt("daily_limit", 0) else 0,
+            flatUsed = if (hasFlatFields) json.optInt("daily_used", 0) else 0,
+            defaultTotal = 100,
+        )
+        // Parse secondary (weekly) window
+        val (secondaryUsed, secondaryTotal, secondaryUsedPercent) = parseWindow(
+            secondaryWindow,
+            flatLimit = if (hasFlatFields) json.optInt("weekly_limit", 0) else 0,
+            flatUsed = if (hasFlatFields) json.optInt("weekly_used", 0) else 0,
+            defaultTotal = 100,
+        )
+
+        // Reset times
+        val primaryWindowSeconds = primaryWindow?.optLong("limit_window_seconds",
+            primaryWindow?.optLong("window_seconds", 0L) ?: 0L) ?: 0L
+        val secondaryWindowSeconds = secondaryWindow?.optLong("limit_window_seconds",
+            secondaryWindow?.optLong("window_seconds", 0L) ?: 0L) ?: 0L
+        val primaryResetAfter = primaryWindow?.optLong("reset_after_seconds",
+            primaryWindow?.optLong("resets_in_seconds", 0L) ?: 0L) ?: 0L
+        val secondaryResetAfter = secondaryWindow?.optLong("reset_after_seconds",
+            secondaryWindow?.optLong("resets_in_seconds", 0L) ?: 0L) ?: 0L
+
         val now = Instant.now()
         val primaryResetsAt = if (primaryResetAfter > 0) now.plusSeconds(primaryResetAfter) else null
         val secondaryResetsAt = if (secondaryResetAfter > 0) now.plusSeconds(secondaryResetAfter) else null
         val usagePlanType = json.optString("plan_type", "ChatGPT")
 
+        // Use parsed total, fallback to computed
+        val effectiveSecondaryTotal = if (secondaryTotal > 0) secondaryTotal
+            else if (secondaryWindowSeconds > 0) 100 else 0
+        val effectiveSecondaryUsed = if (secondaryTotal > 0) secondaryUsed
+            else if (secondaryWindowSeconds > 0) secondaryUsedPercent.toInt().coerceIn(0, 100) else 0
+
         return CodingPlanQuota(
             sessionUsed = primaryUsed,
             sessionTotal = primaryTotal,
-            weekUsed = secondaryUsed,
-            weekTotal = secondaryTotal,
+            weekUsed = if (effectiveSecondaryTotal > 0) effectiveSecondaryUsed else secondaryUsedPercent.toInt().coerceIn(0, 100),
+            weekTotal = effectiveSecondaryTotal,
             monthUsed = 0,
             monthTotal = 0,
             instanceName = "ChatGPT",
@@ -138,8 +164,8 @@ object ChatGPTCodingPlan : CodingPlanFetcher {
                 "secondary" to ModelQuota(
                     modelName = "Weekly window",
                     usedPercent = secondaryUsedPercent,
-                    weekUsed = secondaryUsed,
-                    weekTotal = secondaryTotal,
+                    weekUsed = effectiveSecondaryUsed,
+                    weekTotal = effectiveSecondaryTotal,
                     resetsAt = secondaryResetsAt,
                 ),
             ).filterValues { it.weekTotal > 0 },
@@ -152,6 +178,71 @@ object ChatGPTCodingPlan : CodingPlanFetcher {
             accountEmail = accountSummary?.accountEmail?.ifBlank { fallbackEmail } ?: fallbackEmail,
             loginMethod = accountSummary?.loginMethod?.ifBlank { fallbackLoginMethod } ?: fallbackLoginMethod,
         )
+    }
+
+    /**
+     * Parse a rate-limit window, handling multiple API response formats:
+     * 1. { used_percent, limit } → percentage-based (CodexBar/caut normalized)
+     * 2. { current_usage, limit } → raw counts (ChatGPT actual API)
+     * 3. { used, total } → alternative count format
+     * 4. Flat { daily_used, daily_limit } → from top-level JSON
+     */
+    private data class WindowResult(val used: Int, val total: Int, val usedPercent: Double)
+
+    private fun parseWindow(
+        window: JSONObject?,
+        flatLimit: Int = 0,
+        flatUsed: Int = 0,
+        defaultTotal: Int = 100,
+    ): WindowResult {
+        // Handle flat fields (daily_limit / weekly_limit at top level)
+        if (flatLimit > 0) {
+            val used = flatUsed.coerceAtLeast(0)
+            val pct = if (flatLimit > 0) used.toDouble() / flatLimit * 100.0 else 0.0
+            return WindowResult(used, flatLimit, pct)
+        }
+
+        if (window == null) return WindowResult(0, 0, 0.0)
+
+        val total: Int
+        val used: Int
+        val pct: Double
+
+        // Try count-based formats first: current_usage + limit, or used + total
+        val limit = window.optInt("limit", 0)
+        val usage = window.optInt("current_usage", window.optInt("used", -1))
+
+        if (limit > 0 && usage >= 0) {
+            // Raw count format from actual ChatGPT API
+            total = limit
+            used = usage.coerceAtMost(total)
+            pct = used.toDouble() / total * 100.0
+        } else {
+            // Percentage-based format (normalized proxies)
+            val rawPct = window.optDouble("used_percent",
+                window.optDouble("usedPercent", -1.0))
+            if (rawPct >= 0) {
+                pct = rawPct.coerceIn(0.0, 100.0)
+                total = defaultTotal
+                used = rawPct.toInt().coerceIn(0, defaultTotal)
+            } else {
+                // Last resort: look for remaining/total pairs
+                val remaining = window.optInt("remaining", -1)
+                val windowTotal = window.optInt("total",
+                    window.optInt("limit_window_seconds", 0).let { if (it > 0) defaultTotal else 0 })
+                if (remaining >= 0 && windowTotal > 0) {
+                    total = windowTotal
+                    used = windowTotal - remaining
+                    pct = used.toDouble() / total * 100.0
+                } else {
+                    total = 0
+                    used = 0
+                    pct = 0.0
+                }
+            }
+        }
+
+        return WindowResult(used, total, pct)
     }
 
     private fun fetchAccountSummary(accessToken: String, accountId: String?): ChatGptAccountSummary? {
@@ -175,6 +266,7 @@ object ChatGPTCodingPlan : CodingPlanFetcher {
             }
 
             val response = conn.inputStream.bufferedReader().use { it.readText() }
+            android.util.Log.d("ChatGPTCodingPlan", "Account API response: ${response.take(500)}")
             parseAccountSummary(JSONObject(response), accountId)
         } catch (e: Exception) {
             android.util.Log.w("ChatGPTCodingPlan", "Account API error: ${e.message}")
