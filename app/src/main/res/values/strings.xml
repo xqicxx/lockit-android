@@ -235,7 +235,10 @@
     <string name="config_sync_key_save">SAVE</string>
     <string name="config_sync_key_change">CHANGE_SYNC_KEY</string>
     <string name="config_sync_key_enter">ENTER_SYNC_KEY</string>
+    <string name="config_sync_key_copy">COPY SYNC KEY</string>
     <string name="config_sync_key_clear">CLEAR_SYNC_KEY</string>
+    <string name="config_sync_key_hint">Paste a Sync Key from another device to link them together.</string>
+    <string name="toast_sync_key_copied">SYNC_KEY_COPIED_TO_CLIPBOARD</string>
     <string name="config_sync_push">PUSH_TO_CLOUD</string>
     <string name="config_sync_pull">PULL_FROM_CLOUD</string>
     <string name="config_sync_refresh_status">REFRESH_STATUS</string>
