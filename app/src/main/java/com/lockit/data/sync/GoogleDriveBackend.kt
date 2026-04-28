@@ -362,24 +362,9 @@ class GoogleDriveBackend(private val context: Context) : SyncBackend, CloudBacku
 
     private fun ensureBackupFolder(drive: Drive): String {
         findBackupFolder(drive)?.let { return it.id }
+        val parentId = folderId
+            ?: throw IllegalStateException("Sync folder not initialized — call initDriveService first")
 
-        // Create lockit-sync parent
-        val parentFolder = drive.files().list()
-            .setSpaces("appDataFolder")
-            .setQ("name='lockit-sync' and mimeType='application/vnd.google-apps.folder'")
-            .setFields("files(id)")
-            .execute().files.firstOrNull()
-        val parentId = if (parentFolder != null) {
-            parentFolder.id
-        } else {
-            val meta = DriveFile().apply {
-                name = "lockit-sync"
-                mimeType = "application/vnd.google-apps.folder"
-            }
-            drive.files().create(meta).setFields("id").execute().id
-        }
-
-        // Create backups subfolder
         val backupMeta = DriveFile().apply {
             name = BACKUP_FOLDER_NAME
             mimeType = "application/vnd.google-apps.folder"
@@ -389,15 +374,10 @@ class GoogleDriveBackend(private val context: Context) : SyncBackend, CloudBacku
     }
 
     private fun findBackupFolder(drive: Drive): DriveFile? {
-        val parent = drive.files().list()
-            .setSpaces("appDataFolder")
-            .setQ("name='lockit-sync' and mimeType='application/vnd.google-apps.folder'")
-            .setFields("files(id)")
-            .execute().files.firstOrNull() ?: return null
-
+        val parentId = folderId ?: return null
         return drive.files().list()
             .setSpaces("appDataFolder")
-            .setQ("name='$BACKUP_FOLDER_NAME' and '${parent.id}' in parents")
+            .setQ("name='$BACKUP_FOLDER_NAME' and '$parentId' in parents")
             .setFields("files(id)")
             .execute().files.firstOrNull()
     }
