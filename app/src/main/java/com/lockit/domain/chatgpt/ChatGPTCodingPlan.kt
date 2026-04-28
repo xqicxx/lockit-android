@@ -4,6 +4,7 @@ import com.lockit.domain.CodingPlanFetcher
 import com.lockit.domain.CodingPlanQuota
 import com.lockit.domain.model.ModelQuota
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.net.HttpURLConnection
@@ -39,24 +40,30 @@ object ChatGPTCodingPlan : CodingPlanFetcher {
             val fallbackLoginMethod = metadata["loginMethod"].orEmpty()
 
             try {
-                fetchFromApi(accessToken, accountId, fallbackEmail, fallbackLoginMethod)
+                // Parallelize: account API and usage API are independent
+                val accountDeferred = async { fetchAccountSummary(accessToken, accountId) }
+                val usageDeferred = async { fetchUsageResponse(accessToken, accountId) }
+
+                val accountSummary = accountDeferred.await()
+                val usageResponse = usageDeferred.await() ?: return@withContext null
+
+                parseResponse(
+                    response = usageResponse,
+                    accountSummary = accountSummary,
+                    fallbackEmail = fallbackEmail,
+                    fallbackLoginMethod = fallbackLoginMethod,
+                )
             } catch (e: Exception) {
                 null
             }
         }
 
-    private fun fetchFromApi(
-        accessToken: String,
-        accountId: String?,
-        fallbackEmail: String,
-        fallbackLoginMethod: String,
-    ): CodingPlanQuota? {
-        val accountSummary = fetchAccountSummary(accessToken, accountId)
+    private fun fetchUsageResponse(accessToken: String, accountId: String?): String? {
         val url = URL(USAGE_API)
         val conn = url.openConnection() as HttpURLConnection
         try {
-            conn.connectTimeout = 5000
-            conn.readTimeout = 10000
+            conn.connectTimeout = 3000
+            conn.readTimeout = 8000
             conn.useCaches = false
 
             conn.setRequestMethod("GET")
@@ -72,13 +79,7 @@ object ChatGPTCodingPlan : CodingPlanFetcher {
                 return null
             }
 
-            val response = conn.inputStream.bufferedReader().use { it.readText() }
-            return parseResponse(
-                response = response,
-                accountSummary = accountSummary,
-                fallbackEmail = fallbackEmail,
-                fallbackLoginMethod = fallbackLoginMethod,
-            )
+            return conn.inputStream.bufferedReader().use { it.readText() }
         } finally {
             conn.disconnect()
         }
@@ -157,8 +158,8 @@ object ChatGPTCodingPlan : CodingPlanFetcher {
         val url = URL(ACCOUNT_API)
         val conn = url.openConnection() as HttpURLConnection
         return try {
-            conn.connectTimeout = 5000
-            conn.readTimeout = 10000
+            conn.connectTimeout = 3000
+            conn.readTimeout = 8000
             conn.useCaches = false
             conn.requestMethod = "GET"
             conn.setRequestProperty("Accept", "application/json")

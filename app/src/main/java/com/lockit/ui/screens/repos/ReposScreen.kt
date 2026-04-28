@@ -201,11 +201,10 @@ class ReposViewModel(app: LockitApp) : ViewModel() {
         // Prevent concurrent requests
         if (currentState?.isLoading == true) return
 
-        // Cache freshness check
+        // Cache freshness check — applies even on previous failure to prevent re-fetch loops
         if (!force) {
             val lastFetch = lastFetchTimes[normalizedProvider] ?: 0L
-            val cacheAge = System.currentTimeMillis() - lastFetch
-            if (cacheAge < CACHE_FRESHNESS_MS && currentState?.quota != null) return
+            if (System.currentTimeMillis() - lastFetch < CACHE_FRESHNESS_MS) return
         }
 
         val codingPlanCreds = _credentials.value.filter { it.type == CredentialType.CodingPlan }

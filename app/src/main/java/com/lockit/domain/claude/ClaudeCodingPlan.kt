@@ -44,8 +44,8 @@ object ClaudeCodingPlan : CodingPlanFetcher {
         val usageUrl = URL("https://claude.ai/api/organizations/$orgId/usage")
         val conn = usageUrl.openConnection() as HttpURLConnection
         try {
-            conn.connectTimeout = 5000
-            conn.readTimeout = 10000
+            conn.connectTimeout = 3000
+            conn.readTimeout = 8000
             conn.useCaches = false
 
             conn.setRequestMethod("GET")
@@ -67,8 +67,8 @@ object ClaudeCodingPlan : CodingPlanFetcher {
         try {
             val url = URL("https://claude.ai/api/account")
             val conn = url.openConnection() as HttpURLConnection
-            conn.connectTimeout = 5000
-            conn.readTimeout = 10000
+            conn.connectTimeout = 3000
+            conn.readTimeout = 5000
             conn.setRequestMethod("GET")
             conn.setRequestProperty("Accept", "application/json")
             conn.setRequestProperty("Cookie", "sessionKey=$sessionKey")

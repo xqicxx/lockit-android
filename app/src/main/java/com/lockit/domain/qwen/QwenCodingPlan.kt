@@ -49,8 +49,8 @@ object QwenCodingPlan : CodingPlanFetcher {
         val url = URL(API_URL)
         val conn = url.openConnection() as HttpURLConnection
 
-        conn.connectTimeout = 5000
-        conn.readTimeout = 10000
+        conn.connectTimeout = 3000
+        conn.readTimeout = 8000
         conn.useCaches = false
 
         conn.setupHeaders(cookie)
