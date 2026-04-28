@@ -9,6 +9,16 @@ import java.security.MessageDigest
 import java.time.Instant
 import java.util.UUID
 
+/** Result of a sync() call. */
+enum class SyncOutcome {
+    AlreadyUpToDate,
+    Pushed,
+    Pulled,
+    LocalWon,
+    CloudWon,
+    Error,
+}
+
 /**
  * Manages vault synchronization between devices.
  * Uses Sync Key for encryption (independent of device PIN).
