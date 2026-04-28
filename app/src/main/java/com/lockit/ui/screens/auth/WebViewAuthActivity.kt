@@ -191,10 +191,17 @@ class WebViewAuthActivity : ComponentActivity() {
         // or HTTPS callback to account.aliyun.com
         when {
             callbackUrl.startsWith("alipays://") -> {
-                // Reset extraction state to allow re-checking login
+                // After Alipay auth, reload() would just re-trigger the login page
+                // which redirects back to Alipay → infinite loop.
+                // Instead, navigate directly to the provider console to detect login.
                 authWebViewClient?.resetExtractionState()
-                // Reload the original login page to check if auth succeeded
-                webView?.reload()
+                val postLoginUrl = when (provider) {
+                    "qwen_bailian" -> "https://bailian.console.aliyun.com/cn-beijing/?tab=coding-plan"
+                    "chatgpt" -> "https://chatgpt.com/"
+                    "claude" -> "https://claude.ai/"
+                    else -> loginUrlFor(provider)
+                }
+                webView?.loadUrl(postLoginUrl)
                 android.widget.Toast.makeText(this, "支付宝认证完成，正在验证...", android.widget.Toast.LENGTH_SHORT).show()
             }
             else -> {

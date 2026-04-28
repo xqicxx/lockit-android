@@ -482,8 +482,8 @@ fun ReposScreen(
                 }
                 Spacer(modifier = Modifier.height(24.dp))
 
-                // Coding Plan Board — compact multi-provider dashboard
-                if (codingPlanCredentials.isNotEmpty()) {
+                // Coding Plan Board — only visible when credentials exist AND there's data to show
+                if (codingPlanCredentials.isNotEmpty() && providerQuotas.isNotEmpty()) {
                     Text(
                         text = stringResource(R.string.repos_coding_plan_board),
                         fontFamily = JetBrainsMonoFamily,
