@@ -12,7 +12,10 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.IOException
+import java.text.SimpleDateFormat
+import java.time.Duration
 import java.time.Instant
+import java.util.Locale
 
 /**
  * WebDAV backend for vault sync.
@@ -26,7 +29,7 @@ import java.time.Instant
  * Uses optimistic locking with ETag/If-Match for conflict detection.
  * Credentials stored in EncryptedSharedPreferences for security.
  */
-class WebDavBackend(private val context: Context) : SyncBackend {
+class WebDavBackend(private val context: Context) : SyncBackend, CloudBackupStore {
 
     override val name = "WebDAV"
 
@@ -38,6 +41,7 @@ class WebDavBackend(private val context: Context) : SyncBackend {
         private const val KEY_PASSWORD = "password"
         private const val KEY_BASE_PATH = "base_path"
 
+        private const val BACKUP_FOLDER = "backups"
         private const val DEFAULT_BASE_PATH = "/lockit-sync"
         private const val VAULT_FILE = "vault.enc"
         private const val MANIFEST_FILE = "manifest.json"
@@ -394,6 +398,150 @@ class WebDavBackend(private val context: Context) : SyncBackend {
                 Result.failure(e)
             }
         }
+    }
+
+    // --- CloudBackupStore implementation ---
+
+    override suspend fun uploadBackup(encryptedData: ByteArray, timestamp: Instant): Result<Unit> {
+        loadCredentials()
+        return withContext(Dispatchers.IO) {
+            try {
+                val url = serverUrl ?: return@withContext Result.failure(IOException("Not configured"))
+                val path = basePath ?: DEFAULT_BASE_PATH
+                val user = username ?: return@withContext Result.failure(IOException("Not configured"))
+                val pass = password ?: return@withContext Result.failure(IOException("Not configured"))
+                val httpClient = client ?: return@withContext Result.failure(IOException("Not configured"))
+
+                val name = "vault_${SimpleDateFormat("yyyy-MM-dd_HH-mm-ss", Locale.US).format(java.util.Date.from(timestamp))}.enc"
+                val backupUrl = "$url$path/$BACKUP_FOLDER/$name"
+
+                ensureBackupFolder(httpClient, url, path, user, pass)
+
+                val request = Request.Builder()
+                    .url(backupUrl)
+                    .put(encryptedData.toRequestBody(BINARY_MEDIA))
+                    .header("Authorization", Credentials.basic(user, pass))
+                    .build()
+
+                httpClient.newCall(request).execute().use { response ->
+                    if (response.isSuccessful) Result.success(Unit)
+                    else Result.failure(IOException("Upload backup failed: HTTP ${response.code}"))
+                }
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
+        }
+    }
+
+    override suspend fun listBackups(): Result<List<CloudBackupMeta>> {
+        loadCredentials()
+        return withContext(Dispatchers.IO) {
+            try {
+                val url = serverUrl ?: return@withContext Result.failure(IOException("Not configured"))
+                val path = basePath ?: DEFAULT_BASE_PATH
+                val user = username ?: return@withContext Result.failure(IOException("Not configured"))
+                val pass = password ?: return@withContext Result.failure(IOException("Not configured"))
+                val httpClient = client ?: return@withContext Result.failure(IOException("Not configured"))
+
+                val backupUrl = "$url$path/$BACKUP_FOLDER"
+                val request = Request.Builder()
+                    .url(backupUrl)
+                    .method("PROPFIND", null)
+                    .header("Authorization", Credentials.basic(user, pass))
+                    .header("Depth", "1")
+                    .build()
+
+                httpClient.newCall(request).execute().use { response ->
+                    if (response.isSuccessful || response.code == 207) {
+                        val xml = response.body?.string() ?: ""
+                        Result.success(parseBackupList(xml))
+                    } else if (response.code == 404) {
+                        Result.success(emptyList())
+                    } else {
+                        Result.failure(IOException("List backups failed: HTTP ${response.code}"))
+                    }
+                }
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
+        }
+    }
+
+    override suspend fun deleteBackup(backupId: String): Result<Unit> {
+        loadCredentials()
+        return withContext(Dispatchers.IO) {
+            try {
+                val url = serverUrl ?: return@withContext Result.failure(IOException("Not configured"))
+                val path = basePath ?: DEFAULT_BASE_PATH
+                val user = username ?: return@withContext Result.failure(IOException("Not configured"))
+                val pass = password ?: return@withContext Result.failure(IOException("Not configured"))
+                val httpClient = client ?: return@withContext Result.failure(IOException("Not configured"))
+
+                val request = Request.Builder()
+                    .url("$url$path/$BACKUP_FOLDER/${backupId}.enc")
+                    .delete()
+                    .header("Authorization", Credentials.basic(user, pass))
+                    .build()
+
+                httpClient.newCall(request).execute().use { }
+                Result.success(Unit)
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
+        }
+    }
+
+    override suspend fun cleanupOld(maxAge: Duration): Result<Unit> {
+        return withContext(Dispatchers.IO) {
+            listBackups().onSuccess { backups ->
+                val cutoff = Instant.now().minus(maxAge)
+                backups.filter { it.timestamp.isBefore(cutoff) }.forEach { meta ->
+                    deleteBackup(meta.id)
+                }
+            }.map { Unit }
+        }
+    }
+
+    private fun ensureBackupFolder(client: OkHttpClient, url: String, path: String, user: String, pass: String) {
+        val folderUrl = "$url$path/$BACKUP_FOLDER"
+        val propfind = Request.Builder()
+            .url(folderUrl)
+            .method("PROPFIND", null)
+            .header("Authorization", Credentials.basic(user, pass))
+            .header("Depth", "0")
+            .build()
+        client.newCall(propfind).execute().use { resp ->
+            if (resp.code == 404) {
+                val mkcol = Request.Builder()
+                    .url(folderUrl)
+                    .method("MKCOL", null)
+                    .header("Authorization", Credentials.basic(user, pass))
+                    .build()
+                client.newCall(mkcol).execute().use { }
+            }
+        }
+    }
+
+    private fun parseBackupList(xml: String): List<CloudBackupMeta> {
+        val sdf = SimpleDateFormat("yyyy-MM-dd_HH-mm-ss", Locale.US)
+        val hrefPattern = Regex("<(?:\\w+:)?href>([^<]+)</(?:\\w+:)?href>")
+        val sizePattern = Regex("<(?:\\w+:)?getcontentlength>(\\d+)</(?:\\w+:)?getcontentlength>")
+
+        return hrefPattern.findAll(xml).mapNotNull { hrefMatch ->
+            val href = hrefMatch.groupValues[1]
+            val name = href.substringAfterLast('/').removeSuffix(".enc")
+            if (!name.startsWith("vault_")) return@mapNotNull null
+            val id = name
+            val ts = try {
+                Instant.ofEpochMilli(sdf.parse(name.removePrefix("vault_"))!!.time)
+            } catch (_: Exception) { null } ?: return@mapNotNull null
+
+            var size = 0L
+            val afterHref = xml.substring(hrefMatch.range.last + 1)
+            sizePattern.find(afterHref)?.let { size = it.groupValues[1].toLong() }
+
+            CloudBackupMeta(id = id, timestamp = ts, sizeBytes = size)
+        }.toList()
     }
 
     override suspend fun disconnect() {

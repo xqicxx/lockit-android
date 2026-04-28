@@ -315,7 +315,7 @@ class GoogleDriveBackend(private val context: Context) : SyncBackend, CloudBacku
                     val ts = try {
                         Instant.ofEpochMilli(sdf.parse(nameWithoutExt.removePrefix("vault_"))!!.time)
                     } catch (_: Exception) { null }
-                    if (ts != null) CloudBackupMeta(id = id, timestamp = ts, sizeBytes = f.size) else null
+                    if (ts != null) CloudBackupMeta(id = id, timestamp = ts, sizeBytes = f.size?.toLong() ?: 0L) else null
                 })
             } catch (e: Exception) {
                 Result.failure(e)
