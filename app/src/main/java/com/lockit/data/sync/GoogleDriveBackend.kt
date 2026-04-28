@@ -48,6 +48,7 @@ class GoogleDriveBackend(private val context: Context) : SyncBackend, CloudBacku
     private val signInClient: GoogleSignInClient by lazy {
         val options = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
             .requestEmail()
+            .requestScopes(com.google.android.gms.common.api.Scope(DriveScopes.DRIVE_APPDATA))
             .build()
         GoogleSignIn.getClient(context, options)
     }
