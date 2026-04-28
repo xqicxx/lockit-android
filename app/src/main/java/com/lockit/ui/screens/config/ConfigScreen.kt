@@ -200,10 +200,18 @@ fun ConfigScreen(
         val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
         if (task.isSuccessful) {
             signedInAccount = task.result
-            toastMessage = "GOOGLE_SIGNED_IN: ${task.result?.email}"
             // Configure GoogleDriveBackend after sign-in
             scope.launch {
-                googleDriveBackend.configure(emptyMap())
+                val cfgResult = googleDriveBackend.configure(emptyMap())
+                if (cfgResult.isSuccess) {
+                    toastMessage = "GOOGLE_SIGNED_IN: ${task.result?.email}"
+                    googleSyncStatus = googleSyncManager.getSyncStatus()
+                } else {
+                    toastMessage = "DRIVE_INIT_FAILED: ${cfgResult.exceptionOrNull()?.message}"
+                    // Sign out on failure so user can retry
+                    googleDriveBackend.signOut()
+                    signedInAccount = null
+                }
             }
         } else {
             toastMessage = "GOOGLE_SIGN_IN_FAILED: ${task.exception?.message}"
