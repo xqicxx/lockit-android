@@ -1208,9 +1208,9 @@ private fun CompactProviderRow(
                 )
             } else if (quota != null) {
                 CompactGauge("5h", quota.sessionUsed, quota.sessionTotal, Modifier.weight(1f), showNumbers = true)
-                CompactGauge("Wk", quota.weekUsed, quota.weekTotal, Modifier.weight(1f))
+                CompactGauge("Wk", quota.weekUsed, quota.weekTotal, Modifier.weight(1f), showNumbers = true)
                 if (quota.monthTotal > 0) {
-                    CompactGauge("Mo", quota.monthUsed, quota.monthTotal, Modifier.weight(1f))
+                    CompactGauge("Mo", quota.monthUsed, quota.monthTotal, Modifier.weight(1f), showNumbers = true)
                 } else {
                     Spacer(modifier = Modifier.weight(1f))
                 }
@@ -1251,7 +1251,8 @@ private fun CompactProviderRow(
         if (quota != null && !state.isLoading) {
             val metaParts = mutableListOf<String>()
             if (state.cacheAgeMinutes > 0) metaParts.add("${state.cacheAgeMinutes}m ago")
-            quota.sessionResetsAt?.let { metaParts.add("reset ${formatResetTime(it)}") }
+            quota.sessionResetsAt?.let { metaParts.add("5h ${formatResetTime(it)}") }
+            quota.weekResetsAt?.let { metaParts.add("Wk ${formatResetTime(it)}") }
             if (quota.accountEmail.isNotBlank()) metaParts.add(quota.accountEmail.take(20))
             if (metaParts.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(2.dp))
