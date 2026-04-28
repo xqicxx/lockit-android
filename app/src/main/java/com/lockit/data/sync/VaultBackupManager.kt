@@ -19,7 +19,6 @@ data class BackupMeta(
 
 class VaultBackupManager(
     private val context: Context,
-    private val maxAge: Duration = Duration.ofDays(3),
 ) {
     companion object {
         private const val TAG = "VaultBackupManager"
@@ -86,7 +85,7 @@ class VaultBackupManager(
         Log.i(TAG, "Restored to $backupId")
     }
 
-    fun cleanup() {
+    fun cleanup(maxAge: Duration = Duration.ofDays(3)) {
         val cutoff = Instant.now().minus(maxAge)
         backupDir.listFiles()?.forEach { file ->
             val id = file.name.removeSuffix(".db").removePrefix("vault_")

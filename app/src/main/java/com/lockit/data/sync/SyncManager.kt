@@ -9,6 +9,12 @@ import java.security.MessageDigest
 import java.time.Instant
 import java.util.UUID
 
+enum class ResolveStrategy {
+    KeepLocal,
+    KeepCloud,
+    LastWriteWins,
+}
+
 /** Result of a sync() call. */
 enum class SyncOutcome {
     AlreadyUpToDate,
@@ -318,6 +324,127 @@ class SyncManager(
                 }
             }
         }
+    }
+
+    // --- Push with auto-resolve ---
+
+    suspend fun push(strategy: ResolveStrategy): Result<Unit> = withContext(Dispatchers.IO) {
+        if (!hasSyncKey()) return@withContext Result.failure(IllegalStateException("No Sync Key configured"))
+        if (!backend.isConfigured()) return@withContext Result.failure(IllegalStateException("Backend not configured"))
+
+        val cloudManifest = backend.getManifest().getOrNull()
+        val lastSyncChecksum = prefs.getString(KEY_LAST_SYNC_CHECKSUM, null)
+        val localChecksum = computeLocalChecksum()
+
+        val isConflict = cloudManifest != null && (lastSyncChecksum?.let {
+            cloudManifest.vaultChecksum != it
+        } ?: (cloudManifest.vaultChecksum != localChecksum))
+
+        when {
+            !isConflict -> forcePush()
+            strategy == ResolveStrategy.KeepLocal -> forcePush()
+            strategy == ResolveStrategy.KeepCloud -> Result.success(Unit)
+            strategy == ResolveStrategy.LastWriteWins -> {
+                if (cloudManifest!!.updatedAt.isAfter(Instant.now())) {
+                    Result.success(Unit)
+                } else {
+                    forcePush()
+                }
+            }
+            else -> Result.failure(IllegalStateException("Unknown strategy"))
+        }
+    }
+
+    // --- Pull with auto-resolve ---
+
+    suspend fun pull(strategy: ResolveStrategy): Result<Unit> = withContext(Dispatchers.IO) {
+        if (!hasSyncKey()) return@withContext Result.failure(IllegalStateException("No Sync Key configured"))
+        if (!backend.isConfigured()) return@withContext Result.failure(IllegalStateException("Backend not configured"))
+
+        val cloudManifest = backend.getManifest().getOrNull()
+            ?: return@withContext Result.failure(IllegalStateException("No cloud vault exists"))
+
+        val lastSyncChecksum = prefs.getString(KEY_LAST_SYNC_CHECKSUM, null)
+        val localChecksum = computeLocalChecksum()
+
+        val isConflict = if (lastSyncChecksum != null) {
+            localChecksum != lastSyncChecksum
+        } else {
+            localChecksum != "sha256:empty" && localChecksum != cloudManifest.vaultChecksum
+        }
+
+        when {
+            !isConflict -> forcePull()
+            strategy == ResolveStrategy.KeepCloud -> forcePull()
+            strategy == ResolveStrategy.KeepLocal -> Result.success(Unit)
+            strategy == ResolveStrategy.LastWriteWins -> {
+                if (cloudManifest.updatedAt.isAfter(Instant.now())) {
+                    forcePull()
+                } else {
+                    Result.success(Unit)
+                }
+            }
+            else -> Result.failure(IllegalStateException("Unknown strategy"))
+        }
+    }
+
+    // --- One-click smart sync ---
+
+    suspend fun sync(): Result<SyncOutcome> = withContext(Dispatchers.IO) {
+        if (!hasSyncKey()) return@withContext Result.failure(IllegalStateException("No Sync Key configured"))
+        if (!backend.isConfigured()) return@withContext Result.failure(IllegalStateException("Backend not configured"))
+
+        val cloudManifest = backend.getManifest().getOrNull()
+        if (cloudManifest == null) {
+            return@withContext forcePush().fold(
+                onSuccess = { Result.success(SyncOutcome.Pushed) },
+                onFailure = { Result.failure(it) },
+            )
+        }
+
+        val localChecksum = computeLocalChecksum()
+        val lastChecksum = prefs.getString(KEY_LAST_SYNC_CHECKSUM, null)
+
+        when {
+            cloudManifest.vaultChecksum == localChecksum ->
+                Result.success(SyncOutcome.AlreadyUpToDate)
+            lastChecksum == null ->
+                push(ResolveStrategy.LastWriteWins).fold(
+                    onSuccess = { Result.success(SyncOutcome.Pushed) },
+                    onFailure = { Result.failure(it) },
+                )
+            cloudManifest.vaultChecksum == lastChecksum && localChecksum != lastChecksum ->
+                push(ResolveStrategy.LastWriteWins).fold(
+                    onSuccess = { Result.success(SyncOutcome.Pushed) },
+                    onFailure = { Result.failure(it) },
+                )
+            localChecksum == lastChecksum && cloudManifest.vaultChecksum != lastChecksum ->
+                pull(ResolveStrategy.LastWriteWins).fold(
+                    onSuccess = { Result.success(SyncOutcome.Pulled) },
+                    onFailure = { Result.failure(it) },
+                )
+            else -> {
+                if (cloudManifest.updatedAt.isAfter(Instant.now())) {
+                    forcePull().fold(
+                        onSuccess = { Result.success(SyncOutcome.CloudWon) },
+                        onFailure = { Result.failure(it) },
+                    )
+                } else {
+                    forcePush().fold(
+                        onSuccess = { Result.success(SyncOutcome.LocalWon) },
+                        onFailure = { Result.failure(it) },
+                    )
+                }
+            }
+        }
+    }
+
+    // --- Internal accessors for VaultAutoSync ---
+
+    internal fun getDatabaseFileRef(): File = getDatabaseFile()
+    internal fun getSyncKeyBytes(): ByteArray? {
+        val encoded = getSyncKeyEncoded() ?: return null
+        return SyncCrypto.decodeSyncKey(encoded)
     }
 
     // --- Private ---
