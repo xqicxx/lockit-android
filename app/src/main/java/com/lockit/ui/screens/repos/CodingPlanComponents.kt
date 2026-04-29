@@ -6,8 +6,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -23,6 +21,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lockit.R
@@ -160,7 +159,6 @@ internal fun MultiProviderBoard(
 private val TOKEN_PLAN_PROVIDERS = setOf(CodingPlanProviders.MIMO, CodingPlanProviders.CHATGPT, CodingPlanProviders.CLAUDE)
 
 @Composable
-@OptIn(ExperimentalLayoutApi::class)
 internal fun CompactProviderRow(
     provider: String,
     label: String,
@@ -256,12 +254,11 @@ internal fun CompactProviderRow(
             val metaParts = buildCompactMetaParts(provider, quota, state.cacheAgeMinutes)
             if (metaParts.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(2.dp))
-                FlowRow(
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(start = 64.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(2.dp),
                 ) {
                     metaParts.forEach { part ->
                         Text(
@@ -269,6 +266,9 @@ internal fun CompactProviderRow(
                             fontFamily = JetBrainsMonoFamily,
                             fontSize = 7.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Clip,
+                            modifier = Modifier.weight(1f),
                         )
                     }
                 }
@@ -335,7 +335,7 @@ private fun buildCompactMetaParts(
         add(normalizedKey, key, value)
     }
 
-    return items.values.toList()
+    return items.values.take(4)
 }
 
 @Composable
