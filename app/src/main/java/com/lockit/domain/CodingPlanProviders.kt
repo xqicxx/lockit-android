@@ -11,7 +11,7 @@ object CodingPlanProviders {
             "qwen", "bailian", QWEN_BAILIAN -> QWEN_BAILIAN
             "openai", "codex", CHATGPT -> CHATGPT
             "anthropic", CLAUDE -> CLAUDE
-            "mimo", "xiaomi", MIMO -> MIMO
+            "mimo", "xiaomi", "xiaomi_mimo", MIMO -> MIMO
             else -> value?.trim()?.lowercase().orEmpty()
         }
     }

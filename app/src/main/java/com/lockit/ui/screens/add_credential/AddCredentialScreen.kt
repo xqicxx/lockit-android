@@ -129,7 +129,7 @@ private val PROVIDER_BASE_URLS = mapOf(
     "glm" to listOf("https://open.bigmodel.cn/api/paas/v4"),
     "qwen" to listOf("https://coding.dashscope.aliyuncs.com/v1"),
     "qwen_bailian" to listOf("https://bailian.console.aliyun.com"),
-    "mimo" to listOf("https://api.xiaomimimo.com/v1"),
+    "xiaomi_mimo" to listOf("https://api.xiaomimimo.com/v1"),
 )
 
 /**
@@ -145,7 +145,7 @@ private val NAME_TO_SERVICE = mapOf(
     "QWEN_API_KEY" to "qwen",
     "KIMI_API_KEY" to "kimi",
     "XIAOMI_API_KEY" to "xiaomi",
-    "MIMO_API_KEY" to "mimo",
+    "MIMO_API_KEY" to "xiaomi_mimo",
     "GITHUB_TOKEN" to "github",
     "GLM_API_KEY" to "glm",
 )
@@ -162,7 +162,7 @@ private val SERVICE_TO_NAME = mapOf(
     "qwen" to "QWEN_API_KEY",
     "kimi" to "KIMI_API_KEY",
     "xiaomi" to "XIAOMI_API_KEY",
-    "mimo" to "MIMO_API_KEY",
+    "xiaomi_mimo" to "MIMO_API_KEY",
     "github" to "GITHUB_TOKEN",
     "glm" to "GLM_API_KEY",
 )
