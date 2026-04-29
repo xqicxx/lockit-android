@@ -354,6 +354,7 @@
     <string name="repos_quota_cost_label">费用</string>
     <string name="repos_quota_status_label">状态</string>
     <string name="repos_quota_login_method">登录方式</string>
+    <string name="repos_quota_expires_at">到期时间</string>
     <string name="repos_quota_renew_label">续费</string>
     <string name="repos_quota_manual_renew">手动续费</string>
     <string name="repos_quota_models">模型额度</string>

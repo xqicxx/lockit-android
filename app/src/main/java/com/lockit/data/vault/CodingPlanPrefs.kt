@@ -246,6 +246,14 @@ object CodingPlanPrefs {
             put("autoRenewFlag", quota.autoRenewFlag)
             put("accountEmail", quota.accountEmail)
             put("loginMethod", quota.loginMethod)
+            if (quota.extraDetails.isNotEmpty()) {
+                val extraDetailsJson = JSONObject()
+                quota.extraDetails.forEach { (key, value) ->
+                    extraDetailsJson.put(key, value)
+                }
+                put("extraDetails", extraDetailsJson)
+            }
+            quota.subscriptionExpiresAt?.let { put("subscriptionExpiresAt", it.toString()) }
             quota.sessionResetsAt?.let { put("sessionResetsAt", it.toString()) }
             quota.weekResetsAt?.let { put("weekResetsAt", it.toString()) }
             quota.monthResetsAt?.let { put("monthResetsAt", it.toString()) }
@@ -279,6 +287,13 @@ object CodingPlanPrefs {
                     )
                 }
             }
+            val extraDetails = mutableMapOf<String, String>()
+            obj.optJSONObject("extraDetails")?.let { detailsObj ->
+                detailsObj.keys().forEach { key ->
+                    val value = detailsObj.optString(key)
+                    if (value.isNotBlank()) extraDetails[key] = value
+                }
+            }
             CodingPlanQuota(
                 sessionUsed = obj.optInt("sessionUsed", 0),
                 sessionTotal = obj.optInt("sessionTotal", 0),
@@ -290,6 +305,7 @@ object CodingPlanPrefs {
                 instanceType = obj.optString("instanceType", ""),
                 status = obj.optString("status", ""),
                 remainingDays = obj.optInt("remainingDays", 0),
+                subscriptionExpiresAt = obj.optInstantOrNull("subscriptionExpiresAt"),
                 planName = obj.optString("planName", ""),
                 tier = obj.optString("tier", ""),
                 creditsRemaining = obj.optDouble("creditsRemaining", 0.0),
@@ -304,7 +320,8 @@ object CodingPlanPrefs {
                 sessionResetsAt = obj.optInstantOrNull("sessionResetsAt"),
                 weekResetsAt = obj.optInstantOrNull("weekResetsAt"),
                 monthResetsAt = obj.optInstantOrNull("monthResetsAt"),
-                modelQuotas = modelQuotas
+                modelQuotas = modelQuotas,
+                extraDetails = extraDetails,
             )
         } catch (e: Exception) {
             Log.e(TAG, "Failed to parse quota cache: ${e.message}")

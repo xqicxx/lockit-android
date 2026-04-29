@@ -357,6 +357,7 @@
     <string name="repos_quota_cost_label">COST</string>
     <string name="repos_quota_status_label">STATUS</string>
     <string name="repos_quota_login_method">LOGIN</string>
+    <string name="repos_quota_expires_at">EXPIRES</string>
     <string name="repos_quota_renew_label">RENEW</string>
     <string name="repos_quota_manual_renew">Manual Renew</string>
     <string name="repos_quota_models">MODEL_QUOTAS</string>

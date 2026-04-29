@@ -32,6 +32,9 @@ internal fun ChatGptCodingPlanContent(quota: CodingPlanQuota) {
             add(stringResource(R.string.repos_quota_account) to quota.accountEmail)
         if (quota.loginMethod.isNotBlank())
             add(stringResource(R.string.repos_quota_login_method) to quota.loginMethod)
+        quota.subscriptionExpiresAt?.let {
+            add(stringResource(R.string.repos_quota_expires_at) to formatResetTime(it))
+        }
         remainingDays?.let { add(stringResource(R.string.repos_quota_remaining_label) to stringResource(R.string.repos_quota_days_value, it)) }
         renewText?.let { add(stringResource(R.string.repos_quota_renew_label) to it) }
         if (quota.chargeAmount > 0.0)
@@ -45,6 +48,14 @@ internal fun ChatGptCodingPlanContent(quota: CodingPlanQuota) {
     }
 
     InfoGrid(items = infoItems)
+
+    val extraItems = quota.extraDetails
+        .filterValues { it.isNotBlank() }
+        .map { (key, value) -> key to value }
+    if (extraItems.isNotEmpty()) {
+        Spacer(modifier = Modifier.height(4.dp))
+        InfoGrid(items = extraItems)
+    }
 
     // Status chip — color driven by actual API status value, not hardcoded mapping
     if (quota.status.isNotBlank()) {

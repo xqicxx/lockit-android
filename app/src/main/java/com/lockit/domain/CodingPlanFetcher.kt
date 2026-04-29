@@ -35,6 +35,7 @@ data class CodingPlanQuota(
     val instanceType: String = "",
     val status: String = "",
     val remainingDays: Int = 0,
+    val subscriptionExpiresAt: Instant? = null,
     val planName: String = "",
     val tier: String = "",
 
@@ -51,6 +52,9 @@ data class CodingPlanQuota(
     // === Identity ===
     val accountEmail: String = "",
     val loginMethod: String = "",
+
+    // === Provider-specific, non-sensitive details for richer boards ===
+    val extraDetails: Map<String, String> = emptyMap(),
 ) {
     // Legacy aliases for backwards compatibility
     @Deprecated("Use sessionUsed instead", ReplaceWith("sessionUsed"))
