@@ -366,7 +366,7 @@ class ReposViewModel(app: LockitApp) : ViewModel() {
         val normalizedProvider = CodingPlanProviders.normalize(provider)
         if (snapshot.quota == null && snapshot.error == null && !snapshot.isLoading) return
         val current = _providerQuotas.value.toMutableMap()
-        val existing = current[normalizedProvider] ?: ProviderQuotaState()
+        val existing = current[normalizedProvider] ?: return
         current[normalizedProvider] = existing.copy(
             quota = snapshot.quota ?: existing.quota,
             error = snapshot.error,
