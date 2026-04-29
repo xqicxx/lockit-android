@@ -19,7 +19,6 @@ import androidx.core.view.WindowInsetsCompat
 import com.lockit.domain.qwen.BailianAuthClient
 import com.lockit.domain.chatgpt.ChatGptAuthClient
 import com.lockit.domain.claude.ClaudeAuthClient
-import com.lockit.domain.mimo.MimoAuthClient
 import com.lockit.ui.components.DraggableFloatingButtons
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -42,7 +41,6 @@ private fun loginUrlFor(provider: String): String {
         "qwen_bailian" -> QWEN_BAILIAN_LOGIN_URLS.first()
         "chatgpt" -> "https://chatgpt.com/auth/login"
         "claude" -> "https://claude.ai/login"
-        "xiaomi_mimo" -> "https://platform.xiaomimimo.com/console/plan-manage"
         else -> QWEN_BAILIAN_LOGIN_URLS.first()
     }
 }
@@ -515,7 +513,6 @@ class AuthWebViewClient(
             "qwen_bailian" -> extractQwenCredentials(cookies, view)
             "chatgpt" -> extractChatGPTCredentials(cookies)
             "claude" -> extractClaudeCredentials(cookies, view)
-            "xiaomi_mimo" -> extractMiMoCredentials(cookies)
         }
     }
 
@@ -558,21 +555,6 @@ class AuthWebViewClient(
         }
     }
 
-    private fun extractMiMoCredentials(cookies: String) {
-        scope.launch {
-            android.widget.Toast.makeText(activity, "获取中...", android.widget.Toast.LENGTH_SHORT).show()
-            val result = MimoAuthClient.fetchCredentials(cookies)
-            if (result.containsKey("error")) {
-                returnFailed(result["error"] ?: "凭证获取失败")
-            } else {
-                returnResult(result)
-            }
-        }
-    }
-
-    /**
-     * Return result as JSON string to avoid delimiter fragility.
-     */
     private fun returnResult(data: Map<String, String>) {
         val json = JSONObject(data).toString()
         val intent = Intent().apply {

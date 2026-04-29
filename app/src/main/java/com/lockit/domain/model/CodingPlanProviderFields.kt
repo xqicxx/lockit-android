@@ -31,7 +31,6 @@ object CodingPlanProviderFields {
         CodingPlanProviders.MIMO to setOf(
             CodingPlanFields.PROVIDER,
             CodingPlanFields.API_KEY,
-            CodingPlanFields.COOKIE,
             CodingPlanFields.BASE_URL,
         ),
         CodingPlanProviders.DEEPSEEK to setOf(
