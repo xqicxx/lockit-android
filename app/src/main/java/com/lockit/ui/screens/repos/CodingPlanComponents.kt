@@ -220,8 +220,6 @@ internal fun CompactProviderRow(
                     CompactGauge("Wk", quota.weekUsed, quota.weekTotal, Modifier.weight(1f))
                     if (quota.monthTotal > 0) {
                         CompactGauge("Mo", quota.monthUsed, quota.monthTotal, Modifier.weight(1f))
-                    } else {
-                        Spacer(modifier = Modifier.weight(1f))
                     }
                     val badge = quota.tier.takeIf { it.isNotBlank() }
                         ?: quota.status.takeIf { it.isNotBlank() }
