@@ -16,11 +16,10 @@ internal fun MimoCodingPlanContent(quota: CodingPlanQuota) {
     val infoItems = buildList {
         if (quota.planName.isNotBlank()) add("PLAN" to quota.planName)
         if (quota.instanceType.isNotBlank()) add("TYPE" to quota.instanceType.uppercase())
-        if (quota.monthTotal > 0) add("CREDITS" to "${quota.monthTotal / 1_000_000}M total")
+        if (quota.monthTotal > 0) add("CREDITS" to "${quota.monthTotal / 1_000_000}M")
+        if (quota.sessionUsed > 0) add("MODELS" to quota.sessionUsed.toString())
         if (quota.loginMethod.isNotBlank()) add("AUTH" to quota.loginMethod.uppercase())
-        if (quota.status.isNotBlank()) add("STATUS" to quota.status.uppercase())
-        add("RPM" to "100")
-        add("TPM" to "10M")
+        add("RATE" to "100 rpm / 10M tpm")
     }
 
     InfoGrid(items = infoItems)
