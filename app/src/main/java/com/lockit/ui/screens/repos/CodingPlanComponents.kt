@@ -267,7 +267,6 @@ internal fun CompactProviderRow(
                 quota.sessionResetsAt?.let { metaParts.add("5h ${formatResetTime(it)}") }
                 quota.weekResetsAt?.let { metaParts.add("Wk ${formatResetTime(it)}") }
             }
-            if (quota.loginMethod.isNotBlank()) metaParts.add(quota.loginMethod.take(12))
             val compactEmailName = quota.accountEmail.substringBefore("@").take(20)
             if (compactEmailName.isNotBlank()) metaParts.add(compactEmailName)
             if (metaParts.isNotEmpty()) {
