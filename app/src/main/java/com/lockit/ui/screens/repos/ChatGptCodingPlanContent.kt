@@ -26,7 +26,7 @@ internal fun ChatGptCodingPlanContent(quota: CodingPlanQuota) {
     }
 
     // Only add fields that have actual data (no "--" placeholders)
-    val infoItems = buildList {
+    val infoItems = dedupeInfoItems(buildList {
         tier?.let { add(stringResource(R.string.repos_quota_plan) to it) }
         if (quota.accountEmail.isNotBlank())
             add(stringResource(R.string.repos_quota_account) to quota.accountEmail)
@@ -45,13 +45,26 @@ internal fun ChatGptCodingPlanContent(quota: CodingPlanQuota) {
             add(stringResource(R.string.repos_quota_credits) to "${quota.creditsRemaining} ${quota.creditsCurrency}")
         if (quota.extraUsageSpent > 0.0 || quota.extraUsageLimit > 0.0)
             add(stringResource(R.string.repos_quota_extra_usage) to "${quota.extraUsageSpent}/${quota.extraUsageLimit}")
-    }
+    })
 
     InfoGrid(items = infoItems)
 
+    val primaryExtraKeys = setOf(
+        "usage plan",
+        "subscription plan",
+        "plan type",
+        "plan name",
+        "account status",
+        "charge type",
+        "charge amount",
+        "expires at",
+        "auto renew",
+    )
     val extraItems = quota.extraDetails
+        .filterKeys { it.lowercase() !in primaryExtraKeys }
         .filterValues { it.isNotBlank() }
         .map { (key, value) -> key to value }
+        .let { dedupeInfoItems(it, existing = infoItems) }
     if (extraItems.isNotEmpty()) {
         Spacer(modifier = Modifier.height(4.dp))
         InfoGrid(items = extraItems)

@@ -6,6 +6,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -21,7 +23,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lockit.R
@@ -159,6 +160,7 @@ internal fun MultiProviderBoard(
 private val TOKEN_PLAN_PROVIDERS = setOf(CodingPlanProviders.MIMO, CodingPlanProviders.CHATGPT, CodingPlanProviders.CLAUDE)
 
 @Composable
+@OptIn(ExperimentalLayoutApi::class)
 internal fun CompactProviderRow(
     provider: String,
     label: String,
@@ -251,31 +253,15 @@ internal fun CompactProviderRow(
 
         // Sub row: plan + status + timing + identity (below the gauges)
         if (quota != null && !state.isLoading) {
-            val metaParts = mutableListOf<String>()
-            // Plan info — tier/plan first, then charge, then timing
-            val planLabel = quota.planName.takeIf { it.isNotBlank() }
-                ?: quota.tier.takeIf { it.isNotBlank() }
-            if (planLabel != null) metaParts.add(planLabel.take(12))
-            if (quota.instanceName.isNotBlank() && provider != CodingPlanProviders.MIMO)
-                metaParts.add(quota.instanceName.take(14))
-            if (quota.remainingDays > 0) metaParts.add(stringResource(R.string.repos_quota_remaining, quota.remainingDays))
-            if (quota.chargeType.isNotBlank()) metaParts.add(quota.chargeType.uppercase().take(8))
-            if (quota.chargeAmount > 0.0) metaParts.add("¥${quota.chargeAmount}")
-            if (quota.creditsRemaining > 0.0) metaParts.add("${quota.creditsRemaining}CR")
-            if (state.cacheAgeMinutes > 0) metaParts.add("${state.cacheAgeMinutes}m ago")
-            if (provider !in TOKEN_PLAN_PROVIDERS) {
-                quota.sessionResetsAt?.let { metaParts.add("5h ${formatResetTime(it)}") }
-                quota.weekResetsAt?.let { metaParts.add("Wk ${formatResetTime(it)}") }
-            }
-            val compactEmailName = quota.accountEmail.substringBefore("@").take(20)
-            if (compactEmailName.isNotBlank()) metaParts.add(compactEmailName)
+            val metaParts = buildCompactMetaParts(provider, quota, state.cacheAgeMinutes)
             if (metaParts.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(2.dp))
-                Row(
+                FlowRow(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(start = 64.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
                 ) {
                     metaParts.forEach { part ->
                         Text(
@@ -283,15 +269,73 @@ internal fun CompactProviderRow(
                             fontFamily = JetBrainsMonoFamily,
                             fontSize = 7.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f, fill = false),
                         )
                     }
                 }
             }
         }
     }
+}
+
+@Composable
+private fun buildCompactMetaParts(
+    provider: String,
+    quota: com.lockit.domain.CodingPlanQuota,
+    cacheAgeMinutes: Int,
+): List<String> {
+    val items = linkedMapOf<String, String>()
+    val seenValues = mutableSetOf<String>()
+
+    fun add(key: String, label: String, value: String?) {
+        val cleanValue = value?.trim()?.takeIf { it.isNotBlank() && it != "null" } ?: return
+        val valueKey = cleanValue.lowercase()
+        if (items.containsKey(key) || !seenValues.add(valueKey)) return
+        items[key] = if (label.isBlank()) cleanValue else "$label $cleanValue"
+    }
+
+    add(
+        key = "plan",
+        label = "Plan",
+        value = quota.planName.ifBlank { quota.tier.ifBlank { quota.instanceType } },
+    )
+    if (provider != CodingPlanProviders.MIMO) {
+        add("instance", "Inst", quota.instanceName)
+    }
+    add("status", "Status", quota.status.uppercase())
+    if (quota.remainingDays > 0) {
+        add("remaining", "", stringResource(R.string.repos_quota_remaining, quota.remainingDays))
+    }
+    quota.subscriptionExpiresAt?.let {
+        add("expires", "Exp", formatResetTime(it))
+    }
+    add("charge", "Charge", quota.chargeType.uppercase())
+    if (quota.chargeAmount > 0.0) {
+        add("cost", "Cost", "¥${quota.chargeAmount}")
+    }
+    if (quota.creditsRemaining > 0.0) {
+        add("credits", "Credits", "${quota.creditsRemaining} ${quota.creditsCurrency}")
+    }
+    if (quota.extraUsageSpent > 0.0 || quota.extraUsageLimit > 0.0) {
+        add("extra_usage", "Extra", "${quota.extraUsageSpent}/${quota.extraUsageLimit}")
+    }
+    if (quota.autoRenewFlag) {
+        add("renew", "", stringResource(R.string.repos_quota_auto_renew))
+    }
+    quota.sessionResetsAt?.let { add("session_reset", "5h", formatResetTime(it)) }
+    quota.weekResetsAt?.let { add("week_reset", "Wk", formatResetTime(it)) }
+    quota.monthResetsAt?.let { add("month_reset", "Mo", formatResetTime(it)) }
+    add("login", "Login", quota.loginMethod.uppercase())
+    add("account", "Acct", quota.accountEmail)
+    if (cacheAgeMinutes > 0) {
+        add("cache", "Cache", "${cacheAgeMinutes}m ago")
+    }
+
+    quota.extraDetails.forEach { (key, value) ->
+        val normalizedKey = "extra:${key.lowercase()}"
+        add(normalizedKey, key, value)
+    }
+
+    return items.values.toList()
 }
 
 @Composable
@@ -337,7 +381,7 @@ internal fun CompactGauge(label: String, used: Int, total: Int, modifier: Modifi
 
 @Composable
 internal fun InfoGrid(items: List<Pair<String, String>>) {
-    val rows = items.chunked(2)
+    val rows = dedupeInfoItems(items).chunked(2)
     Column(modifier = Modifier.fillMaxWidth()) {
         rows.forEachIndexed { index, rowItems ->
             Row(
@@ -358,9 +402,32 @@ internal fun InfoGrid(items: List<Pair<String, String>>) {
     }
 }
 
+internal fun dedupeInfoItems(
+    items: List<Pair<String, String>>,
+    existing: List<Pair<String, String>> = emptyList(),
+): List<Pair<String, String>> {
+    val seenLabels = existing.mapTo(mutableSetOf()) { it.first.trim().lowercase() }
+    val seenValues = existing.mapTo(mutableSetOf()) { it.second.trim().lowercase() }
+    return items.mapNotNull { (label, value) ->
+        val cleanLabel = label.trim()
+        val cleanValue = value.trim()
+        if (cleanLabel.isBlank() || cleanValue.isBlank() || cleanValue == "null") {
+            null
+        } else {
+            val labelKey = cleanLabel.lowercase()
+            val valueKey = cleanValue.lowercase()
+            if (!seenLabels.add(labelKey) || !seenValues.add(valueKey)) {
+                null
+            } else {
+                cleanLabel to cleanValue
+            }
+        }
+    }
+}
+
 @Composable
 internal fun QuotaInfoCell(label: String, value: String, modifier: Modifier = Modifier) {
-    Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
+    Column(modifier = modifier) {
         Text(
             text = label,
             fontFamily = JetBrainsMonoFamily,
@@ -369,14 +436,12 @@ internal fun QuotaInfoCell(label: String, value: String, modifier: Modifier = Mo
             letterSpacing = 1.sp,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        Spacer(modifier = Modifier.width(4.dp))
+        Spacer(modifier = Modifier.height(1.dp))
         Text(
             text = value,
             fontFamily = JetBrainsMonoFamily,
             fontSize = 10.sp,
             color = MaterialTheme.colorScheme.onSurface,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
         )
     }
 }
