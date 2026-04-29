@@ -195,9 +195,9 @@ internal fun CompactProviderRow(
                 if (provider in TOKEN_PLAN_PROVIDERS) {
                     // Token plan: show credits used/total + plan name
                     if (quota.monthTotal > 0) {
-                        Text("${quota.monthTotal / 1_000_000}M tokens",
+                        Text("${quota.monthTotal / 1_000_000}M total",
                             fontFamily = JetBrainsMonoFamily, fontSize = 9.sp,
-                            color = colorScheme.onSurface, modifier = Modifier.weight(1f))
+                            color = IndustrialOrange, modifier = Modifier.weight(1f))
                     } else {
                         Spacer(modifier = Modifier.weight(1f))
                     }
