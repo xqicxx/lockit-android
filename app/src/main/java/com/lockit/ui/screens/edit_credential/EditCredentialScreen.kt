@@ -40,6 +40,7 @@ import com.lockit.data.vault.CodingPlanPrefs
 import com.lockit.domain.model.Credential
 import com.lockit.domain.model.CredentialType
 import com.lockit.domain.model.CodingPlanFields
+import com.lockit.domain.model.CodingPlanProviderFields
 import com.lockit.domain.model.requiredFieldIndices
 import com.lockit.ui.components.BackButtonRow
 import com.lockit.ui.components.BrutalistButton
@@ -382,8 +383,18 @@ private fun EditCredentialForm(
                 }
             }
 
-            // Dynamic fields
-            fields.forEachIndexed { index, field ->
+            // Dynamic fields — filter by provider for CodingPlan
+            val currentProvider = if (selectedType == CredentialType.CodingPlan)
+                CodingPlanProviders.normalize(getField(0))
+            else ""
+            val visibleFields = if (selectedType == CredentialType.CodingPlan) {
+                fields.filterIndexed { index, _ ->
+                    CodingPlanProviderFields.isFieldVisible(currentProvider, index)
+                }
+            } else fields
+
+            visibleFields.forEach { field ->
+                val index = fields.indexOf(field)
                 val isSmallPreset = field.isDropdown && field.presets.size <= 6
                 val useChipGroup = field.showAsChips || isSmallPreset
 
