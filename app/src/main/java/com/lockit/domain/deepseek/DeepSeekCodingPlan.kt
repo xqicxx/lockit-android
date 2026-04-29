@@ -20,16 +20,10 @@ object DeepSeekCodingPlan : CodingPlanFetcher {
             try {
                 val balance = fetchBalance(apiKey)
                 CodingPlanQuota(
-                    sessionUsed = 0, sessionTotal = 0,
-                    weekUsed = 0, weekTotal = 0,
-                    monthUsed = 0, monthTotal = 0,
-                    instanceName = "DeepSeek",
-                    instanceType = "pay_as_you_go",
-                    status = "ACTIVE",
-                    planName = "DeepSeek",
-                    tier = "DeepSeek",
                     creditsRemaining = balance,
                     creditsCurrency = "CNY",
+                    instanceType = "pay_as_you_go",
+                    status = "ACTIVE",
                     loginMethod = "API_KEY",
                 )
             } catch (_: Exception) {
