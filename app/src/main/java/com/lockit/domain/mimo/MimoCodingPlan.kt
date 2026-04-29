@@ -19,49 +19,23 @@ object MimoCodingPlan : CodingPlanFetcher {
                 ?: metadata["apiKey"]?.takeIf { it.isNotBlank() }
                 ?: return@withContext null
 
-            try {
-                val models = fetchModels(apiKey)
-                if (models.isEmpty()) return@withContext null
+            // MiMo has no programmatic quota API — validate key exists, return static limits
+            if (apiKey.length < 8) return@withContext null
 
-                CodingPlanQuota(
-                    sessionUsed = 0,
-                    sessionTotal = 100,
-                    weekUsed = 0,
-                    weekTotal = 0,
-                    monthUsed = 0,
-                    monthTotal = 0,
-                    instanceName = "MiMo Token Plan",
-                    instanceType = "token_plan",
-                    status = "ACTIVE",
-                    planName = metadata["plan"] ?: "MiMo",
-                    tier = metadata["plan"] ?: "MiMo",
-                    accountEmail = "",
-                    loginMethod = "API_KEY",
-                )
-            } catch (e: Exception) {
-                null
-            }
+            CodingPlanQuota(
+                sessionUsed = 0,
+                sessionTotal = 100,
+                weekUsed = 0,
+                weekTotal = 0,
+                monthUsed = 0,
+                monthTotal = 0,
+                instanceName = "MiMo Token Plan",
+                instanceType = "token_plan",
+                status = "ACTIVE",
+                planName = metadata["plan"] ?: "MiMo",
+                tier = metadata["plan"] ?: "MiMo",
+                accountEmail = "",
+                loginMethod = "API_KEY",
+            )
         }
-
-    private fun fetchModels(apiKey: String): List<String> {
-        val url = URL("$API_BASE/models")
-        val conn = url.openConnection() as HttpURLConnection
-        conn.connectTimeout = 5000
-        conn.readTimeout = 5000
-        conn.setRequestProperty("api-key", apiKey)
-        conn.setRequestProperty("Accept", "application/json")
-
-        return try {
-            if (conn.responseCode != 200) emptyList()
-            else {
-                val body = conn.inputStream.bufferedReader().readText()
-                val json = JSONObject(body)
-                val data = json.optJSONArray("data")
-                if (data == null) emptyList()
-                else (0 until data.length()).map { data.getJSONObject(it).optString("id") }
-            }
-        } finally {
-            conn.disconnect()
-        }
-    }
 }

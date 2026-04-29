@@ -50,7 +50,7 @@ internal fun MultiProviderBoard(
         "qwen_bailian" to stringResource(R.string.provider_qwen),
         "chatgpt" to stringResource(R.string.provider_chatgpt),
         "claude" to stringResource(R.string.provider_claude),
-        "mimo" to "xiaomi_mimo",
+        "mimo" to "xiaomi",
     )
     val anyLoading = providerQuotas.values.any { it.isLoading }
     val sortedProviders = providerQuotas.keys.sortedBy { it }
