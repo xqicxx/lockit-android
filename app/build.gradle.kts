@@ -11,7 +11,7 @@ android {
 
     val releaseKeystorePath = System.getenv("KEYSTORE_PATH")
         ?.takeUnless { it.isBlank() }
-        ?: "${System.getProperty("user.home")}/.android/debug.keystore"
+        ?: file("release.keystore").absolutePath
     val releaseKeystorePassword = System.getenv("KEYSTORE_PASSWORD")
         ?.takeUnless { it.isBlank() }
         ?: "android"
@@ -26,8 +26,8 @@ android {
         applicationId = "com.lockit"
         minSdk = 26
         targetSdk = 35
-        versionCode = 5000
-        versionName = "0.5.0"
+        versionCode = 5001
+        versionName = "0.5.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
