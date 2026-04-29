@@ -209,10 +209,14 @@ internal fun CompactProviderRow(
                     } else {
                         Spacer(modifier = Modifier.weight(1f))
                     }
-                    val tokenBadge = quota.instanceType.takeIf { it.isNotBlank() }
-                        ?: quota.planName.takeIf { it.isNotBlank() }
-                        ?: quota.loginMethod.takeIf { it.isNotBlank() }
-                        ?: "ACTIVE"
+                    val tokenBadge = if (provider == CodingPlanProviders.MIMO) {
+                        "API"
+                    } else {
+                        quota.instanceType.takeIf { it.isNotBlank() }
+                            ?: quota.planName.takeIf { it.isNotBlank() }
+                            ?: quota.loginMethod.takeIf { it.isNotBlank() }
+                            ?: "ACTIVE"
+                    }
                     StatusChip(text = tokenBadge.take(8).uppercase(), color = IndustrialOrange)
                 } else {
                     // Time-window plan: show 5h/Wk/Mo gauges
@@ -290,18 +294,28 @@ private fun buildCompactMetaParts(
         val cleanValue = value?.trim()?.takeIf { it.isNotBlank() && it != "null" } ?: return
         val valueKey = cleanValue.lowercase()
         if (items.containsKey(key) || !seenValues.add(valueKey)) return
-        items[key] = if (label.isBlank()) cleanValue else "$label $cleanValue"
+        items[key] = cleanValue
     }
 
-    add(
-        key = "plan",
-        label = "Plan",
-        value = quota.planName.ifBlank { quota.tier.ifBlank { quota.instanceType } },
-    )
+    val planValue = if (provider == CodingPlanProviders.MIMO) {
+        quota.instanceType.takeIf { it.isNotBlank() }
+            ?: quota.planName.takeIf { it.isNotBlank() }
+            ?: quota.loginMethod.takeIf { it.isNotBlank() }
+    } else {
+        quota.planName.ifBlank { quota.tier.ifBlank { quota.instanceType } }
+    }
+    add(key = "plan", label = "", value = planValue)
     if (provider != CodingPlanProviders.MIMO) {
         add("instance", "Inst", quota.instanceName)
     }
-    add("status", "Status", quota.status.uppercase())
+    if (quota.monthTotal > 0 && provider in TOKEN_PLAN_PROVIDERS) {
+        val mpct = (quota.monthUsed * 100L / quota.monthTotal).toInt()
+        add("month_pct", "", "$mpct%")
+        add("month_used", "", "${quota.monthUsed}/${quota.monthTotal}")
+    }
+    if (quota.sessionTotal > 0) {
+        add("session_used", "", "${quota.sessionUsed}/${quota.sessionTotal}")
+    }
     if (quota.remainingDays > 0) {
         add("remaining", "", stringResource(R.string.repos_quota_remaining, quota.remainingDays))
     }
@@ -374,6 +388,14 @@ internal fun CompactGauge(label: String, used: Int, total: Int, modifier: Modifi
                     .fillMaxWidth(if (total > 0) pct / 100f else 0f)
                     .height(3.dp)
                     .background(barColor),
+            )
+        }
+        if (total > 0) {
+            Text(
+                text = "$used / $total",
+                fontFamily = JetBrainsMonoFamily,
+                fontSize = 7.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
     }

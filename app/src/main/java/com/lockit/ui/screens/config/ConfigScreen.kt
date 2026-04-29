@@ -199,10 +199,15 @@ fun ConfigScreen(
     }
 
     // Google Sign-In + Drive scope permission launcher
-    val driveScope = remember { com.google.android.gms.common.api.Scope(com.google.api.services.drive.DriveScopes.DRIVE_APPDATA) }
-
     val doConfigureDrive: () -> Unit = {
         scope.launch {
+            val account = googleDriveBackend.getSignedInAccount()
+            if (!GoogleDriveBackend.hasRequiredPermissions(account)) {
+                toastMessage = "DRIVE_PERMISSION_REQUIRED"
+                googleDriveBackend.signOut()
+                signedInAccount = null
+                return@launch
+            }
             val cfgResult = googleDriveBackend.configure(emptyMap())
             if (cfgResult.isSuccess) {
                 toastMessage = "GOOGLE_SIGNED_IN: ${signedInAccount?.email}"
@@ -222,12 +227,12 @@ fun ConfigScreen(
         if (task.isSuccessful && task.result != null) {
             val account = task.result!!
             signedInAccount = account
-            if (GoogleSignIn.hasPermissions(account, driveScope)) {
+            if (GoogleDriveBackend.hasRequiredPermissions(account)) {
                 doConfigureDrive()
             } else {
-                GoogleSignIn.requestPermissions(
-                    getActivity()!!, 9001, account, driveScope,
-                )
+                toastMessage = "DRIVE_PERMISSION_REQUIRED"
+                googleDriveBackend.signOut()
+                signedInAccount = null
             }
         } else {
             val ex = task.exception
@@ -621,7 +626,7 @@ fun ConfigScreen(
                         )
 
                         // Sign in / Push / Pull buttons
-                        if (signedInAccount == null) {
+                        if (!GoogleDriveBackend.hasRequiredPermissions(signedInAccount)) {
                             BrutalistButton(
                                 text = stringResource(R.string.config_sign_in_google),
                                 onClick = {

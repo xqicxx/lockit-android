@@ -83,13 +83,13 @@ The form dynamically renders fields based on the selected type.
 <claude-mem-context>
 # Memory Context
 
-# [lockit-android] recent context, 2026-04-29 2:55am GMT+8
+# [lockit-android] recent context, 2026-04-29 7:35pm GMT+8
 
 Legend: 🎯session 🔴bugfix 🟣feature 🔄refactor ✅change 🔵discovery ⚖️decision
 Format: ID TIME TYPE TITLE
 Fetch details: get_observations([IDs]) | Search: mem-search skill
 
-Stats: 36 obs (10,373t read) | 90,062t work | 88% savings
+Stats: 38 obs (10,854t read) | 92,098t work | 88% savings
 
 ### Apr 29, 2026
 36 2:33a 🟣 Modifying ChatGPT panel UI in programming plan board
@@ -128,6 +128,8 @@ Stats: 36 obs (10,373t read) | 90,062t work | 88% savings
 69 " 🔄 Debug APK builds successfully after all refresh refactoring
 70 " 🔄 Complete CodingPlan refresh pipeline consolidated via git diff
 71 2:55a ⚖️ Startup prefetch will be exempted from 30-minute throttling
+72 " ✅ Startup prefetch throttling reverted to always-fetch
+73 2:56a ✅ Final build passes after startup prefetch revert
 
-Access 90k tokens of past work via get_observations([IDs]) or mem-search skill.
+Access 92k tokens of past work via get_observations([IDs]) or mem-search skill.
 </claude-mem-context>

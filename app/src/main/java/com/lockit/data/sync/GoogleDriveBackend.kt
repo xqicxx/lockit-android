@@ -6,9 +6,9 @@ import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInAccount
 import com.google.android.gms.auth.api.signin.GoogleSignInClient
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
-import com.google.android.gms.auth.GoogleAuthUtil
+import com.google.android.gms.common.api.Scope
+import com.google.api.client.googleapis.extensions.android.gms.auth.GoogleAccountCredential
 import com.google.api.client.http.ByteArrayContent
-import com.google.api.client.http.HttpRequestInitializer
 import com.google.api.client.http.javanet.NetHttpTransport
 import com.google.api.client.json.gson.GsonFactory
 import com.google.api.services.drive.Drive
@@ -36,12 +36,23 @@ class GoogleDriveBackend(private val context: Context) : SyncBackend, CloudBacku
     override val name = "Google Drive"
 
     companion object {
+        internal const val APP_DATA_FOLDER_ID = "appDataFolder"
         private const val FOLDER_NAME = "lockit-sync"
         private const val VAULT_FILE_NAME = "vault.enc"
         private const val MANIFEST_FILE_NAME = "manifest.json"
         private const val MIME_TYPE = "application/octet-stream"
-        private const val BACKUP_FOLDER_NAME = "backups"
         private const val BACKUP_MIME_TYPE = "application/octet-stream"
+        val REQUIRED_SCOPES: Array<Scope> = arrayOf(
+            Scope(DriveScopes.DRIVE_APPDATA),
+            Scope(DriveScopes.DRIVE_FILE),
+        )
+        private val REQUIRED_SCOPE_STRINGS = listOf(
+            DriveScopes.DRIVE_APPDATA,
+            DriveScopes.DRIVE_FILE,
+        )
+
+        fun hasRequiredPermissions(account: GoogleSignInAccount?): Boolean =
+            account != null && GoogleSignIn.hasPermissions(account, *REQUIRED_SCOPES)
     }
 
     private var driveService: Drive? = null
@@ -50,7 +61,7 @@ class GoogleDriveBackend(private val context: Context) : SyncBackend, CloudBacku
     private val signInClient: GoogleSignInClient by lazy {
         val options = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
             .requestEmail()
-            .requestScopes(com.google.android.gms.common.api.Scope(DriveScopes.DRIVE_APPDATA))
+            .requestScopes(REQUIRED_SCOPES.first(), *REQUIRED_SCOPES.drop(1).toTypedArray())
             .build()
         GoogleSignIn.getClient(context, options)
     }
@@ -66,7 +77,7 @@ class GoogleDriveBackend(private val context: Context) : SyncBackend, CloudBacku
     }
 
     override suspend fun isConfigured(): Boolean {
-        return GoogleSignIn.getLastSignedInAccount(context) != null
+        return hasRequiredPermissions(GoogleSignIn.getLastSignedInAccount(context))
     }
 
     override suspend fun configure(credentials: Map<String, String>): Result<Unit> {
@@ -80,21 +91,21 @@ class GoogleDriveBackend(private val context: Context) : SyncBackend, CloudBacku
     private suspend fun initDriveService(account: GoogleSignInAccount): Result<Unit> {
         return withContext(Dispatchers.IO) {
             try {
-                val token = GoogleAuthUtil.getToken(
-                    context,
-                    account.email!!,
-                    "oauth2:${DriveScopes.DRIVE_APPDATA}"
-                )
-                val credential = HttpRequestInitializer { request ->
-                    request.headers.authorization = "Bearer $token"
+                if (!hasRequiredPermissions(account)) {
+                    return@withContext Result.failure(DrivePermissionRequiredException())
                 }
+                val selectedAccount = account.account
+                    ?: return@withContext Result.failure(IllegalStateException("Google account missing Android Account handle"))
+                val credential = GoogleAccountCredential.usingOAuth2(context, REQUIRED_SCOPE_STRINGS)
+                    .apply { this.selectedAccount = selectedAccount }
                 driveService = Drive.Builder(
                     NetHttpTransport(),
                     GsonFactory.getDefaultInstance(),
                     credential,
                 ).setApplicationName("Lockit").build()
 
-                // Create or find lockit-sync folder
+                // Prefer the legacy lockit-sync folder if it exists. New installs write
+                // directly into appDataFolder to avoid folder-create permission failures.
                 val existing = driveService!!.files().list()
                     .setSpaces("appDataFolder")
                     .setQ("name='$FOLDER_NAME' and mimeType='application/vnd.google-apps.folder'")
@@ -106,14 +117,7 @@ class GoogleDriveBackend(private val context: Context) : SyncBackend, CloudBacku
                 if (existing != null) {
                     folderId = existing.id
                 } else {
-                    val folderMetadata = DriveFile().apply {
-                        name = FOLDER_NAME
-                        mimeType = "application/vnd.google-apps.folder"
-                    }
-                    val created = driveService!!.files().create(folderMetadata)
-                        .setFields("id")
-                        .execute()
-                    folderId = created.id
+                    folderId = APP_DATA_FOLDER_ID
                 }
 
                 Result.success(Unit)
@@ -249,10 +253,9 @@ class GoogleDriveBackend(private val context: Context) : SyncBackend, CloudBacku
                 val drive = driveService ?: return@withContext Result.failure(IllegalStateException("Drive not initialized"))
                 val fid = folderId ?: return@withContext Result.success(Unit)
 
-                // Delete all files in folder
                 val files = drive.files().list()
                     .setSpaces("appDataFolder")
-                    .setQ("'$fid' in parents")
+                    .setQ(syncDataQuery(fid))
                     .setFields("files(id)")
                     .execute()
                     .files
@@ -261,8 +264,9 @@ class GoogleDriveBackend(private val context: Context) : SyncBackend, CloudBacku
                     drive.files().delete(file.id).execute()
                 }
 
-                // Delete folder
-                drive.files().delete(fid).execute()
+                if (fid != APP_DATA_FOLDER_ID) {
+                    drive.files().delete(fid).execute()
+                }
                 folderId = null
 
                 Result.success(Unit)
@@ -282,7 +286,7 @@ class GoogleDriveBackend(private val context: Context) : SyncBackend, CloudBacku
         return withContext(Dispatchers.IO) {
             try {
                 val drive = driveService ?: return@withContext Result.failure(IllegalStateException("Drive not initialized"))
-                val fid = ensureBackupFolder(drive)
+                val fid = backupParentId()
 
                 val name = "vault_${SimpleDateFormat("yyyy-MM-dd_HH-mm-ss", Locale.US).format(java.util.Date.from(timestamp))}.enc"
                 val metadata = DriveFile().apply {
@@ -303,12 +307,11 @@ class GoogleDriveBackend(private val context: Context) : SyncBackend, CloudBacku
         return withContext(Dispatchers.IO) {
             try {
                 val drive = driveService ?: return@withContext Result.failure(IllegalStateException("Drive not initialized"))
-                val backupFolder = findBackupFolder(drive)
-                if (backupFolder == null) return@withContext Result.success(emptyList())
+                val parentId = backupParentId()
 
                 val files = drive.files().list()
                     .setSpaces("appDataFolder")
-                    .setQ("'${backupFolder.id}' in parents and name contains 'vault_'")
+                    .setQ("'$parentId' in parents and name contains 'vault_'")
                     .setFields("files(id,name,size)")
                     .execute()
                     .files
@@ -332,11 +335,11 @@ class GoogleDriveBackend(private val context: Context) : SyncBackend, CloudBacku
         return withContext(Dispatchers.IO) {
             try {
                 val drive = driveService ?: return@withContext Result.failure(IllegalStateException("Drive not initialized"))
-                val backupFolder = findBackupFolder(drive) ?: return@withContext Result.success(Unit)
+                val parentId = backupParentId()
 
                 val existing = drive.files().list()
                     .setSpaces("appDataFolder")
-                    .setQ("name='${backupId}.enc' and '${backupFolder.id}' in parents")
+                    .setQ("name='${backupId}.enc' and '$parentId' in parents")
                     .setFields("files(id)")
                     .execute()
                     .files
@@ -365,27 +368,11 @@ class GoogleDriveBackend(private val context: Context) : SyncBackend, CloudBacku
         }
     }
 
-    private fun ensureBackupFolder(drive: Drive): String {
-        findBackupFolder(drive)?.let { return it.id }
-        val parentId = folderId
-            ?: throw IllegalStateException("Sync folder not initialized — call initDriveService first")
+    private fun backupParentId(): String =
+        folderId ?: throw IllegalStateException("Sync folder not initialized — call initDriveService first")
 
-        val backupMeta = DriveFile().apply {
-            name = BACKUP_FOLDER_NAME
-            mimeType = "application/vnd.google-apps.folder"
-            parents = listOf(parentId)
-        }
-        return drive.files().create(backupMeta).setFields("id").execute().id
-    }
-
-    private fun findBackupFolder(drive: Drive): DriveFile? {
-        val parentId = folderId ?: return null
-        return drive.files().list()
-            .setSpaces("appDataFolder")
-            .setQ("name='$BACKUP_FOLDER_NAME' and '$parentId' in parents")
-            .setFields("files(id)")
-            .execute().files.firstOrNull()
-    }
+    private fun syncDataQuery(parentId: String): String =
+        "'$parentId' in parents and (name='$VAULT_FILE_NAME' or name='$MANIFEST_FILE_NAME' or name contains 'vault_')"
 
     suspend fun getLastBackupTime(): Result<String?> {
         return withContext(Dispatchers.IO) {
@@ -395,3 +382,7 @@ class GoogleDriveBackend(private val context: Context) : SyncBackend, CloudBacku
         }
     }
 }
+
+class DrivePermissionRequiredException : IllegalStateException(
+    "Google Drive permission required: drive.appdata and drive.file"
+)
