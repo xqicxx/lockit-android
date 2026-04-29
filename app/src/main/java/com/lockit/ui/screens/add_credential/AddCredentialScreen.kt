@@ -46,6 +46,8 @@ import com.lockit.domain.model.requiredFieldIndices
 import com.lockit.ui.components.BackButtonRow
 import com.lockit.ui.components.BrutalistButton
 import com.lockit.ui.components.BrutalistTextField
+import com.lockit.ui.components.CodingPlanQuickSelect
+import com.lockit.ui.components.QuickProvider
 import com.lockit.ui.components.BrutalistTopBar
 import com.lockit.ui.components.BrutalistToast
 import com.lockit.ui.components.ButtonVariant
@@ -475,45 +477,27 @@ fun AddCredentialScreen(
                 )
                 Spacer(modifier = Modifier.height(8.dp))
 
-                // Quick verify buttons for different providers
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    BrutalistButton(
-                        text = stringResource(R.string.auth_qwen_bailian),
-                        onClick = {
-                            applyCodingPlanProviderTemplate(CodingPlanProviders.QWEN_BAILIAN, clearAuthFields = true)
-                            val intent = WebViewAuthActivity.createIntent(context, "qwen_bailian")
-                            webViewAuthLauncher.launch(intent)
-                        },
-                        variant = ButtonVariant.Secondary,
-                        modifier = Modifier.weight(1f),
-                        useMonoFont = true,
-                    )
-                    BrutalistButton(
-                        text = stringResource(R.string.auth_chatgpt),
-                        onClick = {
-                            applyCodingPlanProviderTemplate(CodingPlanProviders.CHATGPT, clearAuthFields = true)
-                            val intent = WebViewAuthActivity.createIntent(context, "chatgpt")
-                            webViewAuthLauncher.launch(intent)
-                        },
-                        variant = ButtonVariant.Secondary,
-                        modifier = Modifier.weight(1f),
-                        useMonoFont = true,
-                    )
-                    BrutalistButton(
-                        text = stringResource(R.string.auth_claude),
-                        onClick = {
-                            applyCodingPlanProviderTemplate(CodingPlanProviders.CLAUDE, clearAuthFields = true)
-                            val intent = WebViewAuthActivity.createIntent(context, "claude")
-                            webViewAuthLauncher.launch(intent)
-                        },
-                        variant = ButtonVariant.Secondary,
-                        modifier = Modifier.weight(1f),
-                        useMonoFont = true,
+                // Quick select grid for all coding plan providers
+                val quickProviders = remember {
+                    listOf(
+                        QuickProvider("qwen_bailian", "Qwen Bailian", usesWebView = true),
+                        QuickProvider("chatgpt", "ChatGPT", usesWebView = true),
+                        QuickProvider("claude", "Claude", usesWebView = true),
+                        QuickProvider("xiaomi_mimo", "Xiaomi MiMo", usesWebView = false),
+                        QuickProvider("deepseek", "DeepSeek", usesWebView = false),
                     )
                 }
+
+                CodingPlanQuickSelect(
+                    providers = quickProviders,
+                    onSelect = { provider ->
+                        applyCodingPlanProviderTemplate(provider.key, clearAuthFields = true)
+                        if (provider.usesWebView) {
+                            val intent = WebViewAuthActivity.createIntent(context, provider.key)
+                            webViewAuthLauncher.launch(intent)
+                        }
+                    },
+                )
 
                 // Auth status feedback
                 authCredentialStatus?.let { status ->
