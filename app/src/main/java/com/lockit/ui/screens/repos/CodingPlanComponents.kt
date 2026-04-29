@@ -50,6 +50,7 @@ internal fun MultiProviderBoard(
         "qwen_bailian" to stringResource(R.string.provider_qwen),
         "chatgpt" to stringResource(R.string.provider_chatgpt),
         "claude" to stringResource(R.string.provider_claude),
+        "mimo" to "MiMo",
     )
     val anyLoading = providerQuotas.values.any { it.isLoading }
     val sortedProviders = providerQuotas.keys.sortedBy { it }
@@ -129,6 +130,7 @@ internal fun MultiProviderBoard(
                     when (provider) {
                         CodingPlanProviders.CHATGPT -> ChatGptCodingPlanContent(state.quota)
                         CodingPlanProviders.QWEN_BAILIAN -> QwenCodingPlanContent(state.quota)
+                        CodingPlanProviders.MIMO -> MimoCodingPlanContent(state.quota)
                         else -> ClaudeCodingPlanContent(state.quota)
                     }
                 }

@@ -4,12 +4,14 @@ object CodingPlanProviders {
     const val QWEN_BAILIAN = "qwen_bailian"
     const val CHATGPT = "chatgpt"
     const val CLAUDE = "claude"
+    const val MIMO = "mimo"
 
     fun normalize(value: String?): String {
         return when (value?.trim()?.lowercase()) {
             "qwen", "bailian", QWEN_BAILIAN -> QWEN_BAILIAN
             "openai", "codex", CHATGPT -> CHATGPT
             "anthropic", CLAUDE -> CLAUDE
+            "mimo", "xiaomi", MIMO -> MIMO
             else -> value?.trim()?.lowercase().orEmpty()
         }
     }
@@ -19,6 +21,7 @@ object CodingPlanProviders {
             QWEN_BAILIAN -> "https://coding.dashscope.aliyuncs.com/v1"
             CHATGPT -> "https://chatgpt.com/backend-api/wham/usage"
             CLAUDE -> "https://claude.ai/api/organizations"
+            MIMO -> "https://api.xiaomimimo.com/v1"
             else -> ""
         }
     }

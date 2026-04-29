@@ -83,6 +83,7 @@ object CodingPlanFetchers {
         "qwen_bailian" to QwenCodingPlan,
         "chatgpt" to ChatGPTCodingPlan,
         "claude" to ClaudeCodingPlan,
+        "mimo" to com.lockit.domain.mimo.MimoCodingPlan,
     )
 
     fun forProvider(key: String): CodingPlanFetcher? = registry[CodingPlanProviders.normalize(key)]
