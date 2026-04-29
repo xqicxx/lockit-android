@@ -209,9 +209,9 @@ internal fun CompactProviderRow(
                     } else {
                         Spacer(modifier = Modifier.weight(1f))
                     }
-                    val tokenBadge = quota.planName.takeIf { it.isNotBlank() }
+                    val tokenBadge = quota.instanceType.takeIf { it.isNotBlank() }
+                        ?: quota.planName.takeIf { it.isNotBlank() }
                         ?: quota.loginMethod.takeIf { it.isNotBlank() }
-                        ?: quota.instanceType.takeIf { it.isNotBlank() }
                         ?: "ACTIVE"
                     StatusChip(text = tokenBadge.take(8).uppercase(), color = IndustrialOrange)
                 } else {
@@ -256,6 +256,8 @@ internal fun CompactProviderRow(
             val planLabel = quota.planName.takeIf { it.isNotBlank() }
                 ?: quota.tier.takeIf { it.isNotBlank() }
             if (planLabel != null) metaParts.add(planLabel.take(12))
+            if (quota.instanceName.isNotBlank() && provider != CodingPlanProviders.MIMO)
+                metaParts.add(quota.instanceName.take(14))
             if (quota.remainingDays > 0) metaParts.add(stringResource(R.string.repos_quota_remaining, quota.remainingDays))
             if (quota.chargeType.isNotBlank()) metaParts.add(quota.chargeType.uppercase().take(8))
             if (quota.chargeAmount > 0.0) metaParts.add("¥${quota.chargeAmount}")
