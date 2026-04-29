@@ -426,6 +426,7 @@
     <string name="auth_qwen_bailian">QWEN_BAILIAN</string>
     <string name="auth_chatgpt">CHATGPT</string>
     <string name="auth_claude">CLAUDE</string>
+    <string name="auth_mimo">MiMo</string>
 
     <!-- Widget -->
     <string name="widget_coding_plan_description">显示 Coding Plan 用量进度条，实时查看配额</string>

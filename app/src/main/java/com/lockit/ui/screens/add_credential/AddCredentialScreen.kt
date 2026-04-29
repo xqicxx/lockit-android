@@ -513,6 +513,17 @@ fun AddCredentialScreen(
                         modifier = Modifier.weight(1f),
                         useMonoFont = true,
                     )
+                    BrutalistButton(
+                        text = stringResource(R.string.auth_mimo),
+                        onClick = {
+                            applyCodingPlanProviderTemplate(CodingPlanProviders.MIMO, clearAuthFields = true)
+                            val intent = WebViewAuthActivity.createIntent(context, "xiaomi_mimo")
+                            webViewAuthLauncher.launch(intent)
+                        },
+                        variant = ButtonVariant.Secondary,
+                        modifier = Modifier.weight(1f),
+                        useMonoFont = true,
+                    )
                 }
 
                 // Auth status feedback
