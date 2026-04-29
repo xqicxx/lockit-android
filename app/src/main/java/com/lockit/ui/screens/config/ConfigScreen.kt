@@ -70,6 +70,7 @@ import com.lockit.data.updater.GitHubRelease
 import com.lockit.domain.model.Credential
 import com.lockit.ui.components.BrutalistButton
 import com.lockit.ui.components.BrutalistConfirmDialog
+import com.lockit.ui.components.SyncKeySetupPanel
 import com.lockit.ui.components.BrutalistTextField
 import com.lockit.ui.components.BrutalistToast
 import com.lockit.ui.components.BrutalistTopBar
@@ -176,10 +177,6 @@ fun ConfigScreen(
     var syncStatusMessage by remember { mutableStateOf<String?>(null) }
     var lastBackupTime by remember { mutableStateOf<String?>(null) }
     var googleSyncStatus by remember { mutableStateOf<SyncStatus>(SyncStatus.NotConfigured) }
-
-    // Sync Key state (shared across backends)
-    var syncKeyInput by remember { mutableStateOf("") }
-    var showSyncKeyInput by remember { mutableStateOf(false) }
 
     // WebDAV sync — shares sync key and state store via same prefs
     val webDavKeyManager = remember { SyncKeyManager(syncPrefs) }
@@ -520,103 +517,26 @@ fun ConfigScreen(
             ConfigSection(
                 title = stringResource(R.string.config_sync_key_title),
                 content = {
-                    Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        val hasSyncKey = googleSyncEngine.hasSyncKey()
-                        // Sync Key status
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .border(1.dp, MaterialTheme.colorScheme.outline)
-                                .padding(8.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Text(
-                                text = if (hasSyncKey) stringResource(R.string.config_sync_key_configured) else stringResource(R.string.config_sync_key_not_configured),
-                                fontFamily = JetBrainsMonoFamily,
-                                fontSize = 9.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = if (hasSyncKey) IndustrialOrange else MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-
-                        // Generate Sync Key button
-                        if (!hasSyncKey) {
-                            BrutalistButton(
-                                text = stringResource(R.string.config_sync_key_generate),
-                                onClick = {
-                                    val key = SyncCrypto.generateSyncKey()
-                                    googleSyncEngine.setSyncKey(SyncCrypto.encodeSyncKey(key))
-                                    toastMessage = context.getString(R.string.toast_sync_key_generated)
-                                },
-                                variant = ButtonVariant.Primary,
-                                modifier = Modifier.fillMaxWidth(),
-                                useMonoFont = true,
-                            )
-                        }
-
-                        // Manual Sync Key input
-                        if (showSyncKeyInput) {
-                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                                BrutalistTextField(
-                                    value = syncKeyInput,
-                                    onValueChange = { syncKeyInput = it },
-                                    label = stringResource(R.string.config_sync_key_label),
-                                    placeholder = stringResource(R.string.config_sync_key_placeholder),
-                                    modifier = Modifier.weight(1f),
-                                )
-                                BrutalistButton(
-                                    text = stringResource(R.string.config_sync_key_save),
-                                    onClick = {
-                                        try {
-                                            googleSyncEngine.setSyncKey(syncKeyInput)
-                                            showSyncKeyInput = false
-                                            toastMessage = context.getString(R.string.toast_sync_key_saved)
-                                        } catch (_: Exception) {
-                                            toastMessage = context.getString(R.string.toast_sync_key_invalid)
-                                        }
-                                    },
-                                    variant = ButtonVariant.Primary,
-                                    modifier = Modifier.width(64.dp),
-                                    useMonoFont = true,
-                                )
+                    SyncKeySetupPanel(
+                        hasSyncKey = googleSyncEngine.hasSyncKey(),
+                        onGenerate = {
+                            val key = SyncCrypto.generateSyncKey()
+                            googleSyncEngine.setSyncKey(SyncCrypto.encodeSyncKey(key))
+                            toastMessage = context.getString(R.string.toast_sync_key_generated)
+                            "" // return value unused
+                        },
+                        onImport = { pastedKey ->
+                            try {
+                                googleSyncEngine.setSyncKey(pastedKey)
+                                toastMessage = context.getString(R.string.toast_sync_key_saved)
+                                true
+                            } catch (_: Exception) {
+                                toastMessage = context.getString(R.string.toast_sync_key_invalid)
+                                false
                             }
-                        } else {
-                            // Import from another device
-                            Text(
-                                text = stringResource(R.string.config_sync_key_hint),
-                                fontFamily = JetBrainsMonoFamily,
-                                fontSize = 9.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                            BrutalistButton(
-                                text = if (hasSyncKey) stringResource(R.string.config_sync_key_change) else stringResource(R.string.config_sync_key_enter),
-                                onClick = {
-                                    showSyncKeyInput = true
-                                    syncKeyInput = ""
-                                },
-                                variant = ButtonVariant.Secondary,
-                                modifier = Modifier.fillMaxWidth(),
-                                useMonoFont = true,
-                            )
-                        }
-
-                        if (hasSyncKey) {
-                            BrutalistButton(
-                                text = stringResource(R.string.config_sync_key_copy),
-                                onClick = {
-                                    val key = googleSyncEngine.getSyncKeyEncoded()
-                                    if (key != null) {
-                                        val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
-                                        cm.setPrimaryClip(android.content.ClipData.newPlainText("Sync Key", key))
-                                        toastMessage = context.getString(R.string.toast_sync_key_copied)
-                                    }
-                                },
-                                variant = ButtonVariant.Secondary,
-                                modifier = Modifier.fillMaxWidth(),
-                                useMonoFont = true,
-                            )
-                        }
-                    }
+                        },
+                        onCopy = { googleSyncEngine.getSyncKeyEncoded() },
+                    )
                 },
             )
 
