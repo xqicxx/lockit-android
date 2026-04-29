@@ -118,6 +118,7 @@ internal fun MultiProviderBoard(
                 val isExpanded = expandedProvider == provider
 
                 CompactProviderRow(
+                    provider = provider,
                     label = label,
                     state = state,
                     isExpanded = isExpanded,
@@ -153,8 +154,11 @@ internal fun MultiProviderBoard(
     }
 }
 
+private val TOKEN_PLAN_PROVIDERS = setOf(CodingPlanProviders.MIMO, CodingPlanProviders.CHATGPT, CodingPlanProviders.CLAUDE)
+
 @Composable
 internal fun CompactProviderRow(
+    provider: String,
     label: String,
     state: ProviderQuotaState,
     isExpanded: Boolean,
@@ -185,42 +189,47 @@ internal fun CompactProviderRow(
             )
 
             if (state.isLoading) {
-                Text(
-                    text = "...",
-                    fontFamily = JetBrainsMonoFamily,
-                    fontSize = 9.sp,
-                    color = colorScheme.onSurfaceVariant,
-                    modifier = Modifier.weight(1f),
-                )
+                Text("...", fontFamily = JetBrainsMonoFamily, fontSize = 9.sp,
+                    color = colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
             } else if (quota != null) {
-                CompactGauge("5h", quota.sessionUsed, quota.sessionTotal, Modifier.weight(1f))
-                CompactGauge("Wk", quota.weekUsed, quota.weekTotal, Modifier.weight(1f))
-                if (quota.monthTotal > 0) {
-                    CompactGauge("Mo", quota.monthUsed, quota.monthTotal, Modifier.weight(1f))
+                if (provider in TOKEN_PLAN_PROVIDERS) {
+                    // Token plan: show credits used/total + plan name
+                    if (quota.monthTotal > 0) {
+                        Text("${quota.monthTotal / 1_000_000}M tokens",
+                            fontFamily = JetBrainsMonoFamily, fontSize = 9.sp,
+                            color = colorScheme.onSurface, modifier = Modifier.weight(1f))
+                    } else {
+                        Spacer(modifier = Modifier.weight(1f))
+                    }
+                    StatusChip(
+                        text = quota.planName.take(8).uppercase(),
+                        color = IndustrialOrange,
+                    )
                 } else {
-                    Spacer(modifier = Modifier.weight(1f))
+                    // Time-window plan: show 5h/Wk/Mo gauges
+                    CompactGauge("5h", quota.sessionUsed, quota.sessionTotal, Modifier.weight(1f))
+                    CompactGauge("Wk", quota.weekUsed, quota.weekTotal, Modifier.weight(1f))
+                    if (quota.monthTotal > 0) {
+                        CompactGauge("Mo", quota.monthUsed, quota.monthTotal, Modifier.weight(1f))
+                    } else {
+                        Spacer(modifier = Modifier.weight(1f))
+                    }
+                    val badge = quota.tier.takeIf { it.isNotBlank() }
+                        ?: quota.status.takeIf { it.isNotBlank() }
+                        ?: quota.planName.takeIf { it.isNotBlank() }
+                        ?: "—"
+                    StatusChip(
+                        text = badge.uppercase().take(8),
+                        color = when {
+                            quota.status.equals("VALID", true) || quota.status.equals("ACTIVE", true) -> IndustrialOrange
+                            quota.status.equals("EXPIRED", true) || quota.status.equals("EXHAUSTED", true) -> TacticalRed
+                            else -> colorScheme.onSurfaceVariant
+                        },
+                    )
                 }
-                // tier takes priority over status, ensures subscription type is clearly visible
-                val badge = quota.tier.takeIf { it.isNotBlank() }
-                    ?: quota.status.takeIf { it.isNotBlank() }
-                    ?: quota.planName.takeIf { it.isNotBlank() }
-                    ?: "—"
-                StatusChip(
-                    text = badge.uppercase().take(8),
-                    color = when {
-                        quota.status.equals("VALID", true) || quota.status.equals("ACTIVE", true) -> IndustrialOrange
-                        quota.status.equals("EXPIRED", true) || quota.status.equals("EXHAUSTED", true) -> TacticalRed
-                        else -> colorScheme.onSurfaceVariant
-                    },
-                )
             } else {
-                Text(
-                    text = "—",
-                    fontFamily = JetBrainsMonoFamily,
-                    fontSize = 9.sp,
-                    color = colorScheme.onSurfaceVariant,
-                    modifier = Modifier.weight(1f),
-                )
+                Text("—", fontFamily = JetBrainsMonoFamily, fontSize = 9.sp,
+                    color = colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
             }
 
             // Expand/collapse arrow
@@ -246,8 +255,10 @@ internal fun CompactProviderRow(
             if (quota.remainingDays > 0) {
                 metaParts.add(stringResource(R.string.repos_quota_remaining, quota.remainingDays))
             }
-            quota.sessionResetsAt?.let { metaParts.add("5h ${formatResetTime(it)}") }
-            quota.weekResetsAt?.let { metaParts.add("Wk ${formatResetTime(it)}") }
+            if (provider !in TOKEN_PLAN_PROVIDERS) {
+                quota.sessionResetsAt?.let { metaParts.add("5h ${formatResetTime(it)}") }
+                quota.weekResetsAt?.let { metaParts.add("Wk ${formatResetTime(it)}") }
+            }
             if (quota.loginMethod.isNotBlank()) metaParts.add(quota.loginMethod.take(12))
             val compactEmailName = quota.accountEmail.substringBefore("@").take(20)
             if (compactEmailName.isNotBlank()) metaParts.add(compactEmailName)
