@@ -41,6 +41,7 @@ import com.lockit.R
 import com.lockit.domain.CodingPlanProviders
 import com.lockit.domain.model.CredentialType
 import com.lockit.domain.model.CodingPlanFields
+import com.lockit.domain.model.CodingPlanProviderFields
 import com.lockit.domain.model.requiredFieldIndices
 import com.lockit.ui.components.BackButtonRow
 import com.lockit.ui.components.BrutalistButton
@@ -537,8 +538,16 @@ fun AddCredentialScreen(
                 Spacer(modifier = Modifier.height(16.dp))
             }
 
-            // Fields for selected type
-            fields.forEachIndexed { index, field ->
+            // Fields for selected type — CodingPlan filters by provider
+            val visibleFields = if (selectedType == CredentialType.CodingPlan) {
+                val provider = currentCodingPlanProvider()
+                fields.filterIndexed { index, _ ->
+                    CodingPlanProviderFields.isFieldVisible(provider, index)
+                }
+            } else fields
+
+            visibleFields.forEach { field ->
+                val index = fields.indexOf(field)
                 val isNameField = linkageIndices?.first == index
                 val isServiceField = linkageIndices?.second == index
                 val isSmallPreset = field.isDropdown && field.presets.size <= 6
