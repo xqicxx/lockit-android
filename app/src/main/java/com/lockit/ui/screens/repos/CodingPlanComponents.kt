@@ -203,8 +203,12 @@ internal fun CompactProviderRow(
                     } else {
                         Spacer(modifier = Modifier.weight(1f))
                     }
+                    val tokenBadge = quota.planName.takeIf { it.isNotBlank() }
+                        ?: quota.loginMethod.takeIf { it.isNotBlank() }
+                        ?: quota.instanceType.takeIf { it.isNotBlank() }
+                        ?: "ACTIVE"
                     StatusChip(
-                        text = quota.planName.take(8).uppercase(),
+                        text = tokenBadge.take(8).uppercase(),
                         color = IndustrialOrange,
                     )
                 } else {

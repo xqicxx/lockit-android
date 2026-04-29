@@ -439,6 +439,9 @@ fun ReposScreen(
     // Load cached/prefetched data on screen entry; this never starts a network request.
     LaunchedEffect(credentialList) {
         viewModel.loadCachedQuotas()
+        // Auto-fetch fresh data after a short delay for new credentials
+        kotlinx.coroutines.delay(500)
+        viewModel.fetchAllQuotas()
     }
 
     val displayedServiceCredentials = remember(serviceCredentials, searchQuery, selectedService) {
