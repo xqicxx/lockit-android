@@ -63,7 +63,7 @@ enum class CredentialType(
                     "google", "deepseek",
                     "moonshot", "minimax", "glm",
                     "qwen", "qwen_bailian",
-                    "xiaomi_mimo", "mimo",
+                    "mimo",
                 ),
             ),
             CredentialField("RAW_CURL", "Paste curl command (auto-extracts all fields)..."),
