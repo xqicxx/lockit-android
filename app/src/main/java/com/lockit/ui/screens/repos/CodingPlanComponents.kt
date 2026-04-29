@@ -256,10 +256,12 @@ internal fun CompactProviderRow(
             val metaParts = mutableListOf<String>()
             // Plan info first — highest priority
             if (quota.planName.isNotBlank()) metaParts.add(quota.planName.take(16))
+            if (quota.instanceName.isNotBlank()) metaParts.add(quota.instanceName.take(16))
             if (quota.instanceType.isNotBlank()) metaParts.add(quota.instanceType.uppercase().take(10))
             if (quota.chargeType.isNotBlank()) metaParts.add(quota.chargeType.uppercase().take(10))
             if (quota.chargeAmount > 0.0) metaParts.add("¥${quota.chargeAmount}")
             if (quota.creditsRemaining > 0.0) metaParts.add("${quota.creditsRemaining} CR")
+            if (quota.autoRenewFlag) metaParts.add("AUTO")
             if (state.cacheAgeMinutes > 0) metaParts.add("${state.cacheAgeMinutes}m ago")
             if (quota.remainingDays > 0) {
                 metaParts.add(stringResource(R.string.repos_quota_remaining, quota.remainingDays))
