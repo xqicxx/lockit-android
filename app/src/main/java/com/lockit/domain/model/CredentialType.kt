@@ -67,7 +67,7 @@ enum class CredentialType(
                 ),
             ),
             CredentialField("RAW_CURL", "Paste curl command (auto-extracts all fields)..."),
-            CredentialField("TOKEN", "Access token / API key (required)...", required = true),
+            CredentialField("API_KEY", "Paste your API key here...", required = true),
             CredentialField("COOKIE", "Bailian console cookie..."),
             CredentialField("BASE_URL", "Select base URL (required)", required = true)
         )
