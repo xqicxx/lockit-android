@@ -156,7 +156,7 @@ internal fun MultiProviderBoard(
     }
 }
 
-private val TOKEN_PLAN_PROVIDERS = setOf(CodingPlanProviders.MIMO, CodingPlanProviders.CHATGPT, CodingPlanProviders.CLAUDE, CodingPlanProviders.DEEPSEEK)
+private val TOKEN_PLAN_PROVIDERS = setOf(CodingPlanProviders.MIMO, CodingPlanProviders.CHATGPT, CodingPlanProviders.CLAUDE)
 
 @Composable
 internal fun CompactProviderRow(
@@ -194,8 +194,14 @@ internal fun CompactProviderRow(
                 Text("...", fontFamily = JetBrainsMonoFamily, fontSize = 9.sp,
                     color = colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
             } else if (quota != null) {
-                if (provider in TOKEN_PLAN_PROVIDERS) {
-                    // Token plan: show credits used/total + plan name
+                if (quota.creditsRemaining > 0.0 && provider == CodingPlanProviders.DEEPSEEK) {
+                    // Balance (pay-as-you-go): show ¥ amount
+                    Text("¥${"%.2f".format(quota.creditsRemaining)}",
+                        fontFamily = JetBrainsMonoFamily, fontSize = 9.sp,
+                        color = IndustrialOrange, modifier = Modifier.weight(1f))
+                    StatusChip(text = quota.creditsCurrency, color = IndustrialOrange)
+                } else if (provider in TOKEN_PLAN_PROVIDERS) {
+                    // Token plan: show total credits
                     if (quota.monthTotal > 0) {
                         Text("${quota.monthTotal / 1_000_000}M total",
                             fontFamily = JetBrainsMonoFamily, fontSize = 9.sp,
@@ -207,10 +213,7 @@ internal fun CompactProviderRow(
                         ?: quota.loginMethod.takeIf { it.isNotBlank() }
                         ?: quota.instanceType.takeIf { it.isNotBlank() }
                         ?: "ACTIVE"
-                    StatusChip(
-                        text = tokenBadge.take(8).uppercase(),
-                        color = IndustrialOrange,
-                    )
+                    StatusChip(text = tokenBadge.take(8).uppercase(), color = IndustrialOrange)
                 } else {
                     // Time-window plan: show 5h/Wk/Mo gauges
                     CompactGauge("5h", quota.sessionUsed, quota.sessionTotal, Modifier.weight(1f))
