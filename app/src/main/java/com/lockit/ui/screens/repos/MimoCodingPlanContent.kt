@@ -16,6 +16,7 @@ internal fun MimoCodingPlanContent(quota: CodingPlanQuota) {
     val infoItems = buildList {
         if (quota.planName.isNotBlank()) add("PLAN" to quota.planName)
         if (quota.instanceType.isNotBlank()) add("TYPE" to quota.instanceType.uppercase())
+        if (quota.monthTotal > 0) add("CREDITS" to "${quota.monthTotal / 1_000_000}M total")
         if (quota.loginMethod.isNotBlank()) add("AUTH" to quota.loginMethod.uppercase())
         if (quota.status.isNotBlank()) add("STATUS" to quota.status.uppercase())
         add("RPM" to "100")
