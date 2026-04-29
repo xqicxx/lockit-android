@@ -221,9 +221,11 @@ class ReposViewModel(app: LockitApp) : ViewModel() {
                     if (quota != null) break
                 }
                 if (quota == null) {
-                    val prefsMetadata = currentApp?.let { CodingPlanPrefs.getMetadata(it) }.orEmpty()
-                    val prefsProvider = CodingPlanProviders.normalize(prefsMetadata["provider"])
-                    if (prefsProvider == normalizedProvider) {
+                    val prefsData = currentApp?.let {
+                        CodingPlanPrefs.getProviderData(it, normalizedProvider)
+                    }.orEmpty()
+                    if (prefsData.isNotEmpty()) {
+                        val prefsMetadata = prefsData + ("provider" to normalizedProvider)
                         quota = CodingPlanFetchers.forProvider(normalizedProvider)?.fetchQuota(prefsMetadata)
                     }
                 }

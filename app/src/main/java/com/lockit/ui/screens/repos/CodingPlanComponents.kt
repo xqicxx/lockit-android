@@ -118,13 +118,28 @@ internal fun MultiProviderBoard(
                 val label = providerLabels[provider] ?: provider
                 val isExpanded = expandedProvider == provider
 
-                CompactProviderRow(
-                    provider = provider,
-                    label = label,
-                    state = state,
-                    isExpanded = isExpanded,
-                    onClick = { onToggleExpand(provider) },
-                )
+                when (provider) {
+                    CodingPlanProviders.CHATGPT -> ChatGPTCompactRow(
+                        label = label, state = state, isExpanded = isExpanded,
+                        onClick = { onToggleExpand(provider) },
+                    )
+                    CodingPlanProviders.QWEN_BAILIAN -> QwenCompactRow(
+                        label = label, state = state, isExpanded = isExpanded,
+                        onClick = { onToggleExpand(provider) },
+                    )
+                    CodingPlanProviders.MIMO -> MimoCompactRow(
+                        label = label, state = state, isExpanded = isExpanded,
+                        onClick = { onToggleExpand(provider) },
+                    )
+                    CodingPlanProviders.DEEPSEEK -> DeepSeekCompactRow(
+                        label = label, state = state, isExpanded = isExpanded,
+                        onClick = { onToggleExpand(provider) },
+                    )
+                    else -> ClaudeCompactRow(
+                        label = label, state = state, isExpanded = isExpanded,
+                        onClick = { onToggleExpand(provider) },
+                    )
+                }
 
                 // Expanded detail
                 if (isExpanded && state.quota != null) {
@@ -154,202 +169,6 @@ internal fun MultiProviderBoard(
             }
         }
     }
-}
-
-private val TOKEN_PLAN_PROVIDERS = setOf(CodingPlanProviders.MIMO, CodingPlanProviders.CLAUDE)
-
-@Composable
-internal fun CompactProviderRow(
-    provider: String,
-    label: String,
-    state: ProviderQuotaState,
-    isExpanded: Boolean,
-    onClick: () -> Unit,
-) {
-    val colorScheme = MaterialTheme.colorScheme
-    val quota = state.quota
-
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(vertical = 4.dp),
-    ) {
-        // Main row: label | gauges | badge | arrow
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            // Provider name label
-            Text(
-                text = label,
-                fontFamily = JetBrainsMonoFamily,
-                fontWeight = FontWeight.Bold,
-                fontSize = 11.sp,
-                color = if (isExpanded) IndustrialOrange else colorScheme.onSurface,
-                modifier = Modifier.width(64.dp),
-            )
-
-            if (state.isLoading) {
-                Text("...", fontFamily = JetBrainsMonoFamily, fontSize = 9.sp,
-                    color = colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
-            } else if (quota != null) {
-                if (quota.creditsRemaining > 0.0 && provider == CodingPlanProviders.DEEPSEEK) {
-                    // Balance (pay-as-you-go): show ¥ amount
-                    Text("¥${"%.2f".format(quota.creditsRemaining)}",
-                        fontFamily = JetBrainsMonoFamily, fontSize = 9.sp,
-                        color = IndustrialOrange, modifier = Modifier.weight(1f))
-                    StatusChip(text = quota.creditsCurrency, color = IndustrialOrange)
-                } else if (provider in TOKEN_PLAN_PROVIDERS) {
-                    // Token plan: show total credits
-                    if (quota.monthTotal > 0) {
-                        Text("${quota.monthTotal / 1_000_000}M total",
-                            fontFamily = JetBrainsMonoFamily, fontSize = 9.sp,
-                            color = IndustrialOrange, modifier = Modifier.weight(1f))
-                    } else {
-                        Spacer(modifier = Modifier.weight(1f))
-                    }
-                    val tokenBadge = if (provider == CodingPlanProviders.MIMO) {
-                        "API"
-                    } else {
-                        quota.instanceType.takeIf { it.isNotBlank() }
-                            ?: quota.planName.takeIf { it.isNotBlank() }
-                            ?: quota.loginMethod.takeIf { it.isNotBlank() }
-                            ?: "ACTIVE"
-                    }
-                    StatusChip(text = tokenBadge.take(8).uppercase(), color = IndustrialOrange)
-                } else {
-                    // Time-window plan: show 5h/Wk/Mo gauges
-                    CompactGauge("5h", quota.sessionUsed, quota.sessionTotal, Modifier.weight(1f))
-                    CompactGauge("Wk", quota.weekUsed, quota.weekTotal, Modifier.weight(1f))
-                    if (quota.monthTotal > 0) {
-                        CompactGauge("Mo", quota.monthUsed, quota.monthTotal, Modifier.weight(1f))
-                    }
-                    val badge = quota.tier.takeIf { it.isNotBlank() }
-                        ?: quota.status.takeIf { it.isNotBlank() }
-                        ?: quota.planName.takeIf { it.isNotBlank() }
-                        ?: "—"
-                    StatusChip(
-                        text = badge.uppercase().take(8),
-                        color = when {
-                            quota.status.equals("VALID", true) || quota.status.equals("ACTIVE", true) -> IndustrialOrange
-                            quota.status.equals("EXPIRED", true) || quota.status.equals("EXHAUSTED", true) -> TacticalRed
-                            else -> colorScheme.onSurfaceVariant
-                        },
-                    )
-                }
-            } else {
-                Text("—", fontFamily = JetBrainsMonoFamily, fontSize = 9.sp,
-                    color = colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
-            }
-
-            // Expand/collapse arrow
-            Text(
-                text = if (isExpanded) "▼" else "▶",
-                fontFamily = JetBrainsMonoFamily,
-                fontSize = 8.sp,
-                color = colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(start = 4.dp),
-            )
-        }
-
-        // Sub row: plan + status + timing + identity (below the gauges)
-        if (quota != null && !state.isLoading) {
-            val metaParts = buildCompactMetaParts(provider, quota, state.cacheAgeMinutes)
-            if (metaParts.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(2.dp))
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(start = 64.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    metaParts.forEach { part ->
-                        Text(
-                            text = part,
-                            fontFamily = JetBrainsMonoFamily,
-                            fontSize = 7.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1,
-                            overflow = TextOverflow.Clip,
-                            modifier = Modifier.weight(1f),
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun buildCompactMetaParts(
-    provider: String,
-    quota: com.lockit.domain.CodingPlanQuota,
-    cacheAgeMinutes: Int,
-): List<String> {
-    val items = linkedMapOf<String, String>()
-    val seenValues = mutableSetOf<String>()
-
-    fun add(key: String, label: String, value: String?) {
-        val cleanValue = value?.trim()?.takeIf { it.isNotBlank() && it != "null" } ?: return
-        val valueKey = cleanValue.lowercase()
-        if (items.containsKey(key) || !seenValues.add(valueKey)) return
-        items[key] = cleanValue
-    }
-
-    val planValue = if (provider == CodingPlanProviders.MIMO) {
-        quota.instanceType.takeIf { it.isNotBlank() }
-            ?: quota.planName.takeIf { it.isNotBlank() }
-            ?: quota.loginMethod.takeIf { it.isNotBlank() }
-    } else {
-        quota.planName.ifBlank { quota.tier.ifBlank { quota.instanceType } }
-    }
-    add(key = "plan", label = "", value = planValue)
-    if (provider != CodingPlanProviders.MIMO) {
-        add("instance", "Inst", quota.instanceName)
-    }
-    if (quota.monthTotal > 0 && provider in TOKEN_PLAN_PROVIDERS) {
-        val mpct = (quota.monthUsed * 100L / quota.monthTotal).toInt()
-        add("month_pct", "", "$mpct%")
-        add("month_used", "", "${quota.monthUsed}/${quota.monthTotal}")
-    }
-    if (quota.sessionTotal > 0) {
-        add("session_used", "", "${quota.sessionUsed}/${quota.sessionTotal}")
-    }
-    if (quota.remainingDays > 0) {
-        add("remaining", "", stringResource(R.string.repos_quota_remaining, quota.remainingDays))
-    }
-    quota.subscriptionExpiresAt?.let {
-        add("expires", "Exp", formatResetTime(it))
-    }
-    add("charge", "Charge", quota.chargeType.uppercase())
-    if (quota.chargeAmount > 0.0) {
-        add("cost", "Cost", "¥${quota.chargeAmount}")
-    }
-    if (quota.creditsRemaining > 0.0) {
-        add("credits", "Credits", "${quota.creditsRemaining} ${quota.creditsCurrency}")
-    }
-    if (quota.extraUsageSpent > 0.0 || quota.extraUsageLimit > 0.0) {
-        add("extra_usage", "Extra", "${quota.extraUsageSpent}/${quota.extraUsageLimit}")
-    }
-    if (quota.autoRenewFlag) {
-        add("renew", "", stringResource(R.string.repos_quota_auto_renew))
-    }
-    quota.sessionResetsAt?.let { add("session_reset", "5h", formatResetTime(it)) }
-    quota.weekResetsAt?.let { add("week_reset", "Wk", formatResetTime(it)) }
-    quota.monthResetsAt?.let { add("month_reset", "Mo", formatResetTime(it)) }
-    add("login", "Login", quota.loginMethod.uppercase())
-    add("account", "Acct", quota.accountEmail)
-    if (cacheAgeMinutes > 0) {
-        add("cache", "Cache", "${cacheAgeMinutes}m ago")
-    }
-
-    quota.extraDetails.forEach { (key, value) ->
-        val normalizedKey = "extra:${key.lowercase()}"
-        add(normalizedKey, key, value)
-    }
-
-    return items.values.take(4)
 }
 
 @Composable
