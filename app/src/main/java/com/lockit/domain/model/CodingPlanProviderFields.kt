@@ -34,6 +34,11 @@ object CodingPlanProviderFields {
             CodingPlanFields.COOKIE,
             CodingPlanFields.BASE_URL,
         ),
+        CodingPlanProviders.DEEPSEEK to setOf(
+            CodingPlanFields.PROVIDER,
+            CodingPlanFields.API_KEY,
+            CodingPlanFields.BASE_URL,
+        ),
     )
 
     fun visibleFieldIndices(provider: String): Set<Int> =

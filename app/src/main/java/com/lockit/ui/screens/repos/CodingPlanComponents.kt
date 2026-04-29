@@ -51,6 +51,7 @@ internal fun MultiProviderBoard(
         "chatgpt" to stringResource(R.string.provider_chatgpt),
         "claude" to stringResource(R.string.provider_claude),
         "mimo" to "MIMO",
+        "deepseek" to "DeepSeek",
     )
     val anyLoading = providerQuotas.values.any { it.isLoading }
     val sortedProviders = providerQuotas.keys.sortedBy { it }
@@ -132,6 +133,7 @@ internal fun MultiProviderBoard(
                         CodingPlanProviders.CHATGPT -> ChatGptCodingPlanContent(state.quota)
                         CodingPlanProviders.QWEN_BAILIAN -> QwenCodingPlanContent(state.quota)
                         CodingPlanProviders.MIMO -> MimoCodingPlanContent(state.quota)
+                        CodingPlanProviders.DEEPSEEK -> DeepSeekCodingPlanContent(state.quota)
                         else -> ClaudeCodingPlanContent(state.quota)
                     }
                 }
@@ -154,7 +156,7 @@ internal fun MultiProviderBoard(
     }
 }
 
-private val TOKEN_PLAN_PROVIDERS = setOf(CodingPlanProviders.MIMO, CodingPlanProviders.CHATGPT, CodingPlanProviders.CLAUDE)
+private val TOKEN_PLAN_PROVIDERS = setOf(CodingPlanProviders.MIMO, CodingPlanProviders.CHATGPT, CodingPlanProviders.CLAUDE, CodingPlanProviders.DEEPSEEK)
 
 @Composable
 internal fun CompactProviderRow(

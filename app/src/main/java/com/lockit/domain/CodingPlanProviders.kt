@@ -5,6 +5,7 @@ object CodingPlanProviders {
     const val CHATGPT = "chatgpt"
     const val CLAUDE = "claude"
     const val MIMO = "mimo"
+    const val DEEPSEEK = "deepseek"
 
     fun normalize(value: String?): String {
         return when (value?.trim()?.lowercase()) {
@@ -12,6 +13,7 @@ object CodingPlanProviders {
             "openai", "codex", CHATGPT -> CHATGPT
             "anthropic", CLAUDE -> CLAUDE
             "mimo", "xiaomi", "xiaomi_mimo", MIMO -> MIMO
+            "deepseek", DEEPSEEK -> DEEPSEEK
             else -> value?.trim()?.lowercase().orEmpty()
         }
     }
@@ -22,6 +24,7 @@ object CodingPlanProviders {
             CHATGPT -> "https://chatgpt.com/backend-api/wham/usage"
             CLAUDE -> "https://claude.ai/api/organizations"
             MIMO -> "https://api.xiaomimimo.com/v1"
+            DEEPSEEK -> "https://api.deepseek.com/v1"
             else -> ""
         }
     }
