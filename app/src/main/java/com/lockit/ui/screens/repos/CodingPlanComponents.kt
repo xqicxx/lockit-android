@@ -156,7 +156,7 @@ internal fun MultiProviderBoard(
     }
 }
 
-private val TOKEN_PLAN_PROVIDERS = setOf(CodingPlanProviders.MIMO, CodingPlanProviders.CHATGPT, CodingPlanProviders.CLAUDE)
+private val TOKEN_PLAN_PROVIDERS = setOf(CodingPlanProviders.MIMO, CodingPlanProviders.CLAUDE)
 
 @Composable
 internal fun CompactProviderRow(
