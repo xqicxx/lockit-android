@@ -6,9 +6,10 @@ import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInAccount
 import com.google.android.gms.auth.api.signin.GoogleSignInClient
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
+import com.google.android.gms.auth.GoogleAuthUtil
 import com.google.android.gms.common.api.Scope
-import com.google.api.client.googleapis.extensions.android.gms.auth.GoogleAccountCredential
 import com.google.api.client.http.ByteArrayContent
+import com.google.api.client.http.HttpRequestInitializer
 import com.google.api.client.http.javanet.NetHttpTransport
 import com.google.api.client.json.gson.GsonFactory
 import com.google.api.services.drive.Drive
@@ -94,10 +95,16 @@ class GoogleDriveBackend(private val context: Context) : SyncBackend, CloudBacku
                 if (!hasRequiredPermissions(account)) {
                     return@withContext Result.failure(DrivePermissionRequiredException())
                 }
-                val selectedAccount = account.account
-                    ?: return@withContext Result.failure(IllegalStateException("Google account missing Android Account handle"))
-                val credential = GoogleAccountCredential.usingOAuth2(context, REQUIRED_SCOPE_STRINGS)
-                    .apply { this.selectedAccount = selectedAccount }
+                val email = account.email
+                    ?: return@withContext Result.failure(IllegalStateException("Google account missing email"))
+                val token = GoogleAuthUtil.getToken(
+                    context,
+                    email,
+                    "oauth2:${DriveScopes.DRIVE_APPDATA} ${DriveScopes.DRIVE_FILE}"
+                )
+                val credential = HttpRequestInitializer { request ->
+                    request.headers.authorization = "Bearer $token"
+                }
                 driveService = Drive.Builder(
                     NetHttpTransport(),
                     GsonFactory.getDefaultInstance(),
