@@ -233,6 +233,9 @@ fun ConfigScreen(
         pendingConfigure = false
         val account = googleDriveBackend.getSignedInAccount()
         if (!GoogleDriveBackend.hasRequiredPermissions(account)) {
+            // Clear local token to force fresh consent with all required scopes
+            googleDriveBackend.signOut()
+            signedInAccount = null
             signInLauncher.launch(googleDriveBackend.getSignInIntent())
             return@LaunchedEffect
         }
@@ -243,6 +246,8 @@ fun ConfigScreen(
         } else {
             val msg = cfgResult.exceptionOrNull()?.message ?: ""
             if (msg.contains("Permission", ignoreCase = true)) {
+                googleDriveBackend.signOut()
+                signedInAccount = null
                 signInLauncher.launch(googleDriveBackend.getSignInIntent())
             } else {
                 toastMessage = "DRIVE_INIT_FAILED: $msg"
@@ -649,6 +654,8 @@ fun ConfigScreen(
                                     if (cfgResult.isFailure) {
                                         val msg = cfgResult.exceptionOrNull()?.message ?: ""
                                         if (msg.contains("Permission", ignoreCase = true)) {
+                                            googleDriveBackend.signOut()
+                                            signedInAccount = null
                                             signInLauncher.launch(googleDriveBackend.getSignInIntent())
                                         } else {
                                             toastMessage = "Drive init failed: $msg"
