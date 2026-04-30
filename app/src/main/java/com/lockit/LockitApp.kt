@@ -5,6 +5,7 @@ import android.content.Context
 import com.lockit.data.audit.AuditLogger
 import com.lockit.data.crypto.KeyManager
 import com.lockit.data.database.LockitDatabase
+import com.lockit.data.sync.GoogleDriveBackend
 import com.lockit.data.vault.VaultManager
 import com.lockit.utils.LocaleHelper
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -18,6 +19,7 @@ class LockitApp : Application() {
     val vaultManager: VaultManager by lazy {
         VaultManager(this, database.credentialDao(), keyManager, auditLogger)
     }
+    val googleDriveBackend: GoogleDriveBackend by lazy { GoogleDriveBackend(this) }
 
     // Shared state for vault recovery detection
     private val _needsRecovery = MutableStateFlow(false)

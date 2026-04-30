@@ -170,7 +170,7 @@ fun ConfigScreen(
     val googleKeyManager = remember { SyncKeyManager(syncPrefs) }
     val googleStateStore = remember { SharedPrefsSyncStateStore(syncPrefs) }
     val googleVaultFile = remember { SqliteVaultFileProvider(context) }
-    val googleDriveBackend = remember { GoogleDriveBackend(context) }
+    val googleDriveBackend = app.googleDriveBackend
     val googleSyncEngine = remember { VaultSyncEngine(googleDriveBackend, googleKeyManager, googleStateStore, googleVaultFile) }
     var signedInAccount by remember { mutableStateOf(googleDriveBackend.getSignedInAccount()) }
     var isSyncing by remember { mutableStateOf(false) }
