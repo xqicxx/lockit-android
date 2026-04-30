@@ -146,17 +146,21 @@ class GoogleDriveBackend(private val context: Context) : SyncBackend, CloudBacku
                     .firstOrNull()
 
                 // Upload vault.enc
-                val vaultMetadata = DriveFile().apply {
-                    name = VAULT_FILE_NAME
-                    mimeType = MIME_TYPE
-                    parents = listOf(fid)
-                }
                 val vaultContent = ByteArrayContent(MIME_TYPE, encryptedData)
 
                 if (existingVault != null) {
-                    drive.files().update(existingVault.id, vaultMetadata, vaultContent).execute()
+                    val meta = DriveFile().apply {
+                        name = VAULT_FILE_NAME
+                        mimeType = MIME_TYPE
+                    }
+                    drive.files().update(existingVault.id, meta, vaultContent).execute()
                 } else {
-                    drive.files().create(vaultMetadata, vaultContent).execute()
+                    val meta = DriveFile().apply {
+                        name = VAULT_FILE_NAME
+                        mimeType = MIME_TYPE
+                        parents = listOf(fid)
+                    }
+                    drive.files().create(meta, vaultContent).execute()
                 }
 
                 // Upload manifest.json
@@ -168,17 +172,21 @@ class GoogleDriveBackend(private val context: Context) : SyncBackend, CloudBacku
                     .files
                     .firstOrNull()
 
-                val manifestMetadata = DriveFile().apply {
-                    name = MANIFEST_FILE_NAME
-                    mimeType = "application/json"
-                    parents = listOf(fid)
-                }
                 val manifestContent = ByteArrayContent("application/json", manifest.toJson().toByteArray(Charsets.UTF_8))
 
                 if (existingManifest != null) {
-                    drive.files().update(existingManifest.id, manifestMetadata, manifestContent).execute()
+                    val meta = DriveFile().apply {
+                        name = MANIFEST_FILE_NAME
+                        mimeType = "application/json"
+                    }
+                    drive.files().update(existingManifest.id, meta, manifestContent).execute()
                 } else {
-                    drive.files().create(manifestMetadata, manifestContent).execute()
+                    val meta = DriveFile().apply {
+                        name = MANIFEST_FILE_NAME
+                        mimeType = "application/json"
+                        parents = listOf(fid)
+                    }
+                    drive.files().create(meta, manifestContent).execute()
                 }
 
                 Result.success(Unit)

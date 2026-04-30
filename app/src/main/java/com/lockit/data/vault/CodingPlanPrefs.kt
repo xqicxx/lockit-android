@@ -208,7 +208,7 @@ object CodingPlanPrefs {
 
     fun clearQuotaCache(context: Context) {
         val editor = getPrefs(context).edit()
-        val knownProviders = listOf("qwen_bailian", "chatgpt", "claude")
+        val knownProviders = listOf("qwen_bailian", "chatgpt", "claude", "deepseek", "mimo")
         knownProviders.forEach { p ->
             editor.remove(quotaCacheKey(p))
             editor.remove(quotaCacheTimeKey(p))

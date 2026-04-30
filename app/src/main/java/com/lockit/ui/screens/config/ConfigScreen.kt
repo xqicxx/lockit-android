@@ -198,29 +198,12 @@ fun ConfigScreen(
         webDavConfigured = webDavBackend.isConfigured()
     }
 
-    // Google Sign-In + Drive scope permission launcher
-    val doConfigureDrive: () -> Unit = {
-        scope.launch {
-            val account = googleDriveBackend.getSignedInAccount()
-            if (!GoogleDriveBackend.hasRequiredPermissions(account)) {
-                toastMessage = "DRIVE_PERMISSION_REQUIRED"
-                googleDriveBackend.signOut()
-                signedInAccount = null
-                return@launch
-            }
-            val cfgResult = googleDriveBackend.configure(emptyMap())
-            if (cfgResult.isSuccess) {
-                toastMessage = "GOOGLE_SIGNED_IN: ${signedInAccount?.email}"
-                googleSyncStatus = googleSyncEngine.getSyncStatus()
-            } else {
-                toastMessage = "DRIVE_INIT_FAILED: ${cfgResult.exceptionOrNull()?.message}"
-                googleDriveBackend.signOut()
-                signedInAccount = null
-            }
-        }
-    }
+    // Trigger configure after successful sign-in
+    var pendingConfigure by remember { mutableStateOf(false) }
 
-    val signInLauncher = rememberLauncherForActivityResult(
+    // Google Sign-In result handler (lateinit to allow self-reference)
+    lateinit var signInLauncher: androidx.activity.result.ActivityResultLauncher<android.content.Intent>
+    signInLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult(),
     ) { result ->
         val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
@@ -228,11 +211,9 @@ fun ConfigScreen(
             val account = task.result!!
             signedInAccount = account
             if (GoogleDriveBackend.hasRequiredPermissions(account)) {
-                doConfigureDrive()
+                pendingConfigure = true
             } else {
-                toastMessage = "DRIVE_PERMISSION_REQUIRED"
-                googleDriveBackend.signOut()
-                signedInAccount = null
+                signInLauncher.launch(googleDriveBackend.getSignInIntent())
             }
         } else {
             val ex = task.exception
@@ -246,6 +227,29 @@ fun ConfigScreen(
         }
     }
 
+    // Execute Drive configure when sign-in completes with permissions
+    LaunchedEffect(pendingConfigure) {
+        if (!pendingConfigure) return@LaunchedEffect
+        pendingConfigure = false
+        val account = googleDriveBackend.getSignedInAccount()
+        if (!GoogleDriveBackend.hasRequiredPermissions(account)) {
+            signInLauncher.launch(googleDriveBackend.getSignInIntent())
+            return@LaunchedEffect
+        }
+        val cfgResult = googleDriveBackend.configure(emptyMap())
+        if (cfgResult.isSuccess) {
+            toastMessage = "GOOGLE_SIGNED_IN: ${signedInAccount?.email}"
+            googleSyncStatus = googleSyncEngine.getSyncStatus()
+        } else {
+            val msg = cfgResult.exceptionOrNull()?.message ?: ""
+            if (msg.contains("Permission", ignoreCase = true)) {
+                signInLauncher.launch(googleDriveBackend.getSignInIntent())
+            } else {
+                toastMessage = "DRIVE_INIT_FAILED: $msg"
+            }
+        }
+    }
+
     // Export share
     val shareLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult(),
@@ -254,14 +258,14 @@ fun ConfigScreen(
     // Load Google Drive sync status when signed in
     LaunchedEffect(signedInAccount) {
         if (signedInAccount != null && !isSyncing) {
-            // Refresh sync status
             try {
+                if (!googleDriveBackend.isConfigured()) {
+                    googleDriveBackend.configure(emptyMap())
+                }
                 googleSyncStatus = googleSyncEngine.getSyncStatus()
+                val timeResult = googleDriveBackend.getLastBackupTime()
+                lastBackupTime = timeResult.getOrNull()
             } catch (_: Exception) { }
-            // Also load last backup time
-            val account = signedInAccount ?: return@LaunchedEffect
-            val timeResult = googleDriveBackend.getLastBackupTime()
-            lastBackupTime = timeResult.getOrNull()
         }
     }
 
@@ -639,6 +643,11 @@ fun ConfigScreen(
                         } else {
                             val canSync = googleSyncEngine.hasSyncKey()
                             var syncOutcome by remember { mutableStateOf<SyncOutcome?>(null) }
+                            val ensureDriveReady: suspend () -> Unit = {
+                                if (signedInAccount != null && !googleDriveBackend.isConfigured()) {
+                                    googleDriveBackend.configure(emptyMap())
+                                }
+                            }
                             // SYNC button
                             BrutalistButton(
                                 text = "SYNC",
@@ -646,6 +655,7 @@ fun ConfigScreen(
                                     isSyncing = true
                                     syncOutcome = null
                                     scope.launch {
+                                        ensureDriveReady()
                                         val result = googleSyncEngine.sync()
                                         isSyncing = false
                                         syncOutcome = result.getOrNull() ?: SyncOutcome.Error
@@ -682,6 +692,7 @@ fun ConfigScreen(
                                 onClick = {
                                     isSyncing = true
                                     scope.launch {
+                                        ensureDriveReady()
                                         val result = googleSyncEngine.push()
                                         isSyncing = false
                                         if (result.isSuccess) {
@@ -710,6 +721,7 @@ fun ConfigScreen(
                                 onClick = {
                                     isSyncing = true
                                     scope.launch {
+                                        ensureDriveReady()
                                         val result = googleSyncEngine.pull()
                                         isSyncing = false
                                         if (result.isSuccess) {
