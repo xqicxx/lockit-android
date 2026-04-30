@@ -26,8 +26,8 @@ android {
         applicationId = "com.lockit"
         minSdk = 26
         targetSdk = 35
-        versionCode = 5003
-        versionName = "0.5.3"
+        versionCode = 5004
+        versionName = "0.5.4"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -46,9 +46,8 @@ android {
 
     buildTypes {
         release {
-            // Keep release behavior close to local Android Studio runs until
-            // we have release-specific smoke coverage and hardened keep rules.
             isMinifyEnabled = false
+            isDebuggable = true // Allow install over debug builds
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
