@@ -146,7 +146,7 @@ class GoogleDriveBackend(private val context: Context) : SyncBackend, CloudBacku
                 // Find existing vault.enc
                 val existingVault = drive.files().list()
                     .setSpaces("appDataFolder")
-                    .setQ("name='$VAULT_FILE_NAME' and '$fid' in parents")
+                    .setQ(optionalParentClause(fid, "name='$VAULT_FILE_NAME'"))
                     .setFields("files(id)")
                     .execute()
                     .files
@@ -173,7 +173,7 @@ class GoogleDriveBackend(private val context: Context) : SyncBackend, CloudBacku
                 // Upload manifest.json
                 val existingManifest = drive.files().list()
                     .setSpaces("appDataFolder")
-                    .setQ("name='$MANIFEST_FILE_NAME' and '$fid' in parents")
+                    .setQ(optionalParentClause(fid, "name='$MANIFEST_FILE_NAME'"))
                     .setFields("files(id)")
                     .execute()
                     .files
@@ -211,7 +211,7 @@ class GoogleDriveBackend(private val context: Context) : SyncBackend, CloudBacku
 
                 val vaultFile = drive.files().list()
                     .setSpaces("appDataFolder")
-                    .setQ("name='$VAULT_FILE_NAME' and '$fid' in parents")
+                    .setQ(optionalParentClause(fid, "name='$VAULT_FILE_NAME'"))
                     .setFields("files(id)")
                     .execute()
                     .files
@@ -240,7 +240,7 @@ class GoogleDriveBackend(private val context: Context) : SyncBackend, CloudBacku
 
                 val manifestFile = drive.files().list()
                     .setSpaces("appDataFolder")
-                    .setQ("name='$MANIFEST_FILE_NAME' and '$fid' in parents")
+                    .setQ(optionalParentClause(fid, "name='$MANIFEST_FILE_NAME'"))
                     .setFields("files(id)")
                     .execute()
                     .files
@@ -326,7 +326,7 @@ class GoogleDriveBackend(private val context: Context) : SyncBackend, CloudBacku
 
                 val files = drive.files().list()
                     .setSpaces("appDataFolder")
-                    .setQ("'$parentId' in parents and name contains 'vault_'")
+                    .setQ(optionalParentClause(parentId, "name contains 'vault_'"))
                     .setFields("files(id,name,size)")
                     .execute()
                     .files
@@ -354,7 +354,7 @@ class GoogleDriveBackend(private val context: Context) : SyncBackend, CloudBacku
 
                 val existing = drive.files().list()
                     .setSpaces("appDataFolder")
-                    .setQ("name='${backupId}.enc' and '$parentId' in parents")
+                    .setQ(optionalParentClause(parentId, "name='${backupId}.enc'"))
                     .setFields("files(id)")
                     .execute()
                     .files
@@ -387,7 +387,10 @@ class GoogleDriveBackend(private val context: Context) : SyncBackend, CloudBacku
         folderId ?: throw IllegalStateException("Sync folder not initialized — call initDriveService first")
 
     private fun syncDataQuery(parentId: String): String =
-        "'$parentId' in parents and (name='$VAULT_FILE_NAME' or name='$MANIFEST_FILE_NAME' or name contains 'vault_')"
+        optionalParentClause(parentId, "(name='$VAULT_FILE_NAME' or name='$MANIFEST_FILE_NAME' or name contains 'vault_')")
+
+    private fun optionalParentClause(parentId: String, rest: String): String =
+        if (parentId == APP_DATA_FOLDER_ID) rest else "'$parentId' in parents and $rest"
 
     suspend fun getLastBackupTime(): Result<String?> {
         return withContext(Dispatchers.IO) {
