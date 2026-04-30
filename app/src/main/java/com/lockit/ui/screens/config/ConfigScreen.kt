@@ -678,8 +678,13 @@ fun ConfigScreen(
                                         }
                                         val result = googleSyncEngine.sync()
                                         isSyncing = false
-                                        syncOutcome = result.getOrNull() ?: SyncOutcome.Error
-                                        googleSyncStatus = googleSyncEngine.getSyncStatus()
+                                        if (result.isSuccess) {
+                                            syncOutcome = result.getOrNull()
+                                            googleSyncStatus = googleSyncEngine.getSyncStatus()
+                                        } else {
+                                            syncOutcome = SyncOutcome.Error
+                                            toastMessage = "${context.getString(R.string.toast_sync_error)} ${result.exceptionOrNull()?.message}"
+                                        }
                                     }
                                 },
                                 variant = ButtonVariant.Primary,
@@ -695,7 +700,7 @@ fun ConfigScreen(
                                         SyncOutcome.Pulled -> "Pulled from cloud"
                                         SyncOutcome.LocalWon -> "Conflict -> kept local"
                                         SyncOutcome.CloudWon -> "Conflict -> kept cloud"
-                                        SyncOutcome.Error -> "Sync failed"
+                                        SyncOutcome.Error -> "Sync failed — check toast"
                                     },
                                     fontFamily = JetBrainsMonoFamily,
                                     fontSize = 9.sp,
