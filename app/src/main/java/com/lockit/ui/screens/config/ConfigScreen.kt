@@ -53,7 +53,6 @@ import com.lockit.LockitApp
 import com.lockit.R
 import com.lockit.data.database.LockitDatabase
 import com.lockit.data.biometric.BiometricPinStorage
-import com.lockit.data.sync.BackupMeta
 import com.lockit.data.sync.CloudBackupCoordinator
 import com.lockit.data.sync.CloudBackupMeta
 import com.lockit.data.sync.GoogleDriveBackend
@@ -64,7 +63,6 @@ import com.lockit.data.sync.SyncCrypto
 import com.lockit.data.sync.SyncKeyManager
 import com.lockit.data.sync.SyncOutcome
 import com.lockit.data.sync.SyncStatus
-import com.lockit.data.sync.VaultBackupManager
 import com.lockit.data.sync.VaultSyncEngine
 import com.lockit.data.sync.WebDavBackend
 import com.lockit.data.updater.AppUpdater
@@ -927,71 +925,6 @@ fun ConfigScreen(
 
                         Spacer(modifier = Modifier.height(8.dp))
 
-                        // Backup & Restore
-                        val backupManager = remember { VaultBackupManager(context) }
-                        var showBackupList by remember { mutableStateOf(false) }
-                        var backupList by remember { mutableStateOf<List<BackupMeta>>(emptyList()) }
-                        var showRestoreConfirm by remember { mutableStateOf<BackupMeta?>(null) }
-                        val dtf = remember { java.time.format.DateTimeFormatter.ofPattern("MM-dd HH:mm").withZone(java.time.ZoneId.systemDefault()) }
-
-                        BrutalistButton(
-                            text = if (showBackupList) "HIDE BACKUPS" else "RESTORE BACKUPS",
-                            onClick = {
-                                showBackupList = !showBackupList
-                                if (showBackupList) backupList = backupManager.list()
-                            },
-                            variant = ButtonVariant.Secondary,
-                            modifier = Modifier.fillMaxWidth(),
-                            useMonoFont = true,
-                        )
-
-                        if (showBackupList) {
-                            Spacer(modifier = Modifier.height(8.dp))
-                            if (backupList.isEmpty()) {
-                                Text(
-                                    "No backups — created automatically when you edit credentials.",
-                                    fontFamily = JetBrainsMonoFamily,
-                                    fontSize = 10.sp,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            } else {
-                                backupList.take(10).forEach { meta ->
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .border(1.dp, MaterialTheme.colorScheme.outline)
-                                            .clickable { showRestoreConfirm = meta }
-                                            .padding(8.dp),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                    ) {
-                                        Text(dtf.format(meta.timestamp), fontFamily = JetBrainsMonoFamily, fontSize = 10.sp)
-                                        Text(
-                                            if (meta.entryCount >= 0) "${meta.entryCount} items" else "${meta.sizeBytes / 1024} KB",
-                                            fontFamily = JetBrainsMonoFamily, fontSize = 10.sp,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        )
-                                    }
-                                    Spacer(modifier = Modifier.height(2.dp))
-                                }
-                            }
-                        }
-
-                        showRestoreConfirm?.let { meta ->
-                            BrutalistConfirmDialog(
-                                title = "Restore Backup",
-                                message = "Restore vault to ${dtf.format(meta.timestamp)}?\n\nYour current vault will be snapshotted first.",
-                                confirmText = "RESTORE",
-                                onConfirm = {
-                                    scope.launch {
-                                        backupManager.restore(meta.id)
-                                            .onSuccess { toastMessage = "Restored to ${dtf.format(meta.timestamp)}" }
-                                            .onFailure { toastMessage = "Restore failed: ${it.message}" }
-                                        showRestoreConfirm = null
-                                    }
-                                },
-                                onDismiss = { showRestoreConfirm = null },
-                            )
-                        }
                     }
                 },
             )
