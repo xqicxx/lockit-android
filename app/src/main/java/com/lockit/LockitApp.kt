@@ -13,12 +13,18 @@ import kotlinx.coroutines.flow.asStateFlow
 
 class LockitApp : Application() {
 
-    val database: LockitDatabase by lazy { LockitDatabase.getInstance(this) }
+    val database: LockitDatabase
+        get() = LockitDatabase.getInstance(this)
     val keyManager: KeyManager by lazy { KeyManager(this) }
     val auditLogger: AuditLogger by lazy { AuditLogger(this) }
-    val vaultManager: VaultManager by lazy {
-        VaultManager(this, database.credentialDao(), keyManager, auditLogger)
-    }
+    @Volatile
+    private var vaultManagerInstance: VaultManager? = null
+    val vaultManager: VaultManager
+        get() = vaultManagerInstance ?: synchronized(this) {
+            vaultManagerInstance ?: VaultManager(this, keyManager, auditLogger).also {
+                vaultManagerInstance = it
+            }
+        }
     val googleDriveBackend: GoogleDriveBackend by lazy { GoogleDriveBackend(this) }
 
     // Shared state for vault recovery detection

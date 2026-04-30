@@ -24,12 +24,14 @@ import java.time.Instant
 
 class VaultManager(
     private val context: Context,
-    private val dao: CredentialDao,
     private val keyManager: KeyManager,
     private val auditLogger: AuditLogger,
 ) {
 
     private val crypto = LockitCrypto()
+
+    private val dao: CredentialDao
+        get() = LockitDatabase.getInstance(context).credentialDao()
 
     /**
      * Initialize a new vault with a master password.
