@@ -19,6 +19,7 @@ data class CloudBackupMeta(
 interface CloudBackupStore {
     suspend fun uploadBackup(encryptedData: ByteArray, timestamp: Instant): Result<Unit>
     suspend fun listBackups(): Result<List<CloudBackupMeta>>
+    suspend fun downloadBackup(backupId: String): Result<ByteArray>
     suspend fun deleteBackup(backupId: String): Result<Unit>
     suspend fun cleanupOld(maxAge: Duration = Duration.ofDays(90)): Result<Unit>
 }

@@ -54,6 +54,8 @@ import com.lockit.R
 import com.lockit.data.database.LockitDatabase
 import com.lockit.data.biometric.BiometricPinStorage
 import com.lockit.data.sync.BackupMeta
+import com.lockit.data.sync.CloudBackupCoordinator
+import com.lockit.data.sync.CloudBackupMeta
 import com.lockit.data.sync.GoogleDriveBackend
 import com.lockit.data.sync.SharedPrefsSyncStateStore
 import com.lockit.data.sync.SqliteVaultFileProvider
@@ -264,8 +266,12 @@ fun ConfigScreen(
     LaunchedEffect(signedInAccount) {
         if (signedInAccount != null && !isSyncing) {
             try {
-                if (!googleDriveBackend.isConfigured()) {
-                    googleDriveBackend.configure(emptyMap())
+                if (GoogleDriveBackend.shouldConfigureDrive(signedIn = true, driveReady = googleDriveBackend.isDriveReady())) {
+                    val cfgResult = googleDriveBackend.configure(emptyMap())
+                    if (cfgResult.isFailure) {
+                        googleSyncStatus = SyncStatus.Error
+                        return@LaunchedEffect
+                    }
                 }
                 googleSyncStatus = googleSyncEngine.getSyncStatus()
                 val timeResult = googleDriveBackend.getLastBackupTime()
@@ -648,8 +654,22 @@ fun ConfigScreen(
                         } else {
                             val canSync = googleSyncEngine.hasSyncKey()
                             var syncOutcome by remember { mutableStateOf<SyncOutcome?>(null) }
-                            val ensureDriveReady: suspend () -> Unit = {
-                                if (signedInAccount != null && !googleDriveBackend.isConfigured()) {
+                            var showCloudBackupList by remember { mutableStateOf(false) }
+                            var cloudBackupList by remember { mutableStateOf<List<CloudBackupMeta>>(emptyList()) }
+                            var cloudBackupLoading by remember { mutableStateOf(false) }
+                            var showCloudRestoreConfirm by remember { mutableStateOf<CloudBackupMeta?>(null) }
+                            val cloudBackupCoordinator = remember {
+                                CloudBackupCoordinator(
+                                    syncKeyProvider = { googleSyncEngine.getSyncKeyEncoded() },
+                                    vaultFile = googleVaultFile,
+                                )
+                            }
+                            val ensureDriveReady: suspend () -> Boolean = {
+                                if (signedInAccount == null) {
+                                    false
+                                } else if (!GoogleDriveBackend.shouldConfigureDrive(signedIn = true, driveReady = googleDriveBackend.isDriveReady())) {
+                                    true
+                                } else {
                                     val cfgResult = googleDriveBackend.configure(emptyMap())
                                     if (cfgResult.isFailure) {
                                         val msg = cfgResult.exceptionOrNull()?.message ?: ""
@@ -660,8 +680,25 @@ fun ConfigScreen(
                                         } else {
                                             toastMessage = "Drive init failed: $msg"
                                         }
+                                        false
+                                    } else {
+                                        true
                                     }
                                 }
+                            }
+                            val refreshCloudBackupList: suspend () -> Unit = {
+                                cloudBackupLoading = true
+                                googleDriveBackend.listBackups()
+                                    .onSuccess { backups ->
+                                        cloudBackupList = backups.sortedByDescending { it.timestamp }
+                                        showCloudBackupList = true
+                                    }
+                                    .onFailure { toastMessage = "Cloud backup list failed: ${it.message}" }
+                                cloudBackupLoading = false
+                            }
+                            val uploadCloudVersion: suspend () -> Unit = {
+                                cloudBackupCoordinator.uploadCurrentVault(googleDriveBackend)
+                                    .onFailure { toastMessage = "Cloud backup failed: ${it.message}" }
                             }
                             // SYNC button
                             BrutalistButton(
@@ -670,8 +707,7 @@ fun ConfigScreen(
                                     isSyncing = true
                                     syncOutcome = null
                                     scope.launch {
-                                        ensureDriveReady()
-                                        if (!googleDriveBackend.isConfigured()) {
+                                        if (!ensureDriveReady()) {
                                             isSyncing = false
                                             googleSyncStatus = SyncStatus.Error
                                             return@launch
@@ -680,6 +716,7 @@ fun ConfigScreen(
                                         isSyncing = false
                                         if (result.isSuccess) {
                                             syncOutcome = result.getOrNull()
+                                            uploadCloudVersion()
                                             googleSyncStatus = googleSyncEngine.getSyncStatus()
                                         } else {
                                             syncOutcome = SyncOutcome.Error
@@ -717,14 +754,15 @@ fun ConfigScreen(
                                 onClick = {
                                     isSyncing = true
                                     scope.launch {
-                                        ensureDriveReady()
-                                        if (!googleDriveBackend.isConfigured()) {
+                                        if (!ensureDriveReady()) {
                                             isSyncing = false
+                                            googleSyncStatus = SyncStatus.Error
                                             return@launch
                                         }
                                         val result = googleSyncEngine.push()
                                         isSyncing = false
                                         if (result.isSuccess) {
+                                            uploadCloudVersion()
                                             toastMessage = context.getString(R.string.toast_sync_push_complete)
                                             googleSyncStatus = googleSyncEngine.getSyncStatus()
                                         } else {
@@ -750,9 +788,9 @@ fun ConfigScreen(
                                 onClick = {
                                     isSyncing = true
                                     scope.launch {
-                                        ensureDriveReady()
-                                        if (!googleDriveBackend.isConfigured()) {
+                                        if (!ensureDriveReady()) {
                                             isSyncing = false
+                                            googleSyncStatus = SyncStatus.Error
                                             return@launch
                                         }
                                         val result = googleSyncEngine.pull()
@@ -777,6 +815,90 @@ fun ConfigScreen(
                                 useMonoFont = true,
                                 enabled = !isSyncing && canSync,
                             )
+                            BrutalistButton(
+                                text = if (showCloudBackupList) "HIDE CLOUD VERSIONS" else "RESTORE CLOUD VERSION",
+                                onClick = {
+                                    scope.launch {
+                                        if (showCloudBackupList) {
+                                            showCloudBackupList = false
+                                            return@launch
+                                        }
+                                        if (!ensureDriveReady()) {
+                                            googleSyncStatus = SyncStatus.Error
+                                            return@launch
+                                        }
+                                        refreshCloudBackupList()
+                                    }
+                                },
+                                variant = ButtonVariant.Secondary,
+                                modifier = Modifier.fillMaxWidth(),
+                                useMonoFont = true,
+                                enabled = !isSyncing && canSync && !cloudBackupLoading,
+                            )
+                            if (showCloudBackupList) {
+                                if (cloudBackupList.isEmpty()) {
+                                    Text(
+                                        "No cloud versions found.",
+                                        fontFamily = JetBrainsMonoFamily,
+                                        fontSize = 10.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                } else {
+                                    val cloudDtf = remember {
+                                        java.time.format.DateTimeFormatter.ofPattern("MM-dd HH:mm")
+                                            .withZone(java.time.ZoneId.systemDefault())
+                                    }
+                                    cloudBackupList.take(10).forEach { meta ->
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .border(1.dp, MaterialTheme.colorScheme.outline)
+                                                .clickable { showCloudRestoreConfirm = meta }
+                                                .padding(8.dp),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                        ) {
+                                            Text(cloudDtf.format(meta.timestamp), fontFamily = JetBrainsMonoFamily, fontSize = 10.sp)
+                                            Text(
+                                                "${meta.sizeBytes / 1024} KB",
+                                                fontFamily = JetBrainsMonoFamily,
+                                                fontSize = 10.sp,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            )
+                                        }
+                                        Spacer(modifier = Modifier.height(2.dp))
+                                    }
+                                }
+                            }
+                            showCloudRestoreConfirm?.let { meta ->
+                                val cloudDtf = remember {
+                                    java.time.format.DateTimeFormatter.ofPattern("MM-dd HH:mm")
+                                        .withZone(java.time.ZoneId.systemDefault())
+                                }
+                                BrutalistConfirmDialog(
+                                    title = "Restore Cloud Version",
+                                    message = "Restore cloud version ${cloudDtf.format(meta.timestamp)}?\n\nYour current vault will be replaced.",
+                                    confirmText = "RESTORE",
+                                    onConfirm = {
+                                        scope.launch {
+                                            if (!ensureDriveReady()) {
+                                                googleSyncStatus = SyncStatus.Error
+                                                showCloudRestoreConfirm = null
+                                                return@launch
+                                            }
+                                            cloudBackupCoordinator.restoreBackup(googleDriveBackend, meta.id)
+                                                .onSuccess {
+                                                    googleStateStore.clear()
+                                                    googleSyncStatus = googleSyncEngine.getSyncStatus()
+                                                    toastMessage = "Restored cloud version ${cloudDtf.format(meta.timestamp)}"
+                                                    showCloudBackupList = false
+                                                }
+                                                .onFailure { toastMessage = "Cloud restore failed: ${it.message}" }
+                                            showCloudRestoreConfirm = null
+                                        }
+                                    },
+                                    onDismiss = { showCloudRestoreConfirm = null },
+                                )
+                            }
                             // Sign out
                             BrutalistButton(
                                 text = stringResource(R.string.config_sign_out),

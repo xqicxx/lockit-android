@@ -54,6 +54,12 @@ class GoogleDriveBackend(private val context: Context) : SyncBackend, CloudBacku
 
         fun hasRequiredPermissions(account: GoogleSignInAccount?): Boolean =
             account != null && GoogleSignIn.hasPermissions(account, *REQUIRED_SCOPES)
+
+        internal fun parentScopedQuery(parentId: String, rest: String): String =
+            if (parentId == APP_DATA_FOLDER_ID) rest else "'$parentId' in parents and $rest"
+
+        internal fun shouldConfigureDrive(signedIn: Boolean, driveReady: Boolean): Boolean =
+            signedIn && !driveReady
     }
 
     private var driveService: Drive? = null
@@ -70,6 +76,8 @@ class GoogleDriveBackend(private val context: Context) : SyncBackend, CloudBacku
     fun getSignInIntent(): Intent = signInClient.signInIntent
 
     fun getSignedInAccount(): GoogleSignInAccount? = GoogleSignIn.getLastSignedInAccount(context)
+
+    fun isDriveReady(): Boolean = driveService != null && folderId != null
 
     fun signOut() {
         signInClient.signOut()
@@ -368,6 +376,32 @@ class GoogleDriveBackend(private val context: Context) : SyncBackend, CloudBacku
         }
     }
 
+    override suspend fun downloadBackup(backupId: String): Result<ByteArray> {
+        return withContext(Dispatchers.IO) {
+            try {
+                val drive = driveService ?: return@withContext Result.failure(IllegalStateException("Drive not initialized"))
+                val parentId = backupParentId()
+
+                val existing = drive.files().list()
+                    .setSpaces("appDataFolder")
+                    .setQ(optionalParentClause(parentId, "name='${backupId}.enc'"))
+                    .setFields("files(id)")
+                    .execute()
+                    .files
+                    .firstOrNull()
+                    ?: return@withContext Result.failure(IllegalArgumentException("Backup not found: $backupId"))
+
+                val outputStream = ByteArrayOutputStream()
+                drive.files().get(existing.id)
+                    .executeMediaAndDownloadTo(outputStream)
+
+                Result.success(outputStream.toByteArray())
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
+        }
+    }
+
     override suspend fun cleanupOld(maxAge: Duration): Result<Unit> {
         return withContext(Dispatchers.IO) {
             listBackups().fold(
@@ -387,10 +421,10 @@ class GoogleDriveBackend(private val context: Context) : SyncBackend, CloudBacku
         folderId ?: throw IllegalStateException("Sync folder not initialized — call initDriveService first")
 
     private fun syncDataQuery(parentId: String): String =
-        optionalParentClause(parentId, "(name='$VAULT_FILE_NAME' or name='$MANIFEST_FILE_NAME' or name contains 'vault_')")
+        parentScopedQuery(parentId, "(name='$VAULT_FILE_NAME' or name='$MANIFEST_FILE_NAME' or name contains 'vault_')")
 
     private fun optionalParentClause(parentId: String, rest: String): String =
-        if (parentId == APP_DATA_FOLDER_ID) rest else "'$parentId' in parents and $rest"
+        parentScopedQuery(parentId, rest)
 
     suspend fun getLastBackupTime(): Result<String?> {
         return withContext(Dispatchers.IO) {

@@ -491,6 +491,35 @@ class WebDavBackend(private val context: Context) : SyncBackend, CloudBackupStor
         }
     }
 
+    override suspend fun downloadBackup(backupId: String): Result<ByteArray> {
+        loadCredentials()
+        return withContext(Dispatchers.IO) {
+            try {
+                val url = serverUrl ?: return@withContext Result.failure(IOException("Not configured"))
+                val path = basePath ?: DEFAULT_BASE_PATH
+                val user = username ?: return@withContext Result.failure(IOException("Not configured"))
+                val pass = password ?: return@withContext Result.failure(IOException("Not configured"))
+                val httpClient = client ?: return@withContext Result.failure(IOException("Not configured"))
+
+                val request = Request.Builder()
+                    .url("$url$path/$BACKUP_FOLDER/${backupId}.enc")
+                    .get()
+                    .header("Authorization", Credentials.basic(user, pass))
+                    .build()
+
+                httpClient.newCall(request).execute().use { response ->
+                    if (response.isSuccessful) {
+                        Result.success(response.body?.bytes() ?: ByteArray(0))
+                    } else {
+                        Result.failure(IOException("Download backup failed: HTTP ${response.code}"))
+                    }
+                }
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
+        }
+    }
+
     override suspend fun cleanupOld(maxAge: Duration): Result<Unit> {
         return withContext(Dispatchers.IO) {
             listBackups().onSuccess { backups ->

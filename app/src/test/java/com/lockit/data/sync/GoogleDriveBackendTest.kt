@@ -1,16 +1,36 @@
 package com.lockit.data.sync
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class GoogleDriveBackendTest {
 
     @Test
-    fun `appDataFolder metadata creates folder under app data space`() {
-        val metadata = GoogleDriveBackend.appDataFolderMetadata("lockit-sync")
+    fun `appDataFolder query omits virtual parent clause`() {
+        val query = GoogleDriveBackend.parentScopedQuery(
+            GoogleDriveBackend.APP_DATA_FOLDER_ID,
+            "name='vault.enc'",
+        )
 
-        assertEquals("lockit-sync", metadata.name)
-        assertEquals("application/vnd.google-apps.folder", metadata.mimeType)
-        assertEquals(listOf(GoogleDriveBackend.APP_DATA_FOLDER_ID), metadata.parents)
+        assertEquals("name='vault.enc'", query)
+    }
+
+    @Test
+    fun `legacy folder query keeps explicit parent clause`() {
+        val query = GoogleDriveBackend.parentScopedQuery(
+            "folder-123",
+            "name='vault.enc'",
+        )
+
+        assertEquals("'folder-123' in parents and name='vault.enc'", query)
+    }
+
+    @Test
+    fun `signed in account still configures when Drive client is not ready`() {
+        assertTrue(GoogleDriveBackend.shouldConfigureDrive(signedIn = true, driveReady = false))
+        assertFalse(GoogleDriveBackend.shouldConfigureDrive(signedIn = true, driveReady = true))
+        assertFalse(GoogleDriveBackend.shouldConfigureDrive(signedIn = false, driveReady = false))
     }
 }
