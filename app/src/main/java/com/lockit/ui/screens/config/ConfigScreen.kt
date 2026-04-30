@@ -645,7 +645,15 @@ fun ConfigScreen(
                             var syncOutcome by remember { mutableStateOf<SyncOutcome?>(null) }
                             val ensureDriveReady: suspend () -> Unit = {
                                 if (signedInAccount != null && !googleDriveBackend.isConfigured()) {
-                                    googleDriveBackend.configure(emptyMap())
+                                    val cfgResult = googleDriveBackend.configure(emptyMap())
+                                    if (cfgResult.isFailure) {
+                                        val msg = cfgResult.exceptionOrNull()?.message ?: ""
+                                        if (msg.contains("Permission", ignoreCase = true)) {
+                                            signInLauncher.launch(googleDriveBackend.getSignInIntent())
+                                        } else {
+                                            toastMessage = "Drive init failed: $msg"
+                                        }
+                                    }
                                 }
                             }
                             // SYNC button
@@ -656,6 +664,11 @@ fun ConfigScreen(
                                     syncOutcome = null
                                     scope.launch {
                                         ensureDriveReady()
+                                        if (!googleDriveBackend.isConfigured()) {
+                                            isSyncing = false
+                                            googleSyncStatus = SyncStatus.Error
+                                            return@launch
+                                        }
                                         val result = googleSyncEngine.sync()
                                         isSyncing = false
                                         syncOutcome = result.getOrNull() ?: SyncOutcome.Error
@@ -693,6 +706,10 @@ fun ConfigScreen(
                                     isSyncing = true
                                     scope.launch {
                                         ensureDriveReady()
+                                        if (!googleDriveBackend.isConfigured()) {
+                                            isSyncing = false
+                                            return@launch
+                                        }
                                         val result = googleSyncEngine.push()
                                         isSyncing = false
                                         if (result.isSuccess) {
@@ -722,6 +739,10 @@ fun ConfigScreen(
                                     isSyncing = true
                                     scope.launch {
                                         ensureDriveReady()
+                                        if (!googleDriveBackend.isConfigured()) {
+                                            isSyncing = false
+                                            return@launch
+                                        }
                                         val result = googleSyncEngine.pull()
                                         isSyncing = false
                                         if (result.isSuccess) {
