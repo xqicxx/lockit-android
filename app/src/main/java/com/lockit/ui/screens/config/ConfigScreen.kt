@@ -717,8 +717,15 @@ fun ConfigScreen(
                                             uploadCloudVersion()
                                             googleSyncStatus = googleSyncEngine.getSyncStatus()
                                         } else {
+                                            val err = result.exceptionOrNull()
                                             syncOutcome = SyncOutcome.Error
-                                            toastMessage = "${context.getString(R.string.toast_sync_error)} ${result.exceptionOrNull()?.message}"
+                                            if (err is SyncConflictException) {
+                                                toastMessage = context.getString(R.string.toast_sync_conflict)
+                                                googleSyncStatus = SyncStatus.Conflict
+                                            } else {
+                                                toastMessage = "${context.getString(R.string.toast_sync_error)} ${err?.message}"
+                                                googleSyncStatus = SyncStatus.Error
+                                            }
                                         }
                                     }
                                 },

@@ -17,7 +17,7 @@ class CloudBackupCoordinator(
             if (!file.exists()) {
                 throw IllegalStateException("No vault database to back up")
             }
-            val encrypted = SyncCrypto.encrypt(file.readBytes(), syncKey)
+            val encrypted = SyncCrypto.encrypt(vaultFile.readVaultBytes(), syncKey)
             store.uploadBackup(encrypted, now()).getOrThrow()
         }
     }

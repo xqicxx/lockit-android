@@ -26,7 +26,8 @@ import java.util.Locale
 /**
  * Google Drive backend for vault sync.
  * Implements SyncBackend interface with bidirectional sync support.
- * Uses appDataFolder for privacy (not visible to user).
+ * Uses a visible Lockit folder in Google Drive so users can verify that the
+ * encrypted vault files exist. Older appDataFolder uploads are still readable.
  *
  * File structure:
  * - lockit-sync/vault.enc  ← encrypted vault.db
@@ -38,6 +39,8 @@ class GoogleDriveBackend(private val context: Context) : SyncBackend, CloudBacku
 
     companion object {
         internal const val APP_DATA_FOLDER_ID = "appDataFolder"
+        internal const val SYNC_SPACE = "drive"
+        private const val LEGACY_SPACE = "appDataFolder"
         private const val FOLDER_NAME = "lockit-sync"
         private const val VAULT_FILE_NAME = "vault.enc"
         private const val MANIFEST_FILE_NAME = "manifest.json"
@@ -119,11 +122,9 @@ class GoogleDriveBackend(private val context: Context) : SyncBackend, CloudBacku
                     credential,
                 ).setApplicationName("Lockit").build()
 
-                // Prefer the legacy lockit-sync folder if it exists. New installs write
-                // directly into appDataFolder to avoid folder-create permission failures.
                 val existing = driveService!!.files().list()
-                    .setSpaces("appDataFolder")
-                    .setQ("name='$FOLDER_NAME' and mimeType='application/vnd.google-apps.folder'")
+                    .setSpaces(SYNC_SPACE)
+                    .setQ("name='$FOLDER_NAME' and mimeType='application/vnd.google-apps.folder' and trashed=false")
                     .setFields("files(id)")
                     .execute()
                     .files
@@ -132,8 +133,16 @@ class GoogleDriveBackend(private val context: Context) : SyncBackend, CloudBacku
                 if (existing != null) {
                     folderId = existing.id
                 } else {
-                    folderId = APP_DATA_FOLDER_ID
+                    val meta = DriveFile().apply {
+                        name = FOLDER_NAME
+                        mimeType = "application/vnd.google-apps.folder"
+                    }
+                    folderId = driveService!!.files().create(meta)
+                        .setFields("id")
+                        .execute()
+                        .id
                 }
+                migrateLegacyAppDataIfNeeded(driveService!!, folderId!!)
 
                 Result.success(Unit)
             } catch (e: Exception) {
@@ -152,13 +161,7 @@ class GoogleDriveBackend(private val context: Context) : SyncBackend, CloudBacku
                 val fid = folderId ?: return@withContext Result.failure(IllegalStateException("Folder not found"))
 
                 // Find existing vault.enc
-                val existingVault = drive.files().list()
-                    .setSpaces("appDataFolder")
-                    .setQ(optionalParentClause(fid, "name='$VAULT_FILE_NAME'"))
-                    .setFields("files(id)")
-                    .execute()
-                    .files
-                    .firstOrNull()
+                val existingVault = findFile(drive, fid, VAULT_FILE_NAME, SYNC_SPACE)
 
                 // Upload vault.enc
                 val vaultContent = ByteArrayContent(MIME_TYPE, encryptedData)
@@ -179,13 +182,7 @@ class GoogleDriveBackend(private val context: Context) : SyncBackend, CloudBacku
                 }
 
                 // Upload manifest.json
-                val existingManifest = drive.files().list()
-                    .setSpaces("appDataFolder")
-                    .setQ(optionalParentClause(fid, "name='$MANIFEST_FILE_NAME'"))
-                    .setFields("files(id)")
-                    .execute()
-                    .files
-                    .firstOrNull()
+                val existingManifest = findFile(drive, fid, MANIFEST_FILE_NAME, SYNC_SPACE)
 
                 val manifestContent = ByteArrayContent("application/json", manifest.toJson().toByteArray(Charsets.UTF_8))
 
@@ -217,13 +214,8 @@ class GoogleDriveBackend(private val context: Context) : SyncBackend, CloudBacku
                 val drive = driveService ?: return@withContext Result.failure(IllegalStateException("Drive not initialized"))
                 val fid = folderId ?: return@withContext Result.failure(IllegalStateException("Folder not found"))
 
-                val vaultFile = drive.files().list()
-                    .setSpaces("appDataFolder")
-                    .setQ(optionalParentClause(fid, "name='$VAULT_FILE_NAME'"))
-                    .setFields("files(id)")
-                    .execute()
-                    .files
-                    .firstOrNull()
+                val vaultFile = findFile(drive, fid, VAULT_FILE_NAME, SYNC_SPACE)
+                    ?: findFile(drive, APP_DATA_FOLDER_ID, VAULT_FILE_NAME, LEGACY_SPACE)
 
                 if (vaultFile == null) {
                     return@withContext Result.failure(IllegalStateException("No vault.enc in cloud"))
@@ -246,13 +238,8 @@ class GoogleDriveBackend(private val context: Context) : SyncBackend, CloudBacku
                 val drive = driveService ?: return@withContext Result.failure(IllegalStateException("Drive not initialized"))
                 val fid = folderId ?: return@withContext Result.failure(IllegalStateException("Folder not found"))
 
-                val manifestFile = drive.files().list()
-                    .setSpaces("appDataFolder")
-                    .setQ(optionalParentClause(fid, "name='$MANIFEST_FILE_NAME'"))
-                    .setFields("files(id)")
-                    .execute()
-                    .files
-                    .firstOrNull()
+                val manifestFile = findFile(drive, fid, MANIFEST_FILE_NAME, SYNC_SPACE)
+                    ?: findFile(drive, APP_DATA_FOLDER_ID, MANIFEST_FILE_NAME, LEGACY_SPACE)
 
                 if (manifestFile == null) {
                     return@withContext Result.success(null)
@@ -277,13 +264,19 @@ class GoogleDriveBackend(private val context: Context) : SyncBackend, CloudBacku
                 val fid = folderId ?: return@withContext Result.success(Unit)
 
                 val files = drive.files().list()
-                    .setSpaces("appDataFolder")
+                    .setSpaces(SYNC_SPACE)
                     .setQ(syncDataQuery(fid))
                     .setFields("files(id)")
                     .execute()
                     .files
+                val legacyFiles = drive.files().list()
+                    .setSpaces(LEGACY_SPACE)
+                    .setQ(syncDataQuery(APP_DATA_FOLDER_ID))
+                    .setFields("files(id)")
+                    .execute()
+                    .files
 
-                for (file in files) {
+                for (file in files + legacyFiles) {
                     drive.files().delete(file.id).execute()
                 }
 
@@ -333,21 +326,28 @@ class GoogleDriveBackend(private val context: Context) : SyncBackend, CloudBacku
                 val parentId = backupParentId()
 
                 val files = drive.files().list()
-                    .setSpaces("appDataFolder")
+                    .setSpaces(SYNC_SPACE)
                     .setQ(optionalParentClause(parentId, "name contains 'vault_'"))
+                    .setFields("files(id,name,size)")
+                    .execute()
+                    .files
+                val legacyFiles = drive.files().list()
+                    .setSpaces(LEGACY_SPACE)
+                    .setQ(optionalParentClause(APP_DATA_FOLDER_ID, "name contains 'vault_'"))
                     .setFields("files(id,name,size)")
                     .execute()
                     .files
 
                 val sdf = SimpleDateFormat("yyyy-MM-dd_HH-mm-ss", Locale.US)
-                Result.success(files.mapNotNull { f ->
+                val backups = (files + legacyFiles).mapNotNull { f ->
                     val nameWithoutExt = f.name.removeSuffix(".enc")
                     val id = nameWithoutExt
                     val ts = try {
                         Instant.ofEpochMilli(sdf.parse(nameWithoutExt.removePrefix("vault_"))!!.time)
                     } catch (_: Exception) { null }
                     if (ts != null) CloudBackupMeta(id = id, timestamp = ts, sizeBytes = f.size?.toLong() ?: 0L) else null
-                })
+                }.distinctBy { it.id }
+                Result.success(backups)
             } catch (e: Exception) {
                 Result.failure(e)
             }
@@ -360,13 +360,8 @@ class GoogleDriveBackend(private val context: Context) : SyncBackend, CloudBacku
                 val drive = driveService ?: return@withContext Result.failure(IllegalStateException("Drive not initialized"))
                 val parentId = backupParentId()
 
-                val existing = drive.files().list()
-                    .setSpaces("appDataFolder")
-                    .setQ(optionalParentClause(parentId, "name='${backupId}.enc'"))
-                    .setFields("files(id)")
-                    .execute()
-                    .files
-                    .firstOrNull()
+                val existing = findFile(drive, parentId, "${backupId}.enc", SYNC_SPACE)
+                    ?: findFile(drive, APP_DATA_FOLDER_ID, "${backupId}.enc", LEGACY_SPACE)
 
                 if (existing != null) drive.files().delete(existing.id).execute()
                 Result.success(Unit)
@@ -382,13 +377,8 @@ class GoogleDriveBackend(private val context: Context) : SyncBackend, CloudBacku
                 val drive = driveService ?: return@withContext Result.failure(IllegalStateException("Drive not initialized"))
                 val parentId = backupParentId()
 
-                val existing = drive.files().list()
-                    .setSpaces("appDataFolder")
-                    .setQ(optionalParentClause(parentId, "name='${backupId}.enc'"))
-                    .setFields("files(id)")
-                    .execute()
-                    .files
-                    .firstOrNull()
+                val existing = findFile(drive, parentId, "${backupId}.enc", SYNC_SPACE)
+                    ?: findFile(drive, APP_DATA_FOLDER_ID, "${backupId}.enc", LEGACY_SPACE)
                     ?: return@withContext Result.failure(IllegalArgumentException("Backup not found: $backupId"))
 
                 val outputStream = ByteArrayOutputStream()
@@ -419,6 +409,42 @@ class GoogleDriveBackend(private val context: Context) : SyncBackend, CloudBacku
 
     private fun backupParentId(): String =
         folderId ?: throw IllegalStateException("Sync folder not initialized — call initDriveService first")
+
+    private fun migrateLegacyAppDataIfNeeded(drive: Drive, visibleFolderId: String) {
+        if (findFile(drive, visibleFolderId, MANIFEST_FILE_NAME, SYNC_SPACE) != null) return
+
+        val legacyFiles = drive.files().list()
+            .setSpaces(LEGACY_SPACE)
+            .setQ(syncDataQuery(APP_DATA_FOLDER_ID))
+            .setFields("files(id,name,mimeType)")
+            .execute()
+            .files
+
+        legacyFiles.forEach { legacy ->
+            if (findFile(drive, visibleFolderId, legacy.name, SYNC_SPACE) != null) return@forEach
+
+            val outputStream = ByteArrayOutputStream()
+            drive.files().get(legacy.id).executeMediaAndDownloadTo(outputStream)
+            val mimeType = legacy.mimeType ?: if (legacy.name == MANIFEST_FILE_NAME) "application/json" else MIME_TYPE
+            val metadata = DriveFile().apply {
+                name = legacy.name
+                this.mimeType = mimeType
+                parents = listOf(visibleFolderId)
+            }
+            drive.files().create(metadata, ByteArrayContent(mimeType, outputStream.toByteArray()))
+                .setFields("id")
+                .execute()
+        }
+    }
+
+    private fun findFile(drive: Drive, parentId: String, name: String, spaces: String): DriveFile? =
+        drive.files().list()
+            .setSpaces(spaces)
+            .setQ(optionalParentClause(parentId, "name='$name' and trashed=false"))
+            .setFields("files(id,name,size)")
+            .execute()
+            .files
+            .firstOrNull()
 
     private fun syncDataQuery(parentId: String): String =
         parentScopedQuery(parentId, "(name='$VAULT_FILE_NAME' or name='$MANIFEST_FILE_NAME' or name contains 'vault_')")

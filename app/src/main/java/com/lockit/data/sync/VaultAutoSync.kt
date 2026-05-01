@@ -43,9 +43,7 @@ class VaultAutoSync(
         try {
             val encoded = syncEngine.getSyncKeyEncoded() ?: return
             val key = SyncCrypto.decodeSyncKey(encoded)
-            val dbFile = syncEngine.getVaultFile()
-            if (!dbFile.exists()) return
-            val plaintext = dbFile.readBytes()
+            val plaintext = syncEngine.readVaultBytes()
             val encrypted = SyncCrypto.encrypt(plaintext, key)
             cloudBackupStore?.uploadBackup(encrypted, java.time.Instant.now())
         } catch (e: Exception) {

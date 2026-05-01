@@ -38,7 +38,7 @@ class VaultBackupManager(
         val now = Instant.now()
         val name = "vault_${NAME_FORMATTER.format(now)}.db"
         val backupFile = File(backupDir, name)
-        dbFile.copyTo(backupFile, overwrite = false)
+        backupFile.writeBytes(SqliteVaultFileProvider(context).readVaultBytes())
 
         val meta = BackupMeta(
             id = name.removeSuffix(".db"),

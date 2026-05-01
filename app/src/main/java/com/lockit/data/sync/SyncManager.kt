@@ -109,7 +109,7 @@ class VaultSyncEngine(
 
     private suspend fun encryptAndUpload(localChecksum: String): Result<Unit> {
         val syncKey = SyncCrypto.decodeSyncKey(getSyncKeyEncoded()!!)
-        val plaintext = vaultFile.getVaultFile().readBytes()
+        val plaintext = vaultFile.readVaultBytes()
         val encrypted = SyncCrypto.encrypt(plaintext, syncKey)
 
         val manifest = SyncManifest(
@@ -201,6 +201,7 @@ class VaultSyncEngine(
     // --- Smart sync API ---
 
     fun getVaultFile(): java.io.File = vaultFile.getVaultFile()
+    fun readVaultBytes(): ByteArray = vaultFile.readVaultBytes()
 
     suspend fun autoPush(): Result<Unit> = push(ResolveStrategy.LastWriteWins)
 
@@ -220,10 +221,7 @@ class VaultSyncEngine(
             conflict == null -> encryptAndUpload(localChecksum)
             strategy == ResolveStrategy.KeepLocal -> forcePush()
             strategy == ResolveStrategy.KeepCloud -> Result.success(Unit)
-            strategy == ResolveStrategy.LastWriteWins -> {
-                if (conflict.localUpdated.isAfter(conflict.cloudUpdated)) forcePush()
-                else Result.success(Unit)
-            }
+            strategy == ResolveStrategy.LastWriteWins -> Result.failure(ConflictDetector.toException(conflict))
             else -> Result.failure(IllegalStateException("Unknown strategy"))
         }
     }
@@ -246,10 +244,7 @@ class VaultSyncEngine(
             conflict == null -> downloadAndDecrypt(cloudManifest)
             strategy == ResolveStrategy.KeepCloud -> forcePull()
             strategy == ResolveStrategy.KeepLocal -> Result.success(Unit)
-            strategy == ResolveStrategy.LastWriteWins -> {
-                if (conflict.cloudUpdated.isAfter(conflict.localUpdated)) forcePull()
-                else Result.success(Unit)
-            }
+            strategy == ResolveStrategy.LastWriteWins -> Result.failure(ConflictDetector.toException(conflict))
             else -> Result.failure(IllegalStateException("Unknown strategy"))
         }
     }
@@ -271,33 +266,46 @@ class VaultSyncEngine(
         when {
             cloudManifest.vaultChecksum == localChecksum ->
                 Result.success(SyncOutcome.AlreadyUpToDate)
-            lastChecksum == null ->
-                push(ResolveStrategy.LastWriteWins).fold(
-                    onSuccess = { Result.success(SyncOutcome.Pushed) },
-                    onFailure = { Result.failure(it) },
-                )
+            lastChecksum == null -> {
+                if (localChecksum == "sha256:empty") {
+                    pull().fold(
+                        onSuccess = { Result.success(SyncOutcome.Pulled) },
+                        onFailure = { Result.failure(it) },
+                    )
+                } else {
+                    Result.failure(ConflictDetector.toException(
+                        ConflictDetector.ConflictInfo(
+                            localChecksum = localChecksum,
+                            cloudChecksum = cloudManifest.vaultChecksum,
+                            localUpdated = Instant.now(),
+                            cloudUpdated = cloudManifest.updatedAt,
+                            localDevice = getDeviceId(),
+                            cloudDevice = cloudManifest.updatedBy,
+                        )
+                    ))
+                }
+            }
             cloudManifest.vaultChecksum == lastChecksum && localChecksum != lastChecksum ->
-                push(ResolveStrategy.LastWriteWins).fold(
+                push().fold(
                     onSuccess = { Result.success(SyncOutcome.Pushed) },
                     onFailure = { Result.failure(it) },
                 )
             localChecksum == lastChecksum && cloudManifest.vaultChecksum != lastChecksum ->
-                pull(ResolveStrategy.LastWriteWins).fold(
+                pull().fold(
                     onSuccess = { Result.success(SyncOutcome.Pulled) },
                     onFailure = { Result.failure(it) },
                 )
             else -> {
-                if (cloudManifest.updatedAt.isAfter(Instant.now())) {
-                    forcePull().fold(
-                        onSuccess = { Result.success(SyncOutcome.CloudWon) },
-                        onFailure = { Result.failure(it) },
+                Result.failure(ConflictDetector.toException(
+                    ConflictDetector.ConflictInfo(
+                        localChecksum = localChecksum,
+                        cloudChecksum = cloudManifest.vaultChecksum,
+                        localUpdated = Instant.now(),
+                        cloudUpdated = cloudManifest.updatedAt,
+                        localDevice = getDeviceId(),
+                        cloudDevice = cloudManifest.updatedBy,
                     )
-                } else {
-                    forcePush().fold(
-                        onSuccess = { Result.success(SyncOutcome.LocalWon) },
-                        onFailure = { Result.failure(it) },
-                    )
-                }
+                ))
             }
         }
     }

@@ -14,6 +14,9 @@ interface VaultFileProvider {
     /** Get the vault database file. */
     fun getVaultFile(): File
 
+    /** Read a consistent vault database snapshot. */
+    fun readVaultBytes(): ByteArray = getVaultFile().readBytes()
+
     /** Compute SHA-256 checksum of the vault file. */
     fun computeChecksum(): String
 
@@ -31,11 +34,18 @@ class SqliteVaultFileProvider(
     override fun getVaultFile(): File =
         LockitDatabase.getDatabaseFile(context)
 
+    override fun readVaultBytes(): ByteArray {
+        LockitDatabase.closeAndReset(context)
+        val dbFile = getVaultFile()
+        if (!dbFile.exists()) throw IllegalStateException("No vault database to read")
+        return dbFile.readBytes()
+    }
+
     override fun computeChecksum(): String {
         val dbFile = getVaultFile()
         if (!dbFile.exists()) return "sha256:empty"
         val digest = MessageDigest.getInstance("SHA-256")
-        val hash = dbFile.inputStream().use { input ->
+        val hash = readVaultBytes().inputStream().use { input ->
             val buffer = ByteArray(8192)
             var bytesRead: Int
             while (input.read(buffer).also { bytesRead = it } != -1) {
@@ -53,6 +63,13 @@ class SqliteVaultFileProvider(
         if (dbFile.exists()) {
             dbFile.copyTo(backupFile, overwrite = true)
         }
+        dbFile.delete()
+        walFile(dbFile).delete()
+        shmFile(dbFile).delete()
         dbFile.writeBytes(newBytes)
     }
+
+    private fun walFile(dbFile: File): File = File(dbFile.parent, "${dbFile.name}-wal")
+
+    private fun shmFile(dbFile: File): File = File(dbFile.parent, "${dbFile.name}-shm")
 }

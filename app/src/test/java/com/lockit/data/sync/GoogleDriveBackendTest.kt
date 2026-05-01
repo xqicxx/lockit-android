@@ -8,23 +8,18 @@ import org.junit.Test
 class GoogleDriveBackendTest {
 
     @Test
-    fun `appDataFolder query omits virtual parent clause`() {
-        val query = GoogleDriveBackend.parentScopedQuery(
-            GoogleDriveBackend.APP_DATA_FOLDER_ID,
-            "name='vault.enc'",
-        )
-
-        assertEquals("name='vault.enc'", query)
-    }
-
-    @Test
-    fun `legacy folder query keeps explicit parent clause`() {
+    fun `visible drive folder query keeps explicit parent clause`() {
         val query = GoogleDriveBackend.parentScopedQuery(
             "folder-123",
             "name='vault.enc'",
         )
 
         assertEquals("'folder-123' in parents and name='vault.enc'", query)
+    }
+
+    @Test
+    fun `google drive sync uses visible drive space`() {
+        assertEquals("drive", GoogleDriveBackend.SYNC_SPACE)
     }
 
     @Test

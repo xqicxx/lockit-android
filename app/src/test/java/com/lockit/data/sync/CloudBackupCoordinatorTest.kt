@@ -27,6 +27,7 @@ class CloudBackupCoordinatorTest {
         val result = coordinator.uploadCurrentVault(store)
 
         assertTrue(result.isSuccess)
+        assertTrue(vaultFile.readVaultBytesCalled)
         assertEquals(timestamp, store.lastUploadTimestamp)
         assertArrayEquals("vault-v1".toByteArray(), SyncCrypto.decrypt(store.lastUpload!!, syncKey))
     }
@@ -70,6 +71,7 @@ class CloudBackupCoordinatorTest {
 private class FakeVaultFileProvider(initialBytes: ByteArray) : VaultFileProvider {
     private val file = kotlin.io.path.createTempFile().toFile()
     var replacedBytes: ByteArray? = null
+    var readVaultBytesCalled = false
 
     init {
         file.writeBytes(initialBytes)
@@ -79,6 +81,11 @@ private class FakeVaultFileProvider(initialBytes: ByteArray) : VaultFileProvider
     override fun getVaultFile(): File = file
 
     override fun computeChecksum(): String = "sha256:test"
+
+    override fun readVaultBytes(): ByteArray {
+        readVaultBytesCalled = true
+        return file.readBytes()
+    }
 
     override fun closeAndReplace(newBytes: ByteArray) {
         replacedBytes = newBytes
