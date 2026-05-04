@@ -49,6 +49,7 @@ class JsonVaultPayloadProvider(
     // ── Checksum ──────────────────────────────────────────────────
 
     override fun computeChecksum(): String {
+        if (!vaultManager.isUnlocked()) return "sha256:empty"
         val jsonString = exportVaultPayloadJson()
         val bytes = jsonString.toByteArray(Charsets.UTF_8)
         val digest = MessageDigest.getInstance("SHA-256")
@@ -71,7 +72,11 @@ class JsonVaultPayloadProvider(
     }
 
     private suspend fun importVaultPayloadJson(content: String) {
-        val payload: VaultPayload = json.decodeFromString(content)
+        val payload: VaultPayload = try {
+            json.decodeFromString(content)
+        } catch (_: Exception) {
+            VaultPayload()
+        }
         val dao = database.credentialDao()
         val entities = payload.credentials.map { dtoToEntity(it) }
 
@@ -106,7 +111,7 @@ class JsonVaultPayloadProvider(
         val typeName = entity.type.ifEmpty { "custom" }
         val fields = mutableMapOf<String, String>()
         if (plaintext.isNotEmpty()) {
-            fields["value"] = plaintext
+            fields["secret_value"] = plaintext
         }
         val metadataMap = parseMetadataJson(entity.metadata)
         val formatter = DateTimeFormatter.ISO_INSTANT
@@ -130,7 +135,7 @@ class JsonVaultPayloadProvider(
     }
 
     private fun dtoToEntity(dto: CredentialDto): CredentialEntity {
-        val value = dto.fields["value"] ?: ""
+        val value = dto.fields["secret_value"] ?: ""
         val encryptedValue = vaultManager.encryptValueForImport(value)
         val metadataJson = buildMetadataJson(dto.metadata)
         val createdAt = safeParseInstant(dto.createdAt)

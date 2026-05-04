@@ -37,7 +37,7 @@ data class SyncManifest(
         }
 
         fun fromJson(json: String): SyncManifest {
-            val obj = JSONObject(json)
+            val obj = try { JSONObject(json) } catch (_: Exception) { JSONObject() }
             return SyncManifest(
                 version = obj.optInt("version", 2),
                 vaultChecksum = obj.optString("vault_checksum", obj.optString("vaultChecksum", "")),
