@@ -32,6 +32,7 @@ class JsonVaultPayloadProvider(
     // ── Export: Room → VaultPayload JSON ──────────────────────────
 
     override fun readVaultBytes(): ByteArray {
+        if (!vaultManager.isUnlocked()) return byteArrayOf()
         return exportVaultPayloadJson().toByteArray(Charsets.UTF_8)
     }
 
@@ -160,7 +161,7 @@ class JsonVaultPayloadProvider(
         return try {
             val obj = org.json.JSONObject(raw)
             val map = mutableMapOf<String, String>()
-            for (key in obj.keys()) {
+            for (key in obj.keys().asSequence().sorted()) {
                 map[key] = obj.optString(key, "")
             }
             map
