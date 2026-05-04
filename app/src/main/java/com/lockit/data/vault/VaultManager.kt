@@ -539,28 +539,20 @@ class VaultManager(
 
     /**
      * Decrypt a single credential value for vault export.
-     * Returns empty string if vault is locked or decryption fails.
+     * Throws if vault is locked or decryption fails.
      */
     fun decryptCredentialValue(entity: CredentialEntity): String {
-        return try {
-            val masterKey = requireMasterKey()
-            crypto.decrypt(entity.value, masterKey).decodeToString()
-        } catch (_: Exception) {
-            ""
-        }
+        val masterKey = requireMasterKey()
+        return crypto.decrypt(entity.value, masterKey).decodeToString()
     }
 
     /**
      * Encrypt a plaintext value for vault import.
-     * Returns empty ByteArray if vault is locked or encryption fails.
+     * Throws if vault is locked or encryption fails.
      */
     fun encryptValueForImport(value: String): ByteArray {
-        return try {
-            val masterKey = requireMasterKey()
-            crypto.encrypt(value.toByteArray(Charsets.UTF_8), masterKey)
-        } catch (_: Exception) {
-            ByteArray(0)
-        }
+        val masterKey = requireMasterKey()
+        return crypto.encrypt(value.toByteArray(Charsets.UTF_8), masterKey)
     }
 
     private fun decryptCredential(entity: CredentialEntity, masterKey: ByteArray): Credential {

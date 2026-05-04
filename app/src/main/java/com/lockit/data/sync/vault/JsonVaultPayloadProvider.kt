@@ -1,5 +1,6 @@
 package com.lockit.data.sync.vault
 
+import androidx.room.withTransaction
 import com.lockit.data.database.CredentialEntity
 import com.lockit.data.database.LockitDatabase
 import com.lockit.data.sync.VaultFileProvider
@@ -89,16 +90,13 @@ class JsonVaultPayloadProvider(
         val payload: VaultPayload = json.decodeFromString(content)
         val dao = database.credentialDao()
 
-        // Delete all existing credentials first
-        val existing = onIo { dao.getAllEntities() }
-        for (entity in existing) {
+        // Attempt import. If anything throws, the caller (closeAndReplace/newBytes)
+        // will be caught by the sync engine and reported as failure.
+        onIo { dao.getAllEntities() }.forEach { entity ->
             onIo { dao.delete(entity) }
         }
-
-        // Import from JSON
         for (dto in payload.credentials) {
-            val entity = dtoToEntity(dto)
-            onIo { dao.insert(entity) }
+            onIo { dao.insert(dtoToEntity(dto)) }
         }
     }
 
@@ -118,11 +116,7 @@ class JsonVaultPayloadProvider(
     // ── Entity ↔ DTO mapping ──────────────────────────────────────
 
     private fun entityToDto(entity: CredentialEntity): CredentialDto {
-        val plaintext = try {
-            vaultManager.decryptCredentialValue(entity)
-        } catch (_: Exception) {
-            ""
-        }
+        val plaintext = vaultManager.decryptCredentialValue(entity)
 
         val typeName = entity.type.ifEmpty { "custom" }
         val fields = mutableMapOf<String, String>()
@@ -130,16 +124,7 @@ class JsonVaultPayloadProvider(
             fields["value"] = plaintext
         }
 
-        val metadataMap = try {
-            val obj = org.json.JSONObject(entity.metadata)
-            val map = mutableMapOf<String, String>()
-            for (key in obj.keys()) {
-                map[key] = obj.optString(key, "")
-            }
-            map
-        } catch (_: Exception) {
-            emptyMap()
-        }
+        val metadataMap = parseMetadataJson(entity.metadata)
 
         val formatter = DateTimeFormatter.ISO_INSTANT
         return CredentialDto(
@@ -162,30 +147,12 @@ class JsonVaultPayloadProvider(
 
     private fun dtoToEntity(dto: CredentialDto): CredentialEntity {
         val value = dto.fields["value"] ?: ""
-        val encryptedValue = try {
-            vaultManager.encryptValueForImport(value)
-        } catch (_: Exception) {
-            ByteArray(0)
-        }
+        val encryptedValue = vaultManager.encryptValueForImport(value)
 
-        val metadataJson = dto.metadata.entries.joinToString(
-            separator = ",",
-            prefix = "{",
-            postfix = "}",
-        ) { (k, v) ->
-            "\"${k.replace("\"", "\\\"")}\":\"${v.replace("\"", "\\\"")}\""
-        }
+        val metadataJson = buildMetadataJson(dto.metadata)
 
-        val createdAt = try {
-            Instant.parse(dto.createdAt).toEpochMilli()
-        } catch (_: Exception) {
-            Instant.now().toEpochMilli()
-        }
-        val updatedAt = try {
-            Instant.parse(dto.updatedAt).toEpochMilli()
-        } catch (_: Exception) {
-            Instant.now().toEpochMilli()
-        }
+        val createdAt = safeParseInstant(dto.createdAt)
+        val updatedAt = safeParseInstant(dto.updatedAt)
 
         return CredentialEntity(
             id = dto.id,
@@ -198,6 +165,33 @@ class JsonVaultPayloadProvider(
             createdAt = createdAt,
             updatedAt = updatedAt,
         )
+    }
+
+    private fun parseMetadataJson(raw: String): Map<String, String> {
+        if (raw.isBlank() || raw == "{}") return emptyMap()
+        val obj = org.json.JSONObject(raw)
+        val map = mutableMapOf<String, String>()
+        for (key in obj.keys()) {
+            map[key] = obj.optString(key, "")
+        }
+        return map
+    }
+
+    private fun buildMetadataJson(map: Map<String, String>): String {
+        if (map.isEmpty()) return "{}"
+        val obj = org.json.JSONObject()
+        for ((k, v) in map) {
+            obj.put(k, v)
+        }
+        return obj.toString()
+    }
+
+    private fun safeParseInstant(iso: String): Long {
+        return try {
+            Instant.parse(iso).toEpochMilli()
+        } catch (_: Exception) {
+            Instant.now().toEpochMilli()
+        }
     }
 
     companion object {

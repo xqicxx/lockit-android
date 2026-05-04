@@ -28,12 +28,20 @@ data class SyncManifest(
     }
 
     companion object {
+        private fun parseInstantSafely(iso: String): Instant {
+            return try {
+                Instant.parse(iso)
+            } catch (_: Exception) {
+                Instant.EPOCH
+            }
+        }
+
         fun fromJson(json: String): SyncManifest {
             val obj = JSONObject(json)
             return SyncManifest(
                 version = obj.getInt("version"),
                 vaultChecksum = obj.optString("vault_checksum", obj.optString("vaultChecksum", "")),
-                updatedAt = Instant.parse(
+                updatedAt = parseInstantSafely(
                     obj.optString("updated_at", obj.optString("updatedAt", Instant.EPOCH.toString()))
                 ),
                 updatedBy = obj.optString("updated_by", obj.optString("updatedBy", "")),
