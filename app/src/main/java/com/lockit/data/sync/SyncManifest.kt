@@ -39,7 +39,7 @@ data class SyncManifest(
         fun fromJson(json: String): SyncManifest {
             val obj = JSONObject(json)
             return SyncManifest(
-                version = obj.getInt("version"),
+                version = obj.optInt("version", 2),
                 vaultChecksum = obj.optString("vault_checksum", obj.optString("vaultChecksum", "")),
                 updatedAt = parseInstantSafely(
                     obj.optString("updated_at", obj.optString("updatedAt", Instant.EPOCH.toString()))

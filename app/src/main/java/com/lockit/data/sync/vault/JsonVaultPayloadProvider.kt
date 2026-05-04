@@ -1,6 +1,5 @@
 package com.lockit.data.sync.vault
 
-import androidx.room.withTransaction
 import com.lockit.data.database.CredentialEntity
 import com.lockit.data.database.LockitDatabase
 import com.lockit.data.sync.VaultFileProvider
@@ -10,20 +9,11 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.io.File
-import java.io.InputStream
 import java.security.MessageDigest
 import java.time.Instant
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 
-/**
- * [VaultFileProvider] that serializes credentials as Rust-compatible
- * VaultPayload JSON instead of raw SQLite bytes.
- *
- * On push: decrypts all credentials from Room → JSON → bytes.
- * On pull: parses JSON → encrypts each credential → upserts into Room.
- * Falls back to legacy binary SQLite format if JSON parsing fails.
- */
 class JsonVaultPayloadProvider(
     private val vaultManager: VaultManager,
     private val database: LockitDatabase,
@@ -46,7 +36,7 @@ class JsonVaultPayloadProvider(
 
     fun exportVaultPayloadJson(): String {
         val entities = onIo { database.credentialDao().getAllEntities() }
-        val dtos: List<CredentialDto> = entities.map { e -> entityToDto(e) }
+        val dtos = entities.map { e -> entityToDto(e) }
         val payload = VaultPayload(
             schemaVersion = 2,
             credentials = dtos,
@@ -58,17 +48,11 @@ class JsonVaultPayloadProvider(
     // ── Checksum ──────────────────────────────────────────────────
 
     override fun computeChecksum(): String {
-        val vaultBytes = readVaultBytes()
+        val jsonString = exportVaultPayloadJson()
+        val bytes = jsonString.toByteArray(Charsets.UTF_8)
         val digest = MessageDigest.getInstance("SHA-256")
-        val hash: ByteArray = vaultBytes.inputStream().use { input: InputStream ->
-            val buffer = ByteArray(8192)
-            var bytesRead: Int
-            while (input.read(buffer).also { bytesRead = it } != -1) {
-                digest.update(buffer, 0, bytesRead)
-            }
-            digest.digest()
-        }
-        return "sha256:" + hash.joinToString("") { b -> "%02x".format(b) }
+        val hash = digest.digest(bytes)
+        return "sha256:" + hash.joinToString("") { "%02x".format(it) }
     }
 
     // ── Import: VaultPayload JSON → Room ──────────────────────────
@@ -76,7 +60,6 @@ class JsonVaultPayloadProvider(
     override fun closeAndReplace(newBytes: ByteArray) {
         val content = String(newBytes, Charsets.UTF_8)
 
-        // Try JSON format first
         if (content.trimStart().startsWith("{")) {
             importVaultPayloadJson(content)
             return
@@ -90,13 +73,16 @@ class JsonVaultPayloadProvider(
         val payload: VaultPayload = json.decodeFromString(content)
         val dao = database.credentialDao()
 
-        // Attempt import. If anything throws, the caller (closeAndReplace/newBytes)
-        // will be caught by the sync engine and reported as failure.
-        onIo { dao.getAllEntities() }.forEach { entity ->
-            onIo { dao.delete(entity) }
-        }
-        for (dto in payload.credentials) {
-            onIo { dao.insert(dtoToEntity(dto)) }
+        runBlocking(Dispatchers.IO) {
+            database.runInTransaction {
+                val existing = ioBlocking { dao.getAllEntities() }
+                for (entity in existing) {
+                    ioBlocking { dao.delete(entity) }
+                }
+                for (dto in payload.credentials) {
+                    ioBlocking { dao.insert(dtoToEntity(dto)) }
+                }
+            }
         }
     }
 
@@ -117,16 +103,14 @@ class JsonVaultPayloadProvider(
 
     private fun entityToDto(entity: CredentialEntity): CredentialDto {
         val plaintext = vaultManager.decryptCredentialValue(entity)
-
         val typeName = entity.type.ifEmpty { "custom" }
         val fields = mutableMapOf<String, String>()
         if (plaintext.isNotEmpty()) {
             fields["value"] = plaintext
         }
-
         val metadataMap = parseMetadataJson(entity.metadata)
-
         val formatter = DateTimeFormatter.ISO_INSTANT
+
         return CredentialDto(
             id = entity.id,
             name = entity.name,
@@ -148,9 +132,7 @@ class JsonVaultPayloadProvider(
     private fun dtoToEntity(dto: CredentialDto): CredentialEntity {
         val value = dto.fields["value"] ?: ""
         val encryptedValue = vaultManager.encryptValueForImport(value)
-
         val metadataJson = buildMetadataJson(dto.metadata)
-
         val createdAt = safeParseInstant(dto.createdAt)
         val updatedAt = safeParseInstant(dto.updatedAt)
 
@@ -169,12 +151,16 @@ class JsonVaultPayloadProvider(
 
     private fun parseMetadataJson(raw: String): Map<String, String> {
         if (raw.isBlank() || raw == "{}") return emptyMap()
-        val obj = org.json.JSONObject(raw)
-        val map = mutableMapOf<String, String>()
-        for (key in obj.keys()) {
-            map[key] = obj.optString(key, "")
+        return try {
+            val obj = org.json.JSONObject(raw)
+            val map = mutableMapOf<String, String>()
+            for (key in obj.keys()) {
+                map[key] = obj.optString(key, "")
+            }
+            map
+        } catch (_: Exception) {
+            emptyMap()
         }
-        return map
     }
 
     private fun buildMetadataJson(map: Map<String, String>): String {
@@ -197,6 +183,11 @@ class JsonVaultPayloadProvider(
     companion object {
         private fun <T> onIo(block: suspend () -> T): T {
             return runBlocking(Dispatchers.IO) { block() }
+        }
+
+        private fun <T> ioBlocking(block: suspend () -> T): T {
+            // Called within runBlocking context — just delegates
+            return runBlocking { block() }
         }
     }
 }
