@@ -3,7 +3,7 @@ name: Android CI
 on:
   pull_request:
     branches: [ master ]
-    types: [ready_for_review, opened]  # Trigger when PR opened or marked ready
+    types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:  # Allow manual trigger
 
 permissions:
@@ -51,8 +51,3 @@ jobs:
         name: app-debug
         path: app/build/outputs/apk/debug/app-debug.apk
 
-  chatgpt-review:
-    needs: build
-    if: ${{ always() && needs.build.result == 'success' }}
-    uses: ./.github/workflows/chatgpt-review.yml
-    secrets: inherit
