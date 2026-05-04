@@ -57,7 +57,7 @@ import com.lockit.data.sync.CloudBackupCoordinator
 import com.lockit.data.sync.CloudBackupMeta
 import com.lockit.data.sync.GoogleDriveBackend
 import com.lockit.data.sync.SharedPrefsSyncStateStore
-import com.lockit.data.sync.SqliteVaultFileProvider
+import com.lockit.data.sync.vault.JsonVaultPayloadProvider
 import com.lockit.data.sync.SyncConflictException
 import com.lockit.data.sync.SyncCrypto
 import com.lockit.data.sync.SyncKeyManager
@@ -169,7 +169,7 @@ fun ConfigScreen(
     val syncPrefs = remember { context.getSharedPreferences("lockit_sync", Context.MODE_PRIVATE) }
     val googleKeyManager = remember { SyncKeyManager(syncPrefs) }
     val googleStateStore = remember { SharedPrefsSyncStateStore(syncPrefs) }
-    val googleVaultFile = remember { SqliteVaultFileProvider(context) }
+    val googleVaultFile = remember { JsonVaultPayloadProvider(app.vaultManager, app.database) }
     val googleDriveBackend = app.googleDriveBackend
     val googleSyncEngine = remember { VaultSyncEngine(googleDriveBackend, googleKeyManager, googleStateStore, googleVaultFile) }
     var signedInAccount by remember { mutableStateOf(googleDriveBackend.getSignedInAccount()) }
@@ -181,7 +181,7 @@ fun ConfigScreen(
     // WebDAV sync — shares sync key and state store via same prefs
     val webDavKeyManager = remember { SyncKeyManager(syncPrefs) }
     val webDavStateStore = remember { SharedPrefsSyncStateStore(syncPrefs) }
-    val webDavVaultFile = remember { SqliteVaultFileProvider(context) }
+    val webDavVaultFile = remember { JsonVaultPayloadProvider(app.vaultManager, app.database) }
     val webDavBackend = remember { WebDavBackend(context) }
     val webDavSyncEngine = remember { VaultSyncEngine(webDavBackend, webDavKeyManager, webDavStateStore, webDavVaultFile) }
     var webDavConfigured by remember { mutableStateOf(false) }

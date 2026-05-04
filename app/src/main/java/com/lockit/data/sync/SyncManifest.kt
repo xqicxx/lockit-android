@@ -8,38 +8,37 @@ import java.time.Instant
  * Contains metadata for conflict detection and sync status.
  */
 data class SyncManifest(
-    val version: Int = 1,
-    val vaultChecksum: String, // sha256:abc123...
+    val version: Int = 2,
+    val vaultChecksum: String,
     val updatedAt: Instant,
-    val updatedBy: String, // device identifier
+    val updatedBy: String,
     val encryptedSize: Long,
+    val schemaVersion: Int = 2,
 ) {
 
-    /**
-     * Serialize to JSON for cloud storage.
-     */
     fun toJson(): String {
         val obj = JSONObject()
         obj.put("version", version)
-        obj.put("vaultChecksum", vaultChecksum)
-        obj.put("updatedAt", updatedAt.toString())
-        obj.put("updatedBy", updatedBy)
-        obj.put("encryptedSize", encryptedSize)
+        obj.put("vault_checksum", vaultChecksum)
+        obj.put("updated_at", updatedAt.toString())
+        obj.put("updated_by", updatedBy)
+        obj.put("encrypted_size", encryptedSize)
+        obj.put("schema_version", schemaVersion)
         return obj.toString()
     }
 
     companion object {
-        /**
-         * Parse manifest from JSON.
-         */
         fun fromJson(json: String): SyncManifest {
             val obj = JSONObject(json)
             return SyncManifest(
                 version = obj.getInt("version"),
-                vaultChecksum = obj.getString("vaultChecksum"),
-                updatedAt = Instant.parse(obj.getString("updatedAt")),
-                updatedBy = obj.getString("updatedBy"),
-                encryptedSize = obj.getLong("encryptedSize"),
+                vaultChecksum = obj.optString("vault_checksum", obj.optString("vaultChecksum", "")),
+                updatedAt = Instant.parse(
+                    obj.optString("updated_at", obj.optString("updatedAt", Instant.EPOCH.toString()))
+                ),
+                updatedBy = obj.optString("updated_by", obj.optString("updatedBy", "")),
+                encryptedSize = obj.optLong("encrypted_size", obj.optLong("encryptedSize", 0)),
+                schemaVersion = obj.optInt("schema_version", obj.optInt("schemaVersion", 1)),
             )
         }
     }

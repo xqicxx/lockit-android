@@ -23,7 +23,7 @@ import com.lockit.utils.SearchMatcher
 import java.time.Instant
 
 class VaultManager(
-    private val context: Context,
+    internal val context: Context,
     private val keyManager: KeyManager,
     private val auditLogger: AuditLogger,
 ) {
@@ -535,6 +535,32 @@ class VaultManager(
         newKey.fill(0)
 
         auditLogger.log("VAULT_RECOVERED", "Vault recovered from failed Argon2 upgrade", AuditSeverity.Warning)
+    }
+
+    /**
+     * Decrypt a single credential value for vault export.
+     * Returns empty string if vault is locked or decryption fails.
+     */
+    fun decryptCredentialValue(entity: CredentialEntity): String {
+        return try {
+            val masterKey = requireMasterKey()
+            crypto.decrypt(entity.value, masterKey).decodeToString()
+        } catch (_: Exception) {
+            ""
+        }
+    }
+
+    /**
+     * Encrypt a plaintext value for vault import.
+     * Returns empty ByteArray if vault is locked or encryption fails.
+     */
+    fun encryptValueForImport(value: String): ByteArray {
+        return try {
+            val masterKey = requireMasterKey()
+            crypto.encrypt(value.toByteArray(Charsets.UTF_8), masterKey)
+        } catch (_: Exception) {
+            ByteArray(0)
+        }
     }
 
     private fun decryptCredential(entity: CredentialEntity, masterKey: ByteArray): Credential {
