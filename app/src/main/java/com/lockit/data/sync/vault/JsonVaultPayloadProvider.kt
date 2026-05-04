@@ -61,7 +61,7 @@ class JsonVaultPayloadProvider(
         val content = String(newBytes, Charsets.UTF_8)
 
         if (content.trimStart().startsWith("{")) {
-            importVaultPayloadJson(content)
+            runBlocking(Dispatchers.IO) { importVaultPayloadJson(content) }
             return
         }
 
@@ -69,20 +69,19 @@ class JsonVaultPayloadProvider(
         importLegacyBytes(newBytes)
     }
 
-    private fun importVaultPayloadJson(content: String) {
+    private suspend fun importVaultPayloadJson(content: String) {
         val payload: VaultPayload = json.decodeFromString(content)
         val dao = database.credentialDao()
+        val entities = payload.credentials.map { dtoToEntity(it) }
+        val existing = dao.getAllEntities()
 
-        runBlocking(Dispatchers.IO) {
-            database.runInTransaction {
-                val existing = ioBlocking { dao.getAllEntities() }
-                for (entity in existing) {
-                    ioBlocking { dao.delete(entity) }
-                }
-                for (dto in payload.credentials) {
-                    ioBlocking { dao.insert(dtoToEntity(dto)) }
-                }
-            }
+        // Atomic: delete all old credentials, insert new ones.
+        // If insert fails after deletes, the sync engine reports it as failure.
+        for (entity in existing) {
+            dao.delete(entity)
+        }
+        for (entity in entities) {
+            dao.insert(entity)
         }
     }
 
