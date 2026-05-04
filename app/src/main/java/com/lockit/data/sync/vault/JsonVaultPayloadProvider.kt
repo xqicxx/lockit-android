@@ -75,7 +75,8 @@ class JsonVaultPayloadProvider(
         val payload: VaultPayload = try {
             json.decodeFromString(content)
         } catch (_: Exception) {
-            VaultPayload()
+            // Abort import to prevent data loss — invalid payload should not wipe vault
+            return
         }
         val dao = database.credentialDao()
         val entities = payload.credentials.map { dtoToEntity(it) }
