@@ -1,5 +1,6 @@
 package com.lockit.data.sync.vault
 
+import androidx.room.withTransaction
 import com.lockit.data.database.CredentialEntity
 import com.lockit.data.database.LockitDatabase
 import com.lockit.data.sync.VaultFileProvider
@@ -73,15 +74,15 @@ class JsonVaultPayloadProvider(
         val payload: VaultPayload = json.decodeFromString(content)
         val dao = database.credentialDao()
         val entities = payload.credentials.map { dtoToEntity(it) }
-        val existing = dao.getAllEntities()
 
-        // Atomic: delete all old credentials, insert new ones.
-        // If insert fails after deletes, the sync engine reports it as failure.
-        for (entity in existing) {
-            dao.delete(entity)
-        }
-        for (entity in entities) {
-            dao.insert(entity)
+        database.withTransaction {
+            val existing = dao.getAllEntities()
+            for (entity in existing) {
+                dao.delete(entity)
+            }
+            for (entity in entities) {
+                dao.insert(entity)
+            }
         }
     }
 
@@ -175,18 +176,13 @@ class JsonVaultPayloadProvider(
         return try {
             Instant.parse(iso).toEpochMilli()
         } catch (_: Exception) {
-            Instant.now().toEpochMilli()
+            Instant.EPOCH.toEpochMilli()
         }
     }
 
     companion object {
         private fun <T> onIo(block: suspend () -> T): T {
             return runBlocking(Dispatchers.IO) { block() }
-        }
-
-        private fun <T> ioBlocking(block: suspend () -> T): T {
-            // Called within runBlocking context — just delegates
-            return runBlocking { block() }
         }
     }
 }
